@@ -1,0 +1,22 @@
+package com.example.astchunker.exception;
+
+import java.util.List;
+
+/**
+ * Nem ra khi code Java nguoi dung nhap vao KHONG the parse duoc (loi cu phap).
+ * Giu lai danh sach thong bao loi chi tiet (thuong co dong/cot) de tra ve cho
+ * frontend hien thi dung cho, thay vi mot thong bao chung chung "Internal Server Error".
+ */
+public class CodeParseException extends RuntimeException {
+
+    private final List<String> problems;
+
+    public CodeParseException(String message, List<String> problems) {
+        super(message);
+        this.problems = problems;
+    }
+
+    public List<String> getProblems() {
+        return problems;
+    }
+}
