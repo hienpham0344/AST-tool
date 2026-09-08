@@ -12,6 +12,7 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.BodyDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
@@ -28,18 +29,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Service chiu trach nhiem chinh: nhan source code Java (String) -> tra ve cay CodeChunkDto.
+ * Service chiu trach nhiem chinh: nhan source code Java (String) -> tra ve cay
+ * CodeChunkDto.
  *
- * Khac voi ban demo o frontend (dung regex/brace-matching), o day dung THAT SU mot
- * trinh parser Java (JavaParser) nen ket qua chinh xac 100% ve mat cu phap (class long,
- * generic, lambda, record, sealed class, annotation... deu duoc AST nhan dien dung),
+ * Khac voi ban demo o frontend (dung regex/brace-matching), o day dung THAT SU
+ * mot
+ * trinh parser Java (JavaParser) nen ket qua chinh xac 100% ve mat cu phap
+ * (class long,
+ * generic, lambda, record, sealed class, annotation... deu duoc AST nhan dien
+ * dung),
  * thay vi doan heuristic truoc chi la "gan dung".
  */
 @Service
 public class JavaCodeAnalyzerService {
 
-    // CHU Y: JavaParser instance co the tai su dung (thread-safe cho method parse()),
-    // nhung ParserConfiguration nen duoc thiet lap 1 lan luc khoi tao, khong tao lai
+    // CHU Y: JavaParser instance co the tai su dung (thread-safe cho method
+    // parse()),
+    // nhung ParserConfiguration nen duoc thiet lap 1 lan luc khoi tao, khong tao
+    // lai
     // moi request de tranh overhead khong can thiet.
     private final JavaParser javaParser;
 
@@ -80,7 +87,8 @@ public class JavaCodeAnalyzerService {
 
         // 3) top-level type declarations (class/interface/enum/record)
         // CHU Y: 1 file .java CO THE co nhieu top-level type (vi du 1 public class +
-        // vai class khong public cung file) -> phai duyet TAT CA, khong chi lay type dau tien.
+        // vai class khong public cung file) -> phai duyet TAT CA, khong chi lay type
+        // dau tien.
         for (TypeDeclaration<?> type : cu.getTypes()) {
             chunks.add(buildTypeChunk(type, sourceCode));
         }
@@ -113,14 +121,15 @@ public class JavaCodeAnalyzerService {
      * nested type khac ben trong -> phai goi lai chinh no cho cac nested type.
      *
      * CHU Y KHI MO RONG:
-     * - Hien tai bo qua anonymous class (new Foo() { ... }) va local class (khai bao
-     *   trong than method) vi chung khong nam trong cu.getTypes()/getMembers() cua
-     *   class cha theo cach don gian nay. Neu can, phai dung mot Visitor
-     *   (VoidVisitorAdapter<Void>) duyet toan bo AST thay vi chi duyet getMembers().
+     * - Hien tai bo qua anonymous class (new Foo() { ... }) va local class (khai
+     * bao
+     * trong than method) vi chung khong nam trong cu.getTypes()/getMembers() cua
+     * class cha theo cach don gian nay. Neu can, phai dung mot Visitor
+     * (VoidVisitorAdapter<Void>) duyet toan bo AST thay vi chi duyet getMembers().
      * - "kind" duoc suy ra tu class cu the cua Node (ClassOrInterfaceDeclaration,
-     *   EnumDeclaration, RecordDeclaration...). AnnotationDeclaration (@interface)
-     *   chua duoc xu ly rieng o day - dang bi coi la "class", ban co the tach ra
-     *   neu can phan biet.
+     * EnumDeclaration, RecordDeclaration...). AnnotationDeclaration (@interface)
+     * chua duoc xu ly rieng o day - dang bi coi la "class", ban co the tach ra
+     * neu can phan biet.
      */
     private CodeChunkDto buildTypeChunk(TypeDeclaration<?> type, String source) {
         String kind = resolveKind(type);
@@ -145,18 +154,18 @@ public class JavaCodeAnalyzerService {
             }
             // CHU Y: cac loai member khac chua duoc xu ly rieng, dang bi bo qua
             // hoan toan (khong loi, chi khong tao chunk):
-            //   - InitializerDeclaration (static { ... } hoac instance { ... } block)
-            //   - AnnotationMemberDeclaration (thanh vien trong @interface)
-            //   - EnumConstantDeclaration nam ngoai getMembers() cua EnumDeclaration
-            //     thuc ra nam o EnumDeclaration.getEntries(), can xu ly rieng neu can
-            //     tach tung hang so enum thanh 1 chunk.
+            // - InitializerDeclaration (static { ... } hoac instance { ... } block)
+            // - AnnotationMemberDeclaration (thanh vien trong @interface)
+            // - EnumConstantDeclaration nam ngoai getMembers() cua EnumDeclaration
+            // thuc ra nam o EnumDeclaration.getEntries(), can xu ly rieng neu can
+            // tach tung hang so enum thanh 1 chunk.
         }
 
         // Vi du xu ly them enum constants (dang comment san, bo comment neu can dung):
         // if (type instanceof EnumDeclaration enumDecl) {
-        //     enumDecl.getEntries().forEach(entry ->
-        //         dto.addChild(new CodeChunkDto("enum-constant", entry.getNameAsString(),
-        //                 lineOf(entry, true), lineOf(entry, false), rangeText(entry, source))));
+        // enumDecl.getEntries().forEach(entry ->
+        // dto.addChild(new CodeChunkDto("enum-constant", entry.getNameAsString(),
+        // lineOf(entry, true), lineOf(entry, false), rangeText(entry, source))));
         // }
 
         return dto;
@@ -192,9 +201,12 @@ public class JavaCodeAnalyzerService {
     // ---------- Helpers ----------
 
     private String resolveKind(TypeDeclaration<?> type) {
-        if (type instanceof EnumDeclaration) return "enum";
-        if (type instanceof RecordDeclaration) return "record";
-        if (type.isInterface()) return "interface";
+        if (type instanceof EnumDeclaration)
+            return "enum";
+        if (type instanceof RecordDeclaration)
+            return "record";
+        if (type instanceof ClassOrInterfaceDeclaration && ((ClassOrInterfaceDeclaration) type).isInterface())
+            return "interface";
         return "class";
     }
 
@@ -222,7 +234,8 @@ public class JavaCodeAnalyzerService {
      * Lay dung doan source code goc (tu ky tu dau den ky tu cuoi cua node) thay vi
      * dung node.toString() cua JavaParser - vi toString() se IN LAI code tu AST
      * (co the lam mat comment, doi format/indent so voi ban goc). Dung offset that
-     * tren source giup "code" tra ve cho frontend giong 100% nhung gi nguoi dung go.
+     * tren source giup "code" tra ve cho frontend giong 100% nhung gi nguoi dung
+     * go.
      *
      * CHU Y: can JavaParser luu Range o don vi "line/column", nen phai tu quy doi
      * sang offset ky tu bang cach dem qua tung dong. Neu file rat lon va goi ham
@@ -246,7 +259,8 @@ public class JavaCodeAnalyzerService {
         int i = 0;
         int n = source.length();
         while (i < n && currentLine < line) {
-            if (source.charAt(i) == '\n') currentLine++;
+            if (source.charAt(i) == '\n')
+                currentLine++;
             i++;
         }
         return i + (column - 1);

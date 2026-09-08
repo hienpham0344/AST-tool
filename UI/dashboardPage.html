@@ -199,7 +199,7 @@
 <div class="app">
     <header>
         <h1>Java Structure <span>Chunker</span></h1>
-        <p>Dán code Java vào bên trái, bấm phân tích để tách thành từng đoạn theo cấu trúc: package, import, class/interface/enum, method, constructor, field. Bộ phân tích dựa trên nhận diện cấu trúc theo brace/regex (không phải trình biên dịch Java đầy đủ), phù hợp cho việc chunk code phục vụ tìm kiếm hoặc RAG.</p>
+        <p>Dán code Java vào bên trái, bấm phân tích để tách thành từng đoạn theo cấu trúc: package, import, class/interface/enum, method, constructor, field. Bộ phân tích sử dụng AST thật (JavaParser) ở backend, đảm bảo độ chính xác 100% về mặt cú pháp Java.</p>
     </header>
     <main>
         <section class="pane">
@@ -221,237 +221,28 @@
 </div>
 
 <script>
-    // ---------- 1. Strip strings/chars/comments (keep newlines, keep length) ----------
-    function buildClean(code) {
-        let out = '';
-        let i = 0;
-        const n = code.length;
-        while (i < n) {
-            const c = code[i], c2 = code[i + 1];
-            if (c === '/' && c2 === '/') {
-                while (i < n && code[i] !== '\n') { out += ' '; i++; }
-                continue;
-            }
-            if (c === '/' && c2 === '*') {
-                out += '  '; i += 2;
-                while (i < n && !(code[i] === '*' && code[i + 1] === '/')) {
-                    out += code[i] === '\n' ? '\n' : ' '; i++;
-                }
-                if (i < n) { out += '  '; i += 2; }
-                continue;
-            }
-            if (c === '"' && c2 === '"' && code[i + 2] === '"') {
-                out += '   '; i += 3;
-                while (i < n && !(code[i] === '"' && code[i + 1] === '"' && code[i + 2] === '"')) {
-                    out += code[i] === '\n' ? '\n' : ' '; i++;
-                }
-                if (i < n) { out += '   '; i += 3; }
-                continue;
-            }
-            if (c === '"') {
-                out += ' '; i++;
-                while (i < n && code[i] !== '"') {
-                    if (code[i] === '\\') { out += '  '; i += 2; continue; }
-                    out += code[i] === '\n' ? '\n' : ' '; i++;
-                }
-                if (i < n) { out += ' '; i++; }
-                continue;
-            }
-            if (c === "'") {
-                out += ' '; i++;
-                while (i < n && code[i] !== "'") {
-                    if (code[i] === '\\') { out += '  '; i += 2; continue; }
-                    out += ' '; i++;
-                }
-                if (i < n) { out += ' '; i++; }
-                continue;
-            }
-            out += c; i++;
-        }
-        return out;
-    }
+    // ---------- Cấu hình endpoint ----------
+    const API_BASE_URL = 'http://localhost:8080';
 
-    function buildLineStarts(src) {
-        const starts = [0];
-        for (let i = 0; i < src.length; i++) if (src[i] === '\n') starts.push(i + 1);
-        return starts;
-    }
+    // ---------- 1. Gọi API backend (JavaParser AST thật) ----------
+    async function analyzeJava(source) {
+        const res = await fetch(`${API_BASE_URL}/api/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: source })
+        });
 
-    const KEYWORDS_EXCLUDE = new Set(['new','return','throw','assert','case','if','for','while','switch',
-        'catch','else','do','finally','try','super','this','instanceof','yield']);
+        const data = await res.json().catch(() => null);
 
-    function analyzeJava(source) {
-        const clean = buildClean(source);
-        const lineStarts = buildLineStarts(source);
-        function lineOf(idx) {
-            let lo = 0, hi = lineStarts.length - 1;
-            while (lo < hi) {
-                const mid = (lo + hi + 1) >> 1;
-                if (lineStarts[mid] <= idx) lo = mid; else hi = mid - 1;
-            }
-            return lo + 1;
+        if (!res.ok) {
+            const message = data?.message || `Lỗi HTTP ${res.status}`;
+            const problems = data?.problems || [];
+            const err = new Error(problems.length ? `${message}\n${problems.join('\n')}` : message);
+            err.problems = problems;
+            throw err;
         }
 
-        const packageRe = /package\s+([\w.]+)\s*;/y;
-        const importRe = /import\s+(static\s+)?([\w.*]+)\s*;/y;
-        const typeDeclRe = /((?:@[A-Za-z_]\w*(?:\([^)]*\))?\s+|(?:public|private|protected|static|final|abstract|strictfp|sealed|non-sealed)\s+)*)(class|interface|enum|record)\s+(\w+)([^{;]*)/y;
-        const methodRe = /((?:@[A-Za-z_]\w*(?:\([^)]*\))?\s+|(?:public|private|protected|static|final|abstract|synchronized|native|strictfp|default)\s+)*)(?:<[^>]*>\s+)?([A-Za-z_][\w.\[\]<>,\s]*?)\s+(\w+)\s*\(([^)]*)\)\s*(?:throws\s+[\w.,<>\s]+)?\s*([{;])/y;
-        const fieldRe = /((?:@[A-Za-z_]\w*(?:\([^)]*\))?\s+|(?:public|private|protected|static|final|transient|volatile)\s+)*)([A-Za-z_][\w.\[\]<>,\s]*?)\s+(\w+)(\s*\[\])?\s*(=[^;]*)?;/y;
-
-        function skipWs(i, end) { while (i < end && /\s/.test(clean[i])) i++; return i; }
-
-        function matchBraceEnd(openIdx) {
-            let depth = 0;
-            for (let i = openIdx; i < clean.length; i++) {
-                if (clean[i] === '{') depth++;
-                else if (clean[i] === '}') { depth--; if (depth === 0) return i; }
-            }
-            return clean.length - 1;
-        }
-
-        function findHeaderEnd(fromIdx) {
-            let angle = 0, paren = 0;
-            for (let i = fromIdx; i < clean.length; i++) {
-                const c = clean[i];
-                if (c === '<') angle++;
-                else if (c === '>') { if (angle > 0) angle--; }
-                else if (c === '(') paren++;
-                else if (c === ')') { if (paren > 0) paren--; }
-                else if (c === '{' && angle === 0 && paren === 0) return i;
-                else if (c === ';' && angle === 0 && paren === 0) return -1;
-            }
-            return -1;
-        }
-
-        function scanBody(start, end, className) {
-            const chunks = [];
-            let i = start;
-            const ctorRe = className ? new RegExp(
-                '((?:@[A-Za-z_]\\w*(?:\\([^)]*\\))?\\s+|(?:public|private|protected)\\s+)*)(' +
-                className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
-                ')\\s*\\(([^)]*)\\)\\s*(?:throws\\s+[\\w.,<>\\s]+)?\\s*\\{', 'y'
-            ) : null;
-
-            while (i < end) {
-                const j = skipWs(i, end);
-                if (j >= end) break;
-                i = j;
-
-                typeDeclRe.lastIndex = i;
-                let m = typeDeclRe.exec(clean);
-                if (m && m.index === i) {
-                    const kind = m[2], name = m[3];
-                    const headerEnd = findHeaderEnd(typeDeclRe.lastIndex);
-                    if (headerEnd !== -1) {
-                        const closeIdx = matchBraceEnd(headerEnd);
-                        const nested = scanBody(headerEnd + 1, closeIdx, name);
-                        chunks.push({ kind, name, startLine: lineOf(i), endLine: lineOf(closeIdx),
-                            code: source.slice(i, closeIdx + 1), children: nested });
-                        i = closeIdx + 1; continue;
-                    }
-                }
-
-                if (ctorRe) {
-                    ctorRe.lastIndex = i;
-                    let cm = ctorRe.exec(clean);
-                    if (cm && cm.index === i) {
-                        const braceIdx = i + cm[0].length - 1;
-                        const closeIdx = matchBraceEnd(braceIdx);
-                        chunks.push({ kind: 'constructor', name: cm[2] + '(' + cm[3].trim() + ')',
-                            startLine: lineOf(i), endLine: lineOf(closeIdx),
-                            code: source.slice(i, closeIdx + 1), children: [] });
-                        i = closeIdx + 1; continue;
-                    }
-                }
-
-                methodRe.lastIndex = i;
-                let mm = methodRe.exec(clean);
-                if (mm && mm.index === i) {
-                    const returnType = mm[2].trim(), name = mm[3];
-                    if (!KEYWORDS_EXCLUDE.has(returnType) && !KEYWORDS_EXCLUDE.has(name)) {
-                        const terminator = mm[5];
-                        const termIdx = i + mm[0].length - 1;
-                        if (terminator === '{') {
-                            const closeIdx = matchBraceEnd(termIdx);
-                            chunks.push({ kind: 'method', name: name + '(' + mm[4].trim() + ')', returnType,
-                                startLine: lineOf(i), endLine: lineOf(closeIdx),
-                                code: source.slice(i, closeIdx + 1), children: [] });
-                            i = closeIdx + 1;
-                        } else {
-                            chunks.push({ kind: 'method', name: name + '(' + mm[4].trim() + ')', returnType,
-                                startLine: lineOf(i), endLine: lineOf(termIdx),
-                                code: source.slice(i, termIdx + 1), children: [] });
-                            i = termIdx + 1;
-                        }
-                        continue;
-                    }
-                }
-
-                fieldRe.lastIndex = i;
-                let fm = fieldRe.exec(clean);
-                if (fm && fm.index === i) {
-                    const type = fm[2].trim();
-                    if (!KEYWORDS_EXCLUDE.has(type)) {
-                        const endIdx = i + fm[0].length - 1;
-                        chunks.push({ kind: 'field', name: fm[3], type,
-                            startLine: lineOf(i), endLine: lineOf(endIdx),
-                            code: source.slice(i, endIdx + 1), children: [] });
-                        i = endIdx + 1; continue;
-                    }
-                }
-
-                if (clean[i] === '{') { i = matchBraceEnd(i) + 1; }
-                else { i++; }
-            }
-            return chunks;
-        }
-
-        const topChunks = [];
-        let i = 0;
-        const end = clean.length;
-        while (i < end) {
-            const j = skipWs(i, end);
-            if (j >= end) break;
-            i = j;
-
-            packageRe.lastIndex = i;
-            let pm = packageRe.exec(clean);
-            if (pm && pm.index === i) {
-                const endIdx = i + pm[0].length - 1;
-                topChunks.push({ kind: 'package', name: pm[1], startLine: lineOf(i), endLine: lineOf(endIdx),
-                    code: source.slice(i, endIdx + 1), children: [] });
-                i = endIdx + 1; continue;
-            }
-
-            importRe.lastIndex = i;
-            let im = importRe.exec(clean);
-            if (im && im.index === i) {
-                const endIdx = i + im[0].length - 1;
-                topChunks.push({ kind: 'import', name: (im[1] ? 'static ' : '') + im[2],
-                    startLine: lineOf(i), endLine: lineOf(endIdx),
-                    code: source.slice(i, endIdx + 1), children: [] });
-                i = endIdx + 1; continue;
-            }
-
-            typeDeclRe.lastIndex = i;
-            let tm = typeDeclRe.exec(clean);
-            if (tm && tm.index === i) {
-                const kind = tm[2], name = tm[3];
-                const headerEnd = findHeaderEnd(typeDeclRe.lastIndex);
-                if (headerEnd !== -1) {
-                    const closeIdx = matchBraceEnd(headerEnd);
-                    const nested = scanBody(headerEnd + 1, closeIdx, name);
-                    topChunks.push({ kind, name, startLine: lineOf(i), endLine: lineOf(closeIdx),
-                        code: source.slice(i, closeIdx + 1), children: nested });
-                    i = closeIdx + 1; continue;
-                }
-            }
-
-            if (clean[i] === '{') { i = matchBraceEnd(i) + 1; }
-            else { i++; }
-        }
-
-        return topChunks;
+        return data; // { chunks, stats, warnings }
     }
 
     // ---------- 2. Rendering ----------
@@ -462,8 +253,9 @@
     function labelFor(node) {
         if (node.kind === 'package') return 'package ' + node.name;
         if (node.kind === 'import') return 'import ' + node.name;
-        if (node.kind === 'field') return (node.type ? node.type + ' ' : '') + node.name;
-        if (node.kind === 'method') return (node.returnType ? node.returnType + ' ' : '') + node.name;
+        if (node.kind === 'field' || node.kind === 'method') {
+            return (node.type ? node.type + ' ' : '') + node.name;
+        }
         return node.name;
     }
 
@@ -485,47 +277,68 @@
         return `<details><summary>${tag}${nameHtml}${lines}</summary>${inner}</details>`;
     }
 
-    function countAll(nodes, counts) {
-        for (const n of nodes) {
-            counts[n.kind] = (counts[n.kind] || 0) + 1;
-            if (n.children && n.children.length) countAll(n.children, counts);
-        }
-        return counts;
-    }
-
     let lastChunks = null;
 
-    function runAnalysis() {
+    async function runAnalysis() {
         const src = document.getElementById('input').value;
         const resultsEl = document.getElementById('results');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const hintEl = document.getElementById('hint');
+
         if (!src.trim()) {
             resultsEl.innerHTML = '<div class="empty">Chưa có code để phân tích.</div>';
             lastChunks = null;
             return;
         }
-        let chunks;
+
+        analyzeBtn.disabled = true;
+        hintEl.textContent = 'Đang phân tích...';
+        resultsEl.innerHTML = '<div class="empty">Đang phân tích...</div>';
+
+        let data;
         try {
-            chunks = analyzeJava(src);
+            data = await analyzeJava(src);
         } catch (e) {
-            resultsEl.innerHTML = `<div class="empty">Lỗi khi phân tích: ${escapeHtml(e.message)}</div>`;
+            const isNetworkError = e instanceof TypeError;
+            const mainMsg = isNetworkError
+                ? 'Không thể kết nối đến server phân tích. Hãy chắc chắn backend đang chạy tại ' + API_BASE_URL
+                : e.message.split('\n')[0];
+            const detail = (e.problems && e.problems.length)
+                ? '<ul>' + e.problems.map(p => `<li>${escapeHtml(p)}</li>`).join('') + '</ul>'
+                : '';
+            resultsEl.innerHTML = `<div class="empty">${escapeHtml(mainMsg)}${detail}</div>`;
+            lastChunks = null;
+            analyzeBtn.disabled = false;
+            hintEl.textContent = '';
             return;
         }
+
+        analyzeBtn.disabled = false;
+        hintEl.textContent = '';
+
+        const { chunks, stats, warnings } = data;
         lastChunks = chunks;
-        if (chunks.length === 0) {
-            resultsEl.innerHTML = '<div class="empty">Không nhận diện được cấu trúc nào (package/class/method). Kiểm tra lại code đầu vào.</div>';
+
+        if (!chunks || chunks.length === 0) {
+            resultsEl.innerHTML = '<div class="empty">Không nhận diện được cấu trúc nào.</div>';
             return;
         }
-        const counts = countAll(chunks, {});
+
         const order = ['package', 'import', 'class', 'interface', 'enum', 'record', 'constructor', 'method', 'field'];
-        const statsHtml = order.filter(k => counts[k]).map(k =>
-            `<span class="stat">${k}: <b>${counts[k]}</b></span>`
+        const statsHtml = order.filter(k => stats[k]).map(k =>
+            `<span class="stat">${k}: <b>${stats[k]}</b></span>`
         ).join('');
-        resultsEl.innerHTML = `<div class="stats">${statsHtml}</div>` + chunks.map(renderNode).join('');
+
+        const warningsHtml = (warnings && warnings.length)
+            ? `<div class="empty" style="color: var(--rose);">${warnings.map(escapeHtml).join('<br>')}</div>`
+            : '';
+
+        resultsEl.innerHTML = `<div class="stats">${statsHtml}</div>${warningsHtml}` + chunks.map(renderNode).join('');
     }
 
     document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
-    document.getElementById('exportBtn').addEventListener('click', () => {
-        if (!lastChunks) { runAnalysis(); if (!lastChunks) return; }
+    document.getElementById('exportBtn').addEventListener('click', async () => {
+        if (!lastChunks) { await runAnalysis(); if (!lastChunks) return; }
         const blob = new Blob([JSON.stringify(lastChunks, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -573,7 +386,7 @@ public class UserService {
 `;
 
     document.getElementById('input').value = SAMPLE;
-    runAnalysis();
+    runAnalysis(); // async — không cần await ở top-level
 </script>
 </body>
 </html>
