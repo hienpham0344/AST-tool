@@ -1,7 +1,9 @@
 package com.example.astchunker.exception;
 
+import com.example.astchunker.dto.AstParseResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -19,11 +21,14 @@ public class GlobalExceptionHandler {
 
     // Loi cu phap Java trong code nguoi dung nhap (khong phai loi he thong) -> 422
     @ExceptionHandler(CodeParseException.class)
-    public ResponseEntity<Map<String, Object>> handleParseError(CodeParseException ex) {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(Map.of(
-                "message", ex.getMessage(),
-                "problems", ex.getProblems()
-        ));
+    public ResponseEntity<Object> handleParseError(CodeParseException ex, WebRequest request) {
+        Object body = request.getDescription(false).contains("/api/ast/")
+                ? AstParseResponse.failure(ex.getCode(), ex.getMessage())
+                : Map.of(
+                        "message", ex.getMessage(),
+                        "problems", ex.getProblems()
+                );
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(body);
     }
 
     // Loi validate request (vi du code rong, vuot qua do dai cho phep) -> 400

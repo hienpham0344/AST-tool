@@ -177,9 +177,19 @@
         .tag-class, .tag-interface, .tag-enum, .tag-record { background: rgba(216,166,87,0.16); color: var(--amber); }
         .tag-method, .tag-constructor { background: rgba(95,179,163,0.16); color: var(--teal); }
         .tag-field { background: rgba(201,138,154,0.16); color: var(--rose); }
+        .tag-ast { background: rgba(95,179,163,0.16); color: var(--teal); }
         .node-name { color: var(--text); }
         .node-lines { color: var(--dim); font-size: 11px; margin-left: auto; padding-left: 8px; white-space: nowrap; }
         .children, .code-wrap { padding-left: 20px; border-left: 1px solid var(--border); margin-left: 10px; }
+        .ast-tree .children { margin-top: 2px; }
+        .ast-leaf {
+            padding: 6px 8px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 12.5px;
+        }
         pre.code {
             font-family: var(--mono);
             font-size: 12px;
@@ -207,6 +217,7 @@
             <textarea id="input" spellcheck="false"></textarea>
             <div class="actions">
                 <button class="primary" id="analyzeBtn">Phân tích cấu trúc</button>
+                <button class="ghost" id="astBtn">Generate AST</button>
                 <button class="ghost" id="exportBtn">Xuất JSON</button>
                 <span class="hint" id="hint"></span>
             </div>
@@ -245,6 +256,25 @@
         return data; // { chunks, stats, warnings }
     }
 
+    async function parseAst(source) {
+        const res = await fetch(`${API_BASE_URL}/api/ast/parse`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: source })
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data?.success) {
+            const message = data?.error?.message || data?.message || `Lỗi HTTP ${res.status}`;
+            const err = new Error(message);
+            err.code = data?.error?.code;
+            throw err;
+        }
+
+        return data.data;
+    }
+
     // ---------- 2. Rendering ----------
     function escapeHtml(s) {
         return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -277,7 +307,21 @@
         return `<details><summary>${tag}${nameHtml}${lines}</summary>${inner}</details>`;
     }
 
+    function renderAstNode(node) {
+        const hasChildren = node.children && node.children.length > 0;
+        const name = node.name && node.name !== node.type ? `: ${node.name}` : '';
+        const location = node.line ? `<span class="node-lines">L${node.line}${node.column ? ':' + node.column : ''}</span>` : '';
+        const label = `<span class="tag tag-ast">${escapeHtml(node.type)}</span><span class="node-name">${escapeHtml(name)}</span>${location}`;
+
+        if (!hasChildren) {
+            return `<div class="ast-leaf">${label}</div>`;
+        }
+
+        return `<details open><summary>${label}</summary><div class="children">${node.children.map(renderAstNode).join('')}</div></details>`;
+    }
+
     let lastChunks = null;
+    let lastExportData = null;
 
     async function runAnalysis() {
         const src = document.getElementById('input').value;
@@ -288,6 +332,7 @@
         if (!src.trim()) {
             resultsEl.innerHTML = '<div class="empty">Chưa có code để phân tích.</div>';
             lastChunks = null;
+            lastExportData = null;
             return;
         }
 
@@ -308,6 +353,7 @@
                 : '';
             resultsEl.innerHTML = `<div class="empty">${escapeHtml(mainMsg)}${detail}</div>`;
             lastChunks = null;
+            lastExportData = null;
             analyzeBtn.disabled = false;
             hintEl.textContent = '';
             return;
@@ -318,6 +364,7 @@
 
         const { chunks, stats, warnings } = data;
         lastChunks = chunks;
+        lastExportData = chunks;
 
         if (!chunks || chunks.length === 0) {
             resultsEl.innerHTML = '<div class="empty">Không nhận diện được cấu trúc nào.</div>';
@@ -336,10 +383,49 @@
         resultsEl.innerHTML = `<div class="stats">${statsHtml}</div>${warningsHtml}` + chunks.map(renderNode).join('');
     }
 
+    async function runAstGeneration() {
+        const src = document.getElementById('input').value;
+        const resultsEl = document.getElementById('results');
+        const astBtn = document.getElementById('astBtn');
+        const hintEl = document.getElementById('hint');
+
+        if (!src.trim()) {
+            resultsEl.innerHTML = '<div class="empty">Chưa có code để tạo AST.</div>';
+            lastExportData = null;
+            return;
+        }
+
+        astBtn.disabled = true;
+        hintEl.textContent = 'Đang tạo AST...';
+        resultsEl.innerHTML = '<div class="empty">Đang tạo AST...</div>';
+
+        let ast;
+        try {
+            ast = await parseAst(src);
+        } catch (e) {
+            const isNetworkError = e instanceof TypeError;
+            const mainMsg = isNetworkError
+                ? 'Không thể kết nối đến server phân tích. Hãy chắc chắn backend đang chạy tại ' + API_BASE_URL
+                : `${e.code ? e.code + ': ' : ''}${e.message}`;
+            resultsEl.innerHTML = `<div class="empty">${escapeHtml(mainMsg)}</div>`;
+            lastExportData = null;
+            astBtn.disabled = false;
+            hintEl.textContent = '';
+            return;
+        }
+
+        astBtn.disabled = false;
+        hintEl.textContent = '';
+        lastChunks = null;
+        lastExportData = ast;
+        resultsEl.innerHTML = `<div class="ast-tree">${renderAstNode(ast)}</div>`;
+    }
+
     document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
+    document.getElementById('astBtn').addEventListener('click', runAstGeneration);
     document.getElementById('exportBtn').addEventListener('click', async () => {
-        if (!lastChunks) { await runAnalysis(); if (!lastChunks) return; }
-        const blob = new Blob([JSON.stringify(lastChunks, null, 2)], { type: 'application/json' });
+        if (!lastExportData) { await runAnalysis(); if (!lastExportData) return; }
+        const blob = new Blob([JSON.stringify(lastExportData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = 'java-chunks.json'; a.click();

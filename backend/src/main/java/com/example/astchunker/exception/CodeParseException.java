@@ -9,11 +9,21 @@ import java.util.List;
  */
 public class CodeParseException extends RuntimeException {
 
+    private final String code;
     private final List<String> problems;
 
     public CodeParseException(String message, List<String> problems) {
+        this(message, "INVALID_JAVA_CODE", problems);
+    }
+
+    public CodeParseException(String message, String code, List<String> problems) {
         super(message);
+        this.code = code;
         this.problems = problems;
+    }
+
+    public String getCode() {
+        return code;
     }
 
     public List<String> getProblems() {
