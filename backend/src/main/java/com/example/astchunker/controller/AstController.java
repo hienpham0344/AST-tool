@@ -14,14 +14,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/ast")
 public class AstController {
 
-    private final AstService astService;
+  private final AstService astService;
 
-    public AstController(AstService astService) {
-        this.astService = astService;
-    }
+  public AstController(AstService astService) {
+    this.astService = astService;
+  }
 
-    @PostMapping("/parse")
-    public ResponseEntity<AstParseResponse> parse(@Valid @RequestBody AnalyzeRequest request) {
-        return ResponseEntity.ok(AstParseResponse.success(astService.parse(request.getCode())));
-    }
+  @PostMapping("/parse")
+  public ResponseEntity<AstParseResponse> parse(@Valid @RequestBody AnalyzeRequest request) {
+    return ResponseEntity.ok(AstParseResponse.success(astService.parse(request.getCode())));
+  }
 }
