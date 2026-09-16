@@ -5,10 +5,13 @@ import java.util.List;
 
 public class AstNode {
 
+  private String astNodeId;
   private String type;
   private String name;
   private Integer line;
   private Integer column;
+  private Integer startLine;
+  private Integer endLine;
   private List<AstNode> children = new ArrayList<>();
 
   public AstNode() {}
@@ -23,6 +26,14 @@ public class AstNode {
     this.name = name;
     this.line = line;
     this.column = column;
+  }
+
+  public String getAstNodeId() {
+    return astNodeId;
+  }
+
+  public void setAstNodeId(String astNodeId) {
+    this.astNodeId = astNodeId;
   }
 
   public String getType() {
@@ -55,6 +66,22 @@ public class AstNode {
 
   public void setColumn(Integer column) {
     this.column = column;
+  }
+
+  public Integer getStartLine() {
+    return startLine;
+  }
+
+  public void setStartLine(Integer startLine) {
+    this.startLine = startLine;
+  }
+
+  public Integer getEndLine() {
+    return endLine;
+  }
+
+  public void setEndLine(Integer endLine) {
+    this.endLine = endLine;
   }
 
   public List<AstNode> getChildren() {

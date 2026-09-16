@@ -1,11 +1,15 @@
 package com.example.astchunker.controller;
 
-import com.example.astchunker.dto.AnalyzeRequest;
 import com.example.astchunker.dto.AnalyzeResponse;
 import com.example.astchunker.service.JavaCodeAnalyzerService;
-import jakarta.validation.Valid;
+import com.example.astchunker.service.UploadedJavaSourceReader;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * CHU Y KHI XAY DUNG LOGIC O TANG CONTROLLER: - Controller CHI lam nhiem vu: nhan request ->
@@ -22,14 +26,17 @@ import org.springframework.web.bind.annotation.*;
 public class AnalyzeController {
 
   private final JavaCodeAnalyzerService analyzerService;
+  private final UploadedJavaSourceReader sourceReader;
 
-  public AnalyzeController(JavaCodeAnalyzerService analyzerService) {
+  public AnalyzeController(
+      JavaCodeAnalyzerService analyzerService, UploadedJavaSourceReader sourceReader) {
     this.analyzerService = analyzerService;
+    this.sourceReader = sourceReader;
   }
 
-  @PostMapping("/analyze")
-  public ResponseEntity<AnalyzeResponse> analyze(@Valid @RequestBody AnalyzeRequest request) {
-    AnalyzeResponse response = analyzerService.analyze(request.getCode());
+  @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<AnalyzeResponse> analyze(@RequestParam("file") MultipartFile file) {
+    AnalyzeResponse response = analyzerService.analyze(sourceReader.read(file));
     return ResponseEntity.ok(response);
   }
 }

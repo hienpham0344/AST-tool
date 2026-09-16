@@ -1,5 +1,6 @@
 package com.example.astchunker.service;
 
+import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.dto.AstNode;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
@@ -29,6 +30,7 @@ import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.WhileStmt;
+import com.github.javaparser.ast.type.PrimitiveType;
 import com.github.javaparser.ast.type.Type;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,9 +48,18 @@ public class AstConverter {
   }
 
   AstNode createNode(Node node) {
-    return node.getRange()
-        .map(range -> new AstNode(typeOf(node), nameOf(node), range.begin.line, range.begin.column))
-        .orElseGet(() -> new AstNode(typeOf(node), nameOf(node)));
+    AstNode astNode =
+        node.getRange()
+            .map(range -> new AstNode(typeOf(node), nameOf(node), range.begin.line, range.begin.column))
+            .orElseGet(() -> new AstNode(typeOf(node), nameOf(node)));
+    astNode.setAstNodeId(AstAnalyzer.nodeId(node));
+    node.getRange()
+        .ifPresent(
+            range -> {
+              astNode.setStartLine(range.begin.line);
+              astNode.setEndLine(range.end.line);
+            });
+    return astNode;
   }
 
   private List<Node> childrenFor(Node node) {
@@ -311,7 +322,7 @@ public class AstConverter {
   private String typeOf(Node node) {
 
     if (node instanceof CompilationUnit) {
-      return "Program";
+      return "CompilationUnit";
     }
 
     if (node instanceof ClassOrInterfaceDeclaration) {
@@ -327,7 +338,7 @@ public class AstConverter {
     }
 
     if (node instanceof VariableDeclarator) {
-      return "Variable";
+      return "VariableDeclaration";
     }
 
     if (node instanceof BinaryExpr) {
@@ -410,9 +421,12 @@ public class AstConverter {
       return "Expression";
     }
 
-    // Generic JavaParser Type (PrimitiveType, ClassOrInterfaceType,
-    // ArrayType, VoidType, ...) is normalized to a single "Type" node,
-    // as requested, instead of special-casing PrimitiveType only.
+    if (node instanceof PrimitiveType) {
+      return "PrimitiveType";
+    }
+
+    // Non-primitive JavaParser types (ClassOrInterfaceType, ArrayType,
+    // VoidType, ...) share one normalized node type.
     if (node instanceof Type) {
       return "Type";
     }
@@ -423,7 +437,7 @@ public class AstConverter {
   private String nameOf(Node node) {
 
     if (node instanceof CompilationUnit) {
-      return "Program";
+      return "CompilationUnit";
     }
 
     if (node instanceof ClassOrInterfaceDeclaration clazz) {

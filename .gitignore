@@ -2,3 +2,10 @@
 backend/target/
 .codex
 AGENTS.md
+*.class
+*.log
+*.tmp
+*.temp
+Thumbs.db
+.DS_Store
+README_JUDGE_GUIDE.md

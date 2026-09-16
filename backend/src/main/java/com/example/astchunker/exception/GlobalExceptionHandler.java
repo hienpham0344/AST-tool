@@ -1,6 +1,7 @@
 package com.example.astchunker.exception;
 
 import com.example.astchunker.dto.AstParseResponse;
+import com.example.astchunker.debug.DebugException;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -39,6 +40,17 @@ public class GlobalExceptionHandler {
             .toList();
     return ResponseEntity.badRequest()
         .body(Map.of("message", "Du lieu gui len khong hop le", "problems", errors));
+  }
+
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException ex) {
+    return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage(), "problems", List.of()));
+  }
+
+  @ExceptionHandler(DebugException.class)
+  public ResponseEntity<Map<String, Object>> handleDebugError(DebugException ex) {
+    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+        .body(Map.of("message", ex.getMessage(), "problems", List.of()));
   }
 
   // CHU Y: bat them Exception.class chung o day CHI de tra loi dep cho nguoi dung,

@@ -92,6 +92,71 @@
             min-height: 360px;
             tab-size: 4;
         }
+        textarea[readonly] { cursor: default; }
+        .source-viewer {
+            flex: 1;
+            overflow: auto;
+            background: var(--panel);
+            color: #c9cbd6;
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.6;
+            padding: 18px 0;
+            min-height: 360px;
+        }
+        .source-viewer[hidden] { display: none; }
+        .source-line { display: grid; grid-template-columns: 52px minmax(max-content, 1fr); padding: 0 20px 0 0; min-width: max-content; }
+        .source-line.active { background: rgba(216, 166, 87, 0.18); box-shadow: inset 3px 0 0 var(--amber); }
+        .source-line-number { color: var(--dim); text-align: right; padding-right: 14px; user-select: none; }
+        .source-line.active .source-line-number { color: var(--amber); font-weight: 700; }
+        .source-line-code { white-space: pre; }
+        .execution-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+        .execution-toolbar button { padding: 6px 10px; }
+        .execution-toolbar button:disabled { cursor: default; opacity: 0.45; }
+        .step-counter { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: auto; }
+        .execution-location { border: 1px solid var(--border); border-radius: 6px; background: var(--panel); padding: 10px 12px; margin-bottom: 12px; }
+        .execution-location .location-line { color: var(--amber); font-family: var(--mono); font-size: 12px; }
+        .execution-location code { display: block; color: var(--text); margin-top: 5px; white-space: pre-wrap; word-break: break-word; }
+        .changed { color: var(--amber) !important; font-weight: 700; }
+        .change-detail { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
+        .file-picker {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel);
+        }
+        .file-input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+        }
+        .file-label {
+            display: inline-flex;
+            align-items: center;
+            font-family: var(--sans);
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            cursor: pointer;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+        .file-label:hover { color: var(--text); border-color: var(--dim); }
+        .file-name {
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .actions {
             padding: 14px 20px;
             border-top: 1px solid var(--border);
@@ -203,29 +268,58 @@
             white-space: pre;
             color: #c9cbd6;
         }
+        .runtime-table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--panel);
+        }
+        .runtime-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+        .runtime-table th, .runtime-table td {
+            padding: 9px 10px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            vertical-align: top;
+        }
+        .runtime-table th { color: var(--muted); font-weight: 600; }
+        .runtime-table tr:last-child td { border-bottom: none; }
+        .runtime-table .runtime-value { color: var(--teal); white-space: pre-wrap; word-break: break-word; }
+        .runtime-table .runtime-id { color: var(--dim); font-size: 11px; }
     </style>
 </head>
 <body>
 <div class="app">
     <header>
         <h1>Java Structure <span>Chunker</span></h1>
-        <p>Dán code Java vào bên trái, bấm phân tích để tách thành từng đoạn theo cấu trúc: package, import, class/interface/enum, method, constructor, field. Bộ phân tích sử dụng AST thật (JavaParser) ở backend, đảm bảo độ chính xác 100% về mặt cú pháp Java.</p>
+        <p>Chọn một file <code>.java</code>, xem trước source, rồi phân tích cấu trúc, tạo AST hoặc chạy JDI để xem biến local tại từng câu lệnh. Backend dùng JavaParser và JDI để map giá trị runtime về đúng AST node.</p>
     </header>
     <main>
         <section class="pane">
             <div class="pane-head"><h2>Java source</h2></div>
-            <textarea id="input" spellcheck="false"></textarea>
+            <div class="file-picker">
+                <input class="file-input" id="fileInput" type="file" accept=".java,text/x-java-source">
+                <label class="file-label" for="fileInput">Chọn file .java</label>
+                <span class="file-name" id="fileName">Chưa chọn file</span>
+            </div>
+            <textarea id="sourcePreview" readonly spellcheck="false" placeholder="Nội dung file Java đã chọn sẽ xuất hiện ở đây."></textarea>
+            <div id="sourceViewer" class="source-viewer" hidden aria-label="Java source execution viewer"></div>
             <div class="actions">
                 <button class="primary" id="analyzeBtn">Phân tích cấu trúc</button>
                 <button class="ghost" id="astBtn">Generate AST</button>
+                <button class="ghost" id="debugBtn">Quan sát biến runtime</button>
                 <button class="ghost" id="exportBtn">Xuất JSON</button>
-                <span class="hint" id="hint"></span>
+                <span class="hint" id="hint">Chọn một file .java (tối đa 200 KB).</span>
             </div>
         </section>
         <section class="pane">
             <div class="pane-head"><h2>Kết quả</h2></div>
             <div class="result-scroll" id="results">
-                <div class="empty">Chưa có kết quả. Nhập code bên trái và bấm "Phân tích cấu trúc".</div>
+                <div class="empty">Chưa có kết quả. Chọn một file <code>.java</code> rồi bắt đầu phân tích.</div>
             </div>
         </section>
     </main>
@@ -235,49 +329,54 @@
     // ---------- Cấu hình endpoint ----------
     const API_BASE_URL = 'http://localhost:8080';
 
-    // ---------- 1. Gọi API backend (JavaParser AST thật) ----------
-    async function analyzeJava(source) {
-        const res = await fetch(`${API_BASE_URL}/api/analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: source })
-        });
+    // ---------- 1. Gọi API backend với chính file .java đã chọn ----------
+    async function postJavaFile(path, file) {
+        const formData = new FormData();
+        formData.append('file', file, file.name);
 
+        const res = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'POST',
+            body: formData
+        });
         const data = await res.json().catch(() => null);
 
         if (!res.ok) {
-            const message = data?.message || `Lỗi HTTP ${res.status}`;
+            const message = data?.error?.message || data?.message || `Lỗi HTTP ${res.status}`;
             const problems = data?.problems || [];
             const err = new Error(problems.length ? `${message}\n${problems.join('\n')}` : message);
             err.problems = problems;
-            throw err;
-        }
-
-        return data; // { chunks, stats, warnings }
-    }
-
-    async function parseAst(source) {
-        const res = await fetch(`${API_BASE_URL}/api/ast/parse`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: source })
-        });
-
-        const data = await res.json().catch(() => null);
-
-        if (!res.ok || !data?.success) {
-            const message = data?.error?.message || data?.message || `Lỗi HTTP ${res.status}`;
-            const err = new Error(message);
             err.code = data?.error?.code;
             throw err;
         }
 
+        return data;
+    }
+
+    async function analyzeJava(file) {
+        return postJavaFile('/api/analyze', file);
+    }
+
+    async function parseAst(file) {
+        const data = await postJavaFile('/api/ast/parse', file);
+        if (!data?.success) {
+            const err = new Error(data?.error?.message || 'Backend không thể tạo AST.');
+            err.code = data?.error?.code;
+            throw err;
+        }
         return data.data;
+    }
+
+    async function observeRuntime(file) {
+        return postJavaFile('/api/debug', file);
+    }
+
+    async function observeRuntimeSteps(file) {
+        return postJavaFile('/api/debug/steps', file);
     }
 
     // ---------- 2. Rendering ----------
     function escapeHtml(s) {
-        return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+        return String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     }
 
     function labelFor(node) {
@@ -320,159 +419,329 @@
         return `<details open><summary>${label}</summary><div class="children">${node.children.map(renderAstNode).join('')}</div></details>`;
     }
 
+    function renderRuntimeResults(observations) {
+        if (!observations || observations.length === 0) {
+            return '<div class="empty">Không có biến local nào được quan sát. Đảm bảo file có <code>public static void main(String[] args)</code> và có câu lệnh thực thi.</div>';
+        }
+
+        const rows = observations.map(observation => `
+            <tr>
+                <td>L${escapeHtml(observation.lineNumber)}</td>
+                <td>${escapeHtml(observation.variableName)}</td>
+                <td>${escapeHtml(observation.declaredType)}</td>
+                <td class="runtime-value">${escapeHtml(observation.runtimeValue)}</td>
+                <td class="runtime-id">${escapeHtml(observation.astNodeId)}</td>
+            </tr>`).join('');
+
+        return `
+            <div class="stats"><span class="stat">observations: <b>${observations.length}</b></span></div>
+            <div class="runtime-table-wrap">
+                <table class="runtime-table">
+                    <thead><tr><th>Dòng</th><th>Biến</th><th>Kiểu khai báo</th><th>Giá trị runtime</th><th>AST node</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+    }
+
+    function variableKey(variable) {
+        return `${variable.astNodeId || ''}|${variable.variableName || ''}`;
+    }
+
+    function sourceLineAt(lineNumber) {
+        const lines = String(lastSourceCode || '').split(/\r?\n/);
+        return lineNumber > 0 && lineNumber <= lines.length ? lines[lineNumber - 1] : '';
+    }
+
+    function renderSourceViewer(lineNumber) {
+        const viewer = document.getElementById('sourceViewer');
+        const source = String(lastSourceCode || '');
+        if (!source) {
+            viewer.innerHTML = '';
+            return;
+        }
+        viewer.innerHTML = source.split(/\r?\n/).map((line, index) => {
+            const number = index + 1;
+            return `<div class="source-line${number === lineNumber ? ' active' : ''}">
+                <span class="source-line-number">${number}</span><span class="source-line-code">${escapeHtml(line)}</span>
+            </div>`;
+        }).join('');
+        const active = viewer.querySelector('.source-line.active');
+        if (active) active.scrollIntoView({ block: 'center' });
+    }
+
+    function renderExecutionVariables(variables, previousVariables) {
+        const previousByKey = new Map((previousVariables || []).map(variable => [variableKey(variable), variable]));
+        if (!variables.length) {
+            return '<tr><td colspan="4" class="runtime-id">No visible local variables at this step.</td></tr>';
+        }
+        return variables.map(variable => {
+            const previous = previousByKey.get(variableKey(variable));
+            const changed = previous && previous.runtimeValue !== variable.runtimeValue;
+            const value = changed
+                ? `${escapeHtml(previous.runtimeValue)} <span class="change-detail">-&gt; ${escapeHtml(variable.runtimeValue)}</span>`
+                : escapeHtml(variable.runtimeValue);
+            return `<tr><td>${escapeHtml(variable.variableName)}</td><td>${escapeHtml(variable.declaredType)}</td>
+                <td class="runtime-value${changed ? ' changed' : ''}">${value}</td><td class="runtime-id">${escapeHtml(variable.astNodeId)}</td></tr>`;
+        }).join('');
+    }
+
+    function renderExecutionSteps(response) {
+        const steps = Array.isArray(response?.steps) ? response.steps : [];
+        if (steps.length === 0) {
+            return '<div class="empty">No breakpoint hit was recorded.</div>';
+        }
+        currentExecutionIndex = 0;
+        return `
+            <div class="stats"><span class="stat">execution steps: <b>${steps.length}</b></span><span class="stat">warnings: <b>${(response.warnings || []).length}</b></span></div>
+            <div class="execution-toolbar">
+                <button class="ghost" id="previousStepBtn" type="button">Previous</button>
+                <button class="ghost" id="nextStepBtn" type="button">Next</button>
+                <span class="step-counter" id="stepCounter"></span>
+            </div>
+            <div id="executionLocation" class="execution-location"></div>
+            <div class="runtime-table-wrap"><table class="runtime-table">
+                <thead><tr><th>Variable</th><th>Declared type</th><th>Runtime value</th><th>AST declaration</th></tr></thead>
+                <tbody id="executionVariables"></tbody>
+            </table></div>`;
+    }
+
+    function updateExecutionStep() {
+        const step = lastExecutionData?.steps?.[currentExecutionIndex];
+        if (!step) return;
+        const previous = currentExecutionIndex > 0 ? lastExecutionData.steps[currentExecutionIndex - 1].variables : null;
+        const locationEl = document.getElementById('executionLocation');
+        const variablesEl = document.getElementById('executionVariables');
+        const counterEl = document.getElementById('stepCounter');
+        if (locationEl) {
+            locationEl.innerHTML = `<span class="location-line">Step ${step.sequence} · line ${step.lineNumber} · ${escapeHtml(step.statementKind || 'statement')}</span>
+                <code>${escapeHtml(sourceLineAt(step.lineNumber).trim() || '(source line unavailable)')}</code>`;
+        }
+        if (variablesEl) variablesEl.innerHTML = renderExecutionVariables(step.variables || [], previous);
+        if (counterEl) counterEl.textContent = `Step ${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
+        const previousBtn = document.getElementById('previousStepBtn');
+        const nextBtn = document.getElementById('nextStepBtn');
+        if (previousBtn) previousBtn.disabled = currentExecutionIndex === 0;
+        if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
+        renderSourceViewer(step.lineNumber);
+    }
+
+    function bindExecutionNavigation() {
+        document.getElementById('previousStepBtn')?.addEventListener('click', () => {
+            if (currentExecutionIndex > 0) { currentExecutionIndex -= 1; updateExecutionStep(); }
+        });
+        document.getElementById('nextStepBtn')?.addEventListener('click', () => {
+            if (currentExecutionIndex < lastExecutionData.steps.length - 1) { currentExecutionIndex += 1; updateExecutionStep(); }
+        });
+        updateExecutionStep();
+    }
+
     let lastChunks = null;
     let lastExportData = null;
+    let lastSourceCode = '';
+    let lastExecutionData = null;
+    let currentExecutionIndex = -1;
+
+    function selectedJavaFile() {
+        return document.getElementById('fileInput').files?.[0] || null;
+    }
+
+    function resetRenderedData() {
+        lastChunks = null;
+        lastExportData = null;
+        lastExecutionData = null;
+        currentExecutionIndex = -1;
+        showSourcePreview();
+    }
+
+    function showSourcePreview() {
+        document.getElementById('sourceViewer').hidden = true;
+        document.getElementById('sourcePreview').hidden = false;
+    }
+
+    function showFileRequired(resultsEl) {
+        resultsEl.innerHTML = '<div class="empty">Hãy chọn một file <code>.java</code> trước.</div>';
+        resetRenderedData();
+    }
+
+    function showRequestError(error, resultsEl) {
+        const isNetworkError = error instanceof TypeError;
+        const mainMsg = isNetworkError
+            ? 'Không thể kết nối đến server phân tích. Hãy chắc chắn backend đang chạy tại ' + API_BASE_URL
+            : `${error.code ? error.code + ': ' : ''}${error.message.split('\n')[0]}`;
+        const detail = (error.problems && error.problems.length)
+            ? '<ul>' + error.problems.map(problem => `<li>${escapeHtml(problem)}</li>`).join('') + '</ul>'
+            : '';
+        resultsEl.innerHTML = `<div class="empty">${escapeHtml(mainMsg)}${detail}</div>`;
+    }
 
     async function runAnalysis() {
-        const src = document.getElementById('input').value;
+        const file = selectedJavaFile();
         const resultsEl = document.getElementById('results');
         const analyzeBtn = document.getElementById('analyzeBtn');
         const hintEl = document.getElementById('hint');
 
-        if (!src.trim()) {
-            resultsEl.innerHTML = '<div class="empty">Chưa có code để phân tích.</div>';
-            lastChunks = null;
-            lastExportData = null;
+        if (!file) {
+            showFileRequired(resultsEl);
             return;
         }
+
+        showSourcePreview();
 
         analyzeBtn.disabled = true;
-        hintEl.textContent = 'Đang phân tích...';
-        resultsEl.innerHTML = '<div class="empty">Đang phân tích...</div>';
+        hintEl.textContent = 'Đang phân tích cấu trúc...';
+        resultsEl.innerHTML = '<div class="empty">Đang phân tích cấu trúc...</div>';
 
-        let data;
         try {
-            data = await analyzeJava(src);
-        } catch (e) {
-            const isNetworkError = e instanceof TypeError;
-            const mainMsg = isNetworkError
-                ? 'Không thể kết nối đến server phân tích. Hãy chắc chắn backend đang chạy tại ' + API_BASE_URL
-                : e.message.split('\n')[0];
-            const detail = (e.problems && e.problems.length)
-                ? '<ul>' + e.problems.map(p => `<li>${escapeHtml(p)}</li>`).join('') + '</ul>'
+            const { chunks, stats, warnings } = await analyzeJava(file);
+            lastChunks = chunks;
+            lastExportData = chunks;
+
+            if (!chunks || chunks.length === 0) {
+                resultsEl.innerHTML = '<div class="empty">Không nhận diện được cấu trúc nào.</div>';
+                return;
+            }
+
+            const order = ['package', 'import', 'class', 'interface', 'enum', 'record', 'constructor', 'method', 'field'];
+            const statsHtml = order.filter(kind => stats[kind]).map(kind =>
+                `<span class="stat">${kind}: <b>${stats[kind]}</b></span>`
+            ).join('');
+            const warningsHtml = (warnings && warnings.length)
+                ? `<div class="empty" style="color: var(--rose);">${warnings.map(escapeHtml).join('<br>')}</div>`
                 : '';
-            resultsEl.innerHTML = `<div class="empty">${escapeHtml(mainMsg)}${detail}</div>`;
-            lastChunks = null;
-            lastExportData = null;
+            resultsEl.innerHTML = `<div class="stats">${statsHtml}</div>${warningsHtml}` + chunks.map(renderNode).join('');
+        } catch (error) {
+            showRequestError(error, resultsEl);
+            resetRenderedData();
+        } finally {
             analyzeBtn.disabled = false;
             hintEl.textContent = '';
-            return;
         }
-
-        analyzeBtn.disabled = false;
-        hintEl.textContent = '';
-
-        const { chunks, stats, warnings } = data;
-        lastChunks = chunks;
-        lastExportData = chunks;
-
-        if (!chunks || chunks.length === 0) {
-            resultsEl.innerHTML = '<div class="empty">Không nhận diện được cấu trúc nào.</div>';
-            return;
-        }
-
-        const order = ['package', 'import', 'class', 'interface', 'enum', 'record', 'constructor', 'method', 'field'];
-        const statsHtml = order.filter(k => stats[k]).map(k =>
-            `<span class="stat">${k}: <b>${stats[k]}</b></span>`
-        ).join('');
-
-        const warningsHtml = (warnings && warnings.length)
-            ? `<div class="empty" style="color: var(--rose);">${warnings.map(escapeHtml).join('<br>')}</div>`
-            : '';
-
-        resultsEl.innerHTML = `<div class="stats">${statsHtml}</div>${warningsHtml}` + chunks.map(renderNode).join('');
     }
 
     async function runAstGeneration() {
-        const src = document.getElementById('input').value;
+        const file = selectedJavaFile();
         const resultsEl = document.getElementById('results');
         const astBtn = document.getElementById('astBtn');
         const hintEl = document.getElementById('hint');
 
-        if (!src.trim()) {
-            resultsEl.innerHTML = '<div class="empty">Chưa có code để tạo AST.</div>';
-            lastExportData = null;
+        if (!file) {
+            showFileRequired(resultsEl);
             return;
         }
+
+        showSourcePreview();
 
         astBtn.disabled = true;
         hintEl.textContent = 'Đang tạo AST...';
         resultsEl.innerHTML = '<div class="empty">Đang tạo AST...</div>';
 
-        let ast;
         try {
-            ast = await parseAst(src);
-        } catch (e) {
-            const isNetworkError = e instanceof TypeError;
-            const mainMsg = isNetworkError
-                ? 'Không thể kết nối đến server phân tích. Hãy chắc chắn backend đang chạy tại ' + API_BASE_URL
-                : `${e.code ? e.code + ': ' : ''}${e.message}`;
-            resultsEl.innerHTML = `<div class="empty">${escapeHtml(mainMsg)}</div>`;
-            lastExportData = null;
+            const ast = await parseAst(file);
+            lastChunks = null;
+            lastExportData = ast;
+            resultsEl.innerHTML = `<div class="ast-tree">${renderAstNode(ast)}</div>`;
+        } catch (error) {
+            showRequestError(error, resultsEl);
+            resetRenderedData();
+        } finally {
             astBtn.disabled = false;
             hintEl.textContent = '';
+        }
+    }
+
+    async function runRuntimeObservation() {
+        const file = selectedJavaFile();
+        const resultsEl = document.getElementById('results');
+        const debugBtn = document.getElementById('debugBtn');
+        const hintEl = document.getElementById('hint');
+
+        if (!file) {
+            showFileRequired(resultsEl);
             return;
         }
 
-        astBtn.disabled = false;
-        hintEl.textContent = '';
-        lastChunks = null;
-        lastExportData = ast;
-        resultsEl.innerHTML = `<div class="ast-tree">${renderAstNode(ast)}</div>`;
+        debugBtn.disabled = true;
+        hintEl.textContent = 'Đang chạy target qua JDI (tối đa 30 giây)...';
+        resultsEl.innerHTML = '<div class="empty">Đang chạy target và lấy giá trị biến...</div>';
+
+        try {
+            const executionData = await observeRuntimeSteps(file);
+            if (!executionData || !Array.isArray(executionData.steps)) {
+                throw new Error('Backend trả về dữ liệu runtime không đúng định dạng.');
+            }
+            lastChunks = null;
+            lastExecutionData = executionData;
+            lastExportData = executionData;
+            document.getElementById('sourcePreview').hidden = true;
+            document.getElementById('sourceViewer').hidden = false;
+            resultsEl.innerHTML = renderExecutionSteps(executionData);
+            bindExecutionNavigation();
+        } catch (error) {
+            showRequestError(error, resultsEl);
+            resetRenderedData();
+        } finally {
+            debugBtn.disabled = false;
+            hintEl.textContent = '';
+        }
     }
 
+    function handleFileSelection() {
+        const file = selectedJavaFile();
+        const previewEl = document.getElementById('sourcePreview');
+        const viewerEl = document.getElementById('sourceViewer');
+        const fileNameEl = document.getElementById('fileName');
+        const hintEl = document.getElementById('hint');
+        resetRenderedData();
+        viewerEl.innerHTML = '';
+
+        if (!file) {
+            fileNameEl.textContent = 'Chưa chọn file';
+            previewEl.value = '';
+            hintEl.textContent = 'Chọn một file .java (tối đa 200 KB).';
+            return;
+        }
+
+        fileNameEl.textContent = `${file.name} · ${(file.size / 1024).toFixed(1)} KB`;
+        if (!file.name.toLowerCase().endsWith('.java')) {
+            previewEl.value = 'Chỉ hỗ trợ file có đuôi .java.';
+            hintEl.textContent = 'File đã chọn không phải .java.';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (selectedJavaFile() === file) {
+                previewEl.value = String(reader.result || '');
+                lastSourceCode = String(reader.result || '');
+                hintEl.textContent = 'Sẵn sàng gửi file .java tới backend.';
+            }
+        };
+        reader.onerror = () => {
+            if (selectedJavaFile() === file) {
+                previewEl.value = 'Không thể đọc file để xem trước.';
+                hintEl.textContent = 'Không thể đọc file đã chọn.';
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    document.getElementById('fileInput').addEventListener('change', handleFileSelection);
     document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
     document.getElementById('astBtn').addEventListener('click', runAstGeneration);
+    document.getElementById('debugBtn').addEventListener('click', runRuntimeObservation);
     document.getElementById('exportBtn').addEventListener('click', async () => {
-        if (!lastExportData) { await runAnalysis(); if (!lastExportData) return; }
+        if (!lastExportData) {
+            await runAnalysis();
+            if (!lastExportData) return;
+        }
         const blob = new Blob([JSON.stringify(lastExportData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = 'java-chunks.json'; a.click();
+        a.href = url;
+        a.download = 'ast-inspection.json';
+        a.click();
         URL.revokeObjectURL(url);
     });
-
-    const SAMPLE = `package com.example.demo;
-
-import java.util.List;
-import java.util.ArrayList;
-
-/**
- * Quản lý danh sách người dùng.
- */
-public class UserService {
-
-    private final List<String> users = new ArrayList<>();
-    private int capacity = 100;
-
-    public UserService(int capacity) {
-        this.capacity = capacity;
-    }
-
-    public boolean addUser(String name) {
-        if (users.size() >= capacity) {
-            return false;
-        }
-        users.add(name);
-        return true;
-    }
-
-    public List<String> getUsers() {
-        return users;
-    }
-
-    private static class Stats {
-        int total;
-
-        int getTotal() {
-            return total;
-        }
-    }
-}
-`;
-
-    document.getElementById('input').value = SAMPLE;
-    runAnalysis(); // async — không cần await ở top-level
 </script>
 </body>
 </html>

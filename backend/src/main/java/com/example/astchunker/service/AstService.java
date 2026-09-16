@@ -31,7 +31,9 @@ public class AstService {
 
   public AstNode parse(String sourceCode) {
     ParseResult<CompilationUnit> sourceResult = javaParser.parse(sourceCode);
-    if (sourceResult.isSuccessful() && sourceResult.getResult().isPresent()) {
+    if (sourceResult.isSuccessful()
+        && sourceResult.getResult().isPresent()
+        && hasCompilationUnitContent(sourceResult.getResult().get())) {
       return astConverter.convert(sourceResult.getResult().get());
     }
 
@@ -50,6 +52,18 @@ public class AstService {
     }
 
     throw new CodeParseException("Unable to parse Java source code", "INVALID_JAVA_CODE", problems);
+  }
+
+  /**
+   * JavaParser can accept a statement fragment as a syntactically successful but empty compilation
+   * unit. Treat that result as a snippet so statements are parsed inside the temporary method body.
+   */
+  private boolean hasCompilationUnitContent(CompilationUnit compilationUnit) {
+    return compilationUnit.getTypes().stream()
+            .anyMatch(type -> !"$COMPACT_CLASS".equals(type.getNameAsString()))
+        || compilationUnit.getPackageDeclaration().isPresent()
+        || !compilationUnit.getImports().isEmpty()
+        || compilationUnit.getModule().isPresent();
   }
 
   private AstNode convertSnippet(CompilationUnit compilationUnit) {
