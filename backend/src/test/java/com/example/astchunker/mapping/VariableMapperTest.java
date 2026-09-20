@@ -85,7 +85,7 @@ class VariableMapperTest {
     assertThat(
             mapper.map(
                 frame,
-                new ObservationPoint("statement", "demo.Sample", 6, 6, 6, "ExpressionStmt"),
+                new ObservationPoint("statement", "demo.Sample", 6, 6, 6, 1, 20, "ExpressionStmt", "call();"),
                 List.of()))
         .extracting(result -> result.variableName(), result -> result.runtimeValue())
         .containsExactly(tuple("broken", "[unavailable]"), tuple("healthy", "7"));
@@ -109,7 +109,7 @@ class VariableMapperTest {
     assertThat(
             mapper.map(
                 frame,
-                new ObservationPoint("statement", "demo.Sample", 6, 6, 6, "ExpressionStmt"),
+                new ObservationPoint("statement", "demo.Sample", 6, 6, 6, 1, 20, "ExpressionStmt", "call();"),
                 List.of()))
         .extracting(result -> result.variableName(), result -> result.runtimeValue())
         .containsExactly(tuple("broken", "5"), tuple("healthy", "7"));
@@ -133,7 +133,7 @@ class VariableMapperTest {
     assertThat(
             mapper.map(
                 frame,
-                new ObservationPoint("statement", "demo.Sample", 6, 6, 6, "ExpressionStmt"),
+                new ObservationPoint("statement", "demo.Sample", 6, 6, 6, 1, 20, "ExpressionStmt", "call();"),
                 List.of()))
         .extracting(result -> result.variableName(), result -> result.runtimeValue())
         .containsExactly(tuple("<unavailable>", "5"), tuple("healthy", "7"));

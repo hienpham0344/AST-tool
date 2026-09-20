@@ -452,16 +452,20 @@
         return lineNumber > 0 && lineNumber <= lines.length ? lines[lineNumber - 1] : '';
     }
 
-    function renderSourceViewer(lineNumber) {
+    function renderSourceViewer(activeStep) {
         const viewer = document.getElementById('sourceViewer');
         const source = String(lastSourceCode || '');
         if (!source) {
             viewer.innerHTML = '';
             return;
         }
+        const activeLine = typeof activeStep === 'number' ? activeStep : activeStep?.lineNumber;
+        const startLine = typeof activeStep === 'number' ? activeStep : activeStep?.startLine || activeLine;
+        const endLine = typeof activeStep === 'number' ? activeStep : activeStep?.endLine || activeLine;
         viewer.innerHTML = source.split(/\r?\n/).map((line, index) => {
             const number = index + 1;
-            return `<div class="source-line${number === lineNumber ? ' active' : ''}">
+            const isActive = number >= startLine && number <= endLine;
+            return `<div class="source-line${isActive ? ' active' : ''}">
                 <span class="source-line-number">${number}</span><span class="source-line-code">${escapeHtml(line)}</span>
             </div>`;
         }).join('');
@@ -514,7 +518,7 @@
         const counterEl = document.getElementById('stepCounter');
         if (locationEl) {
             locationEl.innerHTML = `<span class="location-line">Step ${step.sequence} · line ${step.lineNumber} · ${escapeHtml(step.statementKind || 'statement')}</span>
-                <code>${escapeHtml(sourceLineAt(step.lineNumber).trim() || '(source line unavailable)')}</code>`;
+                <code>${escapeHtml(String(step.code || '').trim() || sourceLineAt(step.lineNumber).trim() || '(source line unavailable)')}</code>`;
         }
         if (variablesEl) variablesEl.innerHTML = renderExecutionVariables(step.variables || [], previous);
         if (counterEl) counterEl.textContent = `Step ${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
@@ -522,7 +526,7 @@
         const nextBtn = document.getElementById('nextStepBtn');
         if (previousBtn) previousBtn.disabled = currentExecutionIndex === 0;
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
-        renderSourceViewer(step.lineNumber);
+        renderSourceViewer(step);
     }
 
     function bindExecutionNavigation() {

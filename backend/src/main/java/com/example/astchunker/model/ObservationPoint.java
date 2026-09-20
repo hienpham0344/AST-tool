@@ -7,4 +7,7 @@ public record ObservationPoint(
     int lineNumber,
     int startLine,
     int endLine,
-    String statementKind) {}
+    int startColumn,
+    int endColumn,
+    String statementKind,
+    String code) {}

@@ -20,7 +20,7 @@ class BreakpointMapperTest {
     ReferenceType referenceType = mock(ReferenceType.class);
     Location first = mock(Location.class);
     Location second = mock(Location.class);
-    ObservationPoint point = new ObservationPoint("stmt-12", "demo.Sample", 12, 12, 12, "ExpressionStmt");
+    ObservationPoint point = new ObservationPoint("stmt-12", "demo.Sample", 12, 12, 12, 1, 20, "ExpressionStmt", "call();");
     when(referenceType.name()).thenReturn("demo.Sample");
     when(referenceType.locationsOfLine(12)).thenReturn(List.of(first, second));
 
@@ -34,7 +34,7 @@ class BreakpointMapperTest {
   @Test
   void reportsAWarningWhenLineInformationIsUnavailable() throws Exception {
     ReferenceType referenceType = mock(ReferenceType.class);
-    ObservationPoint point = new ObservationPoint("stmt-12", "demo.Sample", 12, 12, 12, "ExpressionStmt");
+    ObservationPoint point = new ObservationPoint("stmt-12", "demo.Sample", 12, 12, 12, 1, 20, "ExpressionStmt", "call();");
     when(referenceType.name()).thenReturn("demo.Sample");
     when(referenceType.locationsOfLine(12)).thenThrow(new AbsentInformationException());
 
@@ -49,9 +49,9 @@ class BreakpointMapperTest {
     ReferenceType referenceType = mock(ReferenceType.class);
     Location location = mock(Location.class);
     ObservationPoint first =
-        new ObservationPoint("stmt-12-a", "demo.Sample", 12, 12, 12, "IfStmt");
+        new ObservationPoint("stmt-12-a", "demo.Sample", 12, 12, 12, 1, 20, "IfStmt", "if (ok) call();");
     ObservationPoint second =
-        new ObservationPoint("stmt-12-b", "demo.Sample", 12, 12, 12, "ExpressionStmt");
+        new ObservationPoint("stmt-12-b", "demo.Sample", 12, 12, 12, 9, 15, "ExpressionStmt", "call();");
     when(referenceType.name()).thenReturn("demo.Sample");
     when(referenceType.locationsOfLine(12)).thenReturn(List.of(location));
 
@@ -66,7 +66,7 @@ class BreakpointMapperTest {
     ReferenceType referenceType = mock(ReferenceType.class);
     Location location = mock(Location.class);
     ObservationPoint point =
-        new ObservationPoint("stmt-12", "demo.Sample", 12, 12, 14, "VariableDeclarationStmt");
+        new ObservationPoint("stmt-12", "demo.Sample", 12, 12, 14, 1, 2, "VariableDeclarationStmt", "int value =\n  1;");
     when(referenceType.name()).thenReturn("demo.Sample");
     when(referenceType.locationsOfLine(12)).thenReturn(List.of());
     when(referenceType.locationsOfLine(13)).thenReturn(List.of(location));

@@ -246,7 +246,12 @@ public class JdiSession {
               executions.size() + 1L,
               observationPoint.astNodeId(),
               lineNumber,
+              observationPoint.startLine(),
+              observationPoint.endLine(),
+              observationPoint.startColumn(),
+              observationPoint.endColumn(),
               observationPoint.statementKind(),
+              observationPoint.code(),
               variables));
     } catch (AbsentInformationException ex) {
       throw new DebugException(

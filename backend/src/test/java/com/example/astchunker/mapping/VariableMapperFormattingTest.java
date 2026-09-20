@@ -11,6 +11,7 @@ import com.example.astchunker.model.ObservationPoint;
 import com.example.astchunker.model.ObservationResult;
 import com.sun.jdi.ArrayReference;
 import com.sun.jdi.CharValue;
+import com.sun.jdi.Field;
 import com.sun.jdi.LocalVariable;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.PrimitiveValue;
@@ -20,7 +21,9 @@ import com.sun.jdi.StringReference;
 import com.sun.jdi.Value;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class VariableMapperFormattingTest {
@@ -170,6 +173,52 @@ class VariableMapperFormattingTest {
     assertThat(mapSingle(object).runtimeValue()).isEqualTo("demo.Foo#42");
   }
 
+  @Test
+  void formatsArrayListFromItsBackingArrayWithoutInvokingTargetMethods() throws Exception {
+    ArrayReference elements = array("java.lang.Object[]", 4, List.of("1", "2", "3"));
+    ObjectReference list =
+        objectWithFields("java.util.ArrayList", 50L, Map.of("size", primitive("3"), "elementData", elements));
+
+    assertThat(mapSingle(list).runtimeValue()).isEqualTo("[1, 2, 3]");
+  }
+
+  @Test
+  void formatsHashMapEntriesFromItsTableNodes() throws Exception {
+    ObjectReference node =
+        objectWithFields(
+            "java.util.HashMap$Node",
+            61L,
+            new HashMap<>(
+                Map.of(
+                    "key", string("left"),
+                    "value", primitive("10"))));
+    ArrayReference table = sparseArray("java.util.HashMap$Node[]", 4, Map.of(2, node));
+    ObjectReference map =
+        objectWithFields("java.util.HashMap", 60L, Map.of("size", primitive("1"), "table", table));
+
+    assertThat(mapSingle(map).runtimeValue()).isEqualTo("{\"left\": 10}");
+  }
+
+  @Test
+  void formatsLeetCodeListNodesAsAChain() throws Exception {
+    ObjectReference third = listNode(73L, "3", null);
+    ObjectReference second = listNode(72L, "2", third);
+    ObjectReference first = listNode(71L, "1", second);
+
+    assertThat(mapSingle(first).runtimeValue()).isEqualTo("[1 -> 2 -> 3]");
+  }
+
+  @Test
+  void formatsLeetCodeTreeNodesAsNestedObjects() throws Exception {
+    ObjectReference left = treeNode(82L, "2", null, null);
+    ObjectReference right = treeNode(83L, "3", null, null);
+    ObjectReference root = treeNode(81L, "1", left, right);
+
+    assertThat(mapSingle(root).runtimeValue())
+        .isEqualTo(
+            "{val: 1, left: {val: 2, left: null, right: null}, right: {val: 3, left: null, right: null}}");
+  }
+
   private ObservationResult mapSingle(Value value) throws Exception {
     StackFrame frame = mock(StackFrame.class);
     LocalVariable local = mock(LocalVariable.class);
@@ -181,7 +230,7 @@ class VariableMapperFormattingTest {
     return mapper
         .map(
             frame,
-            new ObservationPoint("statement", "demo.Sample", 1, 1, 1, "ExpressionStmt"),
+            new ObservationPoint("statement", "demo.Sample", 1, 1, 1, 1, 20, "ExpressionStmt", "call();"),
             List.of())
         .get(0);
   }
@@ -201,6 +250,40 @@ class VariableMapperFormattingTest {
     return object;
   }
 
+  private ObjectReference objectWithFields(String typeName, long uniqueId, Map<String, Value> values) {
+    ObjectReference object = object(typeName, uniqueId);
+    ReferenceType type = object.referenceType();
+    values.forEach(
+        (name, value) -> {
+          Field field = mock(Field.class);
+          when(type.fieldByName(name)).thenReturn(field);
+          when(object.getValue(field)).thenReturn(value);
+        });
+    return object;
+  }
+
+  private ObjectReference listNode(long uniqueId, String value, ObjectReference next) {
+    Map<String, Value> fields = new HashMap<>();
+    fields.put("val", primitive(value));
+    if (next != null) {
+      fields.put("next", next);
+    }
+    return objectWithFields("demo.ListNode", uniqueId, fields);
+  }
+
+  private ObjectReference treeNode(
+      long uniqueId, String value, ObjectReference left, ObjectReference right) {
+    Map<String, Value> fields = new HashMap<>();
+    fields.put("val", primitive(value));
+    if (left != null) {
+      fields.put("left", left);
+    }
+    if (right != null) {
+      fields.put("right", right);
+    }
+    return objectWithFields("demo.TreeNode", uniqueId, fields);
+  }
+
   private ArrayReference array(String typeName, int length, List<?> values) {
     ArrayReference array = mock(ArrayReference.class);
     ReferenceType type = mock(ReferenceType.class);
@@ -211,6 +294,25 @@ class VariableMapperFormattingTest {
     List<Value> jdiValues = values.stream().map(this::asValue).toList();
     when(array.getValues(0, values.size())).thenReturn(jdiValues);
     return array;
+  }
+
+  private ArrayReference sparseArray(String typeName, int length, Map<Integer, Value> values) {
+    ArrayReference array = mock(ArrayReference.class);
+    ReferenceType type = mock(ReferenceType.class);
+    when(type.name()).thenReturn(typeName);
+    when(array.referenceType()).thenReturn(type);
+    when(array.uniqueID()).thenReturn(nextArrayId++);
+    when(array.length()).thenReturn(length);
+    for (int index = 0; index < length; index++) {
+      when(array.getValue(index)).thenReturn(values.get(index));
+    }
+    return array;
+  }
+
+  private StringReference string(String text) {
+    StringReference value = mock(StringReference.class);
+    when(value.value()).thenReturn(text);
+    return value;
   }
 
   private Value asValue(Object value) {

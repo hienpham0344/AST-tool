@@ -7,7 +7,12 @@ public record ExecutionObservation(
     long sequence,
     String statementAstNodeId,
     int lineNumber,
+    int startLine,
+    int endLine,
+    int startColumn,
+    int endColumn,
     String statementKind,
+    String code,
     List<ObservationResult> variables) {
 
   public ExecutionObservation {
