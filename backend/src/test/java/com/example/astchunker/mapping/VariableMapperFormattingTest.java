@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,7 +72,7 @@ class VariableMapperFormattingTest {
     ArrayReference array = array("int[]", 6, List.of("2", "1", "5", "1", "3", "2"));
 
     assertThat(mapSingle(array).runtimeValue()).isEqualTo("[2, 1, 5, 1, 3, 2]");
-    verify(array).getValues(0, 6);
+    verify(array, times(2)).getValues(0, 6);
     verify(array, never()).getValues();
   }
 
@@ -120,7 +121,7 @@ class VariableMapperFormattingTest {
 
     assertThat(runtimeValue).startsWith("[0, 1, 2,");
     assertThat(runtimeValue).endsWith(", ...] (length=10000)");
-    verify(array).getValues(0, 100);
+    verify(array, times(2)).getValues(0, 100);
   }
 
   @Test
@@ -174,12 +175,28 @@ class VariableMapperFormattingTest {
   }
 
   @Test
+  void formatsBoxedPrimitiveObjectsAsTheirValues() throws Exception {
+    assertThat(mapSingle(boxed("java.lang.Integer", 43L, "12")).runtimeValue()).isEqualTo("12");
+    assertThat(mapSingle(boxed("java.lang.Boolean", 44L, "true")).runtimeValue()).isEqualTo("true");
+  }
+
+  @Test
   void formatsArrayListFromItsBackingArrayWithoutInvokingTargetMethods() throws Exception {
-    ArrayReference elements = array("java.lang.Object[]", 4, List.of("1", "2", "3"));
+    ArrayReference elements =
+        array(
+            "java.lang.Object[]",
+            4,
+            List.of(
+                boxed("java.lang.Integer", 51L, "1"),
+                boxed("java.lang.Integer", 52L, "2"),
+                boxed("java.lang.Integer", 53L, "3")));
     ObjectReference list =
         objectWithFields("java.util.ArrayList", 50L, Map.of("size", primitive("3"), "elementData", elements));
 
-    assertThat(mapSingle(list).runtimeValue()).isEqualTo("[1, 2, 3]");
+    ObservationResult result = mapSingle(list);
+    assertThat(result.runtimeValue()).isEqualTo("[1, 2, 3]");
+    assertThat(result.visualType()).isEqualTo("collection");
+    assertThat(result.visualValue()).isEqualTo(List.of(1, 2, 3));
   }
 
   @Test
@@ -191,12 +208,15 @@ class VariableMapperFormattingTest {
             new HashMap<>(
                 Map.of(
                     "key", string("left"),
-                    "value", primitive("10"))));
+                    "value", boxed("java.lang.Integer", 62L, "10"))));
     ArrayReference table = sparseArray("java.util.HashMap$Node[]", 4, Map.of(2, node));
     ObjectReference map =
         objectWithFields("java.util.HashMap", 60L, Map.of("size", primitive("1"), "table", table));
 
-    assertThat(mapSingle(map).runtimeValue()).isEqualTo("{\"left\": 10}");
+    ObservationResult result = mapSingle(map);
+    assertThat(result.runtimeValue()).isEqualTo("{\"left\": 10}");
+    assertThat(result.visualType()).isEqualTo("map");
+    assertThat(result.visualValue()).isEqualTo(List.of(Map.of("key", "left", "value", 10)));
   }
 
   @Test
@@ -205,7 +225,11 @@ class VariableMapperFormattingTest {
     ObjectReference second = listNode(72L, "2", third);
     ObjectReference first = listNode(71L, "1", second);
 
-    assertThat(mapSingle(first).runtimeValue()).isEqualTo("[1 -> 2 -> 3]");
+    ObservationResult result = mapSingle(first);
+    assertThat(result.runtimeValue()).isEqualTo("[1 -> 2 -> 3]");
+    assertThat(result.visualType()).isEqualTo("linked-list");
+    assertThat(result.visualValue())
+        .isEqualTo(Map.of("kind", "linked-list", "nodes", List.of(1, 2, 3), "cycle", false, "truncated", false));
   }
 
   @Test
@@ -214,9 +238,12 @@ class VariableMapperFormattingTest {
     ObjectReference right = treeNode(83L, "3", null, null);
     ObjectReference root = treeNode(81L, "1", left, right);
 
-    assertThat(mapSingle(root).runtimeValue())
+    ObservationResult result = mapSingle(root);
+    assertThat(result.runtimeValue())
         .isEqualTo(
             "{val: 1, left: {val: 2, left: null, right: null}, right: {val: 3, left: null, right: null}}");
+    assertThat(result.visualType()).isEqualTo("tree");
+    assertThat(result.visualValue()).isInstanceOf(Map.class);
   }
 
   private ObservationResult mapSingle(Value value) throws Exception {
@@ -260,6 +287,10 @@ class VariableMapperFormattingTest {
           when(object.getValue(field)).thenReturn(value);
         });
     return object;
+  }
+
+  private ObjectReference boxed(String typeName, long uniqueId, String value) {
+    return objectWithFields(typeName, uniqueId, Map.of("value", primitive(value)));
   }
 
   private ObjectReference listNode(long uniqueId, String value, ObjectReference next) {

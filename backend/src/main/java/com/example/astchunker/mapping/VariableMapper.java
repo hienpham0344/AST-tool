@@ -18,7 +18,9 @@ import com.sun.jdi.Value;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Component;
@@ -47,18 +49,20 @@ public class VariableMapper {
       Optional<AstVariable> astVariable =
           findAstVariable(
               variableName, jdiTypeName, observationPoint.lineNumber(), astVariables);
-      String runtimeValue;
+      FormattedValue formattedValue;
       try {
-        runtimeValue = serialize(frame.getValue(variable));
+        formattedValue = format(frame.getValue(variable));
       } catch (RuntimeException ex) {
-        runtimeValue = "[unavailable]";
+        formattedValue = new FormattedValue("[unavailable]", "unavailable", null);
       }
       results.add(
           new ObservationResult(
               astVariable.map(AstVariable::astNodeId).orElse(observationPoint.astNodeId()),
               variableName,
               astVariable.map(AstVariable::declaredType).orElse(jdiTypeName),
-              runtimeValue,
+              formattedValue.text(),
+              formattedValue.visualType(),
+              formattedValue.visualValue(),
               observationPoint.lineNumber()));
     }
     return List.copyOf(results);
@@ -118,6 +122,19 @@ public class VariableMapper {
 
   private String serialize(Value value) {
     return serialize(value, new FormatContext(), 0);
+  }
+
+  private FormattedValue format(Value value) {
+    String text = serialize(value);
+    String visualType = visualType(value);
+    Object visualValue;
+    try {
+      visualValue = structuredValue(value, new FormatContext(), 0);
+    } catch (RuntimeException ex) {
+      visualType = "unavailable";
+      visualValue = null;
+    }
+    return new FormattedValue(text, visualType, visualValue);
   }
 
   private String serialize(Value value, FormatContext context, int depth) {
@@ -237,6 +254,10 @@ public class VariableMapper {
 
     try {
       String typeName = objectReference.referenceType().name();
+      if (isBoxedPrimitive(typeName)) {
+        Value boxedValue = fieldValue(objectReference, "value");
+        return boxedValue == null ? referenceIdentity(objectReference) : serialize(boxedValue, context, depth + 1);
+      }
       if (isListNode(typeName, objectReference)) {
         return serializeListNode(objectReference, context, depth);
       }
@@ -288,6 +309,176 @@ public class VariableMapper {
 
   private boolean isHashMap(String typeName) {
     return typeName.equals("java.util.HashMap") || typeName.equals("java.util.LinkedHashMap");
+  }
+
+  private boolean isBoxedPrimitive(String typeName) {
+    return typeName.equals("java.lang.Boolean")
+        || typeName.equals("java.lang.Byte")
+        || typeName.equals("java.lang.Character")
+        || typeName.equals("java.lang.Short")
+        || typeName.equals("java.lang.Integer")
+        || typeName.equals("java.lang.Long")
+        || typeName.equals("java.lang.Float")
+        || typeName.equals("java.lang.Double");
+  }
+
+  private String visualType(Value value) {
+    if (value == null) {
+      return "null";
+    }
+    if (value instanceof StringReference) {
+      return "string";
+    }
+    if (value instanceof CharValue) {
+      return "char";
+    }
+    if (value instanceof PrimitiveValue) {
+      return "primitive";
+    }
+    if (value instanceof ArrayReference) {
+      return "array";
+    }
+    if (value instanceof ObjectReference objectReference) {
+      try {
+        String typeName = objectReference.referenceType().name();
+        if (isBoxedPrimitive(typeName)) {
+          return "primitive";
+        }
+        if (isListNode(typeName, objectReference)) {
+          return "linked-list";
+        }
+        if (isTreeNode(typeName, objectReference)) {
+          return "tree";
+        }
+        if (isArrayList(typeName) || isLinkedList(typeName) || isHashSet(typeName) || isArrayDeque(typeName)) {
+          return "collection";
+        }
+        if (isHashMap(typeName)) {
+          return "map";
+        }
+        return "reference";
+      } catch (RuntimeException ex) {
+        return "reference";
+      }
+    }
+    return "value";
+  }
+
+  private Object structuredValue(Value value, FormatContext context, int depth) {
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof StringReference stringReference) {
+      return stringReference.value();
+    }
+    if (value instanceof CharValue charValue) {
+      return String.valueOf(charValue.value());
+    }
+    if (value instanceof PrimitiveValue primitiveValue) {
+      return primitiveStructuredValue(primitiveValue.toString());
+    }
+    if (value instanceof ArrayReference arrayReference) {
+      return structuredArray(arrayReference, context, depth);
+    }
+    if (value instanceof ObjectReference objectReference) {
+      return structuredObject(objectReference, context, depth);
+    }
+    return value.toString();
+  }
+
+  private Object primitiveStructuredValue(String text) {
+    if ("true".equals(text) || "false".equals(text)) {
+      return Boolean.valueOf(text);
+    }
+    try {
+      return Integer.valueOf(text);
+    } catch (NumberFormatException ignored) {
+      // Try wider and floating-point forms below.
+    }
+    try {
+      return Long.valueOf(text);
+    } catch (NumberFormatException ignored) {
+      // Try floating-point below.
+    }
+    try {
+      return Double.valueOf(text);
+    } catch (NumberFormatException ignored) {
+      return text;
+    }
+  }
+
+  private Object structuredArray(ArrayReference arrayReference, FormatContext context, int depth) {
+    if (depth >= MAX_NESTING_DEPTH) {
+      return referenceMap(arrayReference);
+    }
+    long identity = arrayReference.uniqueID();
+    if (!context.activeArrayIds.add(identity)) {
+      return cycleMap();
+    }
+    try {
+      int length = arrayReference.length();
+      int count = Math.min(Math.min(length, MAX_ARRAY_ELEMENTS), context.remainingArrayValues);
+      context.remainingArrayValues -= count;
+      List<Value> values = count == 0 ? List.of() : arrayReference.getValues(0, count);
+      List<Object> result = new ArrayList<>();
+      for (Value element : values) {
+        result.add(structuredValue(element, context, depth + 1));
+      }
+      if (count < length) {
+        Map<String, Object> truncated = new LinkedHashMap<>();
+        truncated.put("truncated", true);
+        truncated.put("length", length);
+        result.add(truncated);
+      }
+      return result;
+    } finally {
+      context.activeArrayIds.remove(identity);
+    }
+  }
+
+  private Object structuredObject(ObjectReference objectReference, FormatContext context, int depth) {
+    if (depth >= MAX_NESTING_DEPTH) {
+      return referenceMap(objectReference);
+    }
+    long identity = objectReference.uniqueID();
+    if (!context.activeObjectIds.add(identity)) {
+      return cycleMap();
+    }
+    try {
+      String typeName = objectReference.referenceType().name();
+      if (isBoxedPrimitive(typeName)) {
+        return structuredValue(fieldValue(objectReference, "value"), context, depth + 1);
+      }
+      if (isListNode(typeName, objectReference)) {
+        return structuredListNode(objectReference, context, depth);
+      }
+      if (isTreeNode(typeName, objectReference)) {
+        context.activeObjectIds.remove(identity);
+        TreeBudget budget = new TreeBudget();
+        return structuredTreeNode(objectReference, context, depth, budget);
+      }
+      if (isArrayList(typeName)) {
+        return structuredArrayList(objectReference, context, depth);
+      }
+      if (isLinkedList(typeName)) {
+        return structuredLinkedList(objectReference, context, depth);
+      }
+      if (isHashSet(typeName)) {
+        Value mapValue = fieldValue(objectReference, "map");
+        return mapValue instanceof ObjectReference map
+            ? structuredHashMapEntries(map, context, depth, false)
+            : List.of();
+      }
+      if (isArrayDeque(typeName)) {
+        return structuredArrayDeque(objectReference, context, depth);
+      }
+      if (isHashMap(typeName)) {
+        return structuredHashMapEntries(objectReference, context, depth, true);
+      }
+      return referenceMap(objectReference);
+    } finally {
+      context.activeObjectIds.remove(identity);
+    }
   }
 
   private boolean isListNode(String typeName, ObjectReference objectReference) {
@@ -488,6 +679,185 @@ public class VariableMapper {
     return result.append("]").toString();
   }
 
+  private Object structuredArrayList(ObjectReference list, FormatContext context, int depth) {
+    int size = intField(list, "size", MAX_ARRAY_ELEMENTS);
+    Value elementData = fieldValue(list, "elementData");
+    if (!(elementData instanceof ArrayReference elements)) {
+      return referenceMap(list);
+    }
+    int count = Math.min(Math.min(size, MAX_ARRAY_ELEMENTS), context.remainingArrayValues);
+    context.remainingArrayValues -= count;
+    return structuredValues(elements.getValues(0, count), size, context, depth + 1);
+  }
+
+  private Object structuredArrayDeque(ObjectReference deque, FormatContext context, int depth) {
+    Value elementsValue = fieldValue(deque, "elements");
+    if (!(elementsValue instanceof ArrayReference elements)) {
+      return referenceMap(deque);
+    }
+    int head = intField(deque, "head", 0);
+    int tail = intField(deque, "tail", 0);
+    int capacity = elements.length();
+    int size = tail >= head ? tail - head : capacity - head + tail;
+    int count = Math.min(Math.min(size, MAX_ARRAY_ELEMENTS), context.remainingArrayValues);
+    context.remainingArrayValues -= count;
+
+    List<Value> values = new ArrayList<>();
+    for (int index = 0; index < count; index++) {
+      values.add(elements.getValue((head + index) % capacity));
+    }
+    return structuredValues(values, size, context, depth + 1);
+  }
+
+  private Object structuredLinkedList(ObjectReference list, FormatContext context, int depth) {
+    int size = intField(list, "size", MAX_LINKED_NODES);
+    Value first = fieldValue(list, "first");
+    List<Value> values = new ArrayList<>();
+    ObjectReference node = first instanceof ObjectReference object ? object : null;
+    Set<Long> seenNodes = new HashSet<>();
+    while (node != null && values.size() < Math.min(size, MAX_LINKED_NODES)) {
+      long id = node.uniqueID();
+      if (!seenNodes.add(id)) {
+        break;
+      }
+      values.add(fieldValue(node, "item"));
+      Value next = fieldValue(node, "next");
+      node = next instanceof ObjectReference nextNode ? nextNode : null;
+    }
+    return structuredValues(values, size, context, depth + 1);
+  }
+
+  private Object structuredHashMapEntries(
+      ObjectReference map, FormatContext context, int depth, boolean includeValues) {
+    int size = intField(map, "size", MAX_MAP_ENTRIES);
+    Value tableValue = fieldValue(map, "table");
+    if (!(tableValue instanceof ArrayReference table)) {
+      return List.of();
+    }
+
+    List<Object> entries = new ArrayList<>();
+    Set<Long> seenNodes = new HashSet<>();
+    int tableLength = table.length();
+    for (int bucket = 0; bucket < tableLength && entries.size() < MAX_MAP_ENTRIES; bucket++) {
+      Value bucketValue = table.getValue(bucket);
+      ObjectReference node = bucketValue instanceof ObjectReference object ? object : null;
+      while (node != null && entries.size() < MAX_MAP_ENTRIES) {
+        long id = node.uniqueID();
+        if (!seenNodes.add(id)) {
+          break;
+        }
+        if (includeValues) {
+          Map<String, Object> entry = new LinkedHashMap<>();
+          entry.put("key", structuredValue(fieldValue(node, "key"), context, depth + 1));
+          entry.put("value", structuredValue(fieldValue(node, "value"), context, depth + 1));
+          entries.add(entry);
+        } else {
+          entries.add(structuredValue(fieldValue(node, "key"), context, depth + 1));
+        }
+        Value next = fieldValue(node, "next");
+        node = next instanceof ObjectReference nextNode ? nextNode : null;
+      }
+    }
+    if (entries.size() < size) {
+      Map<String, Object> truncated = new LinkedHashMap<>();
+      truncated.put("truncated", true);
+      truncated.put("size", size);
+      entries.add(truncated);
+    }
+    return entries;
+  }
+
+  private Object structuredListNode(ObjectReference head, FormatContext context, int depth) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("kind", "linked-list");
+    List<Object> nodes = new ArrayList<>();
+    ObjectReference node = head;
+    Set<Long> seenNodes = new HashSet<>();
+    int count = 0;
+    boolean cycle = false;
+    boolean truncated = false;
+    while (node != null && count < MAX_LINKED_NODES) {
+      long id = node.uniqueID();
+      if (!seenNodes.add(id)) {
+        cycle = true;
+        break;
+      }
+      nodes.add(structuredValue(listOrTreeValue(node), context, depth + 1));
+      Value next = fieldValue(node, "next");
+      node = next instanceof ObjectReference nextNode ? nextNode : null;
+      count++;
+    }
+    if (node != null && count >= MAX_LINKED_NODES) {
+      truncated = true;
+    }
+    result.put("nodes", nodes);
+    result.put("cycle", cycle);
+    result.put("truncated", truncated);
+    return result;
+  }
+
+  private Object structuredTreeNode(
+      ObjectReference node, FormatContext context, int depth, TreeBudget budget) {
+    if (node == null) {
+      return null;
+    }
+    if (depth >= MAX_NESTING_DEPTH || budget.remaining-- <= 0) {
+      return referenceMap(node);
+    }
+    long identity = node.uniqueID();
+    if (!context.activeObjectIds.add(identity)) {
+      return cycleMap();
+    }
+    try {
+      Map<String, Object> result = new LinkedHashMap<>();
+      result.put("kind", "tree-node");
+      result.put("value", structuredValue(listOrTreeValue(node), context, depth + 1));
+      Value left = fieldValue(node, "left");
+      Value right = fieldValue(node, "right");
+      result.put(
+          "left",
+          structuredTreeNode(left instanceof ObjectReference object ? object : null, context, depth + 1, budget));
+      result.put(
+          "right",
+          structuredTreeNode(right instanceof ObjectReference object ? object : null, context, depth + 1, budget));
+      return result;
+    } finally {
+      context.activeObjectIds.remove(identity);
+    }
+  }
+
+  private Object structuredValues(
+      List<Value> values, int totalSize, FormatContext context, int depth) {
+    List<Object> result = new ArrayList<>();
+    for (Value value : values) {
+      result.add(structuredValue(value, context, depth));
+    }
+    if (values.size() < totalSize) {
+      Map<String, Object> truncated = new LinkedHashMap<>();
+      truncated.put("truncated", true);
+      truncated.put("size", totalSize);
+      result.add(truncated);
+    }
+    return result;
+  }
+
+  private Map<String, Object> referenceMap(ObjectReference reference) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    try {
+      result.put("type", reference.referenceType().name());
+      result.put("referenceId", reference.uniqueID());
+    } catch (RuntimeException ex) {
+      result.put("type", "<unavailable-reference>");
+    }
+    return result;
+  }
+
+  private Map<String, Object> cycleMap() {
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("cycle", true);
+    return result;
+  }
+
   private int intField(ObjectReference objectReference, String fieldName, int fallback) {
     Value value = fieldValue(objectReference, fieldName);
     if (value instanceof PrimitiveValue primitiveValue) {
@@ -566,4 +936,6 @@ public class VariableMapper {
 
     private int remaining = MAX_TREE_NODES;
   }
+
+  private record FormattedValue(String text, String visualType, Object visualValue) {}
 }

@@ -6,4 +6,6 @@ public record ObservationResult(
     String variableName,
     String declaredType,
     String runtimeValue,
+    String visualType,
+    Object visualValue,
     int lineNumber) {}
