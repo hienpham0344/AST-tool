@@ -41,6 +41,12 @@ public class VariableMapper {
   public List<ObservationResult> map(
       StackFrame frame, ObservationPoint observationPoint, List<AstVariable> astVariables)
     throws AbsentInformationException {
+    return map(frame, observationPoint, astVariables, observationPoint.lineNumber());
+  }
+
+  public List<ObservationResult> map(
+      StackFrame frame, ObservationPoint observationPoint, List<AstVariable> astVariables,
+      int eventLine) throws AbsentInformationException {
     List<LocalVariable> visibleVariables = frame.visibleVariables();
     List<ObservationResult> results = new ArrayList<>();
     for (LocalVariable variable : visibleVariables) {
@@ -48,7 +54,7 @@ public class VariableMapper {
       String jdiTypeName = readTypeName(variable);
       Optional<AstVariable> astVariable =
           findAstVariable(
-              variableName, jdiTypeName, observationPoint.lineNumber(), astVariables);
+              variableName, jdiTypeName, eventLine, astVariables);
       FormattedValue formattedValue;
       try {
         formattedValue = format(frame.getValue(variable));
@@ -63,7 +69,7 @@ public class VariableMapper {
               formattedValue.text(),
               formattedValue.visualType(),
               formattedValue.visualValue(),
-              observationPoint.lineNumber()));
+              eventLine));
     }
     return List.copyOf(results);
   }

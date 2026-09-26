@@ -2,9 +2,10 @@ package com.example.astchunker.debug;
 
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.mapping.VariableMapper;
+import com.example.astchunker.model.ExecutionContext;
+import com.example.astchunker.model.ExecutionObservation;
 import com.example.astchunker.model.ObservationPoint;
 import com.example.astchunker.model.ObservationResult;
-import com.example.astchunker.model.ExecutionObservation;
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.Bootstrap;
 import com.sun.jdi.IncompatibleThreadStateException;
@@ -90,13 +91,7 @@ public class JdiSession {
       // CommandLineLaunch returns a suspended VM. Resuming only after the ClassPrepareRequest is
       // active guarantees that a lazily-loaded target class cannot miss breakpoint installation.
       virtualMachine.resume();
-      runEventLoop(
-          virtualMachine,
-          requestManager,
-          analysis,
-          installedTypes,
-          executions,
-          warnings);
+      runEventLoop(virtualMachine, requestManager, analysis, installedTypes, executions, warnings);
       return new DebugRun(List.copyOf(executions), List.copyOf(warnings));
     } catch (VMDisconnectedException ex) {
       return new DebugRun(
@@ -112,7 +107,8 @@ public class JdiSession {
     Connector.Argument mainArgument = arguments.get("main");
     Connector.Argument optionsArgument = arguments.get("options");
     if (mainArgument == null || optionsArgument == null) {
-      throw new DebugException("The installed JDI connector does not support launching a main class.");
+      throw new DebugException(
+          "The installed JDI connector does not support launching a main class.");
     }
 
     mainArgument.setValue(target.mainClassName());
@@ -202,7 +198,8 @@ public class JdiSession {
       AstAnalyzer.Analysis analysis,
       Set<ReferenceType> installedTypes,
       List<String> warnings) {
-    if (!referenceType.name().equals(analysis.mainClassName()) || !installedTypes.add(referenceType)) {
+    if (!referenceType.name().equals(analysis.mainClassName())
+        || !installedTypes.add(referenceType)) {
       return;
     }
 
@@ -233,14 +230,19 @@ public class JdiSession {
       // The frame comes from the event's own ThreadReference. This is essential when several target
       // threads hit independent breakpoints at approximately the same time.
       StackFrame frame = eventThread.frame(0);
+      var location = breakpointEvent.location();
+      int lineNumber = location.lineNumber();
       List<ObservationResult> variables =
-          variableMapper.map(frame, observationPoint, analysis.variables());
-      int lineNumber = observationPoint.lineNumber();
-      try {
-        lineNumber = breakpointEvent.location().lineNumber();
-      } catch (RuntimeException ignored) {
-        // Fall back to the AST start line when the bytecode location lacks source metadata.
-      }
+          variableMapper.map(frame, observationPoint, analysis.variables(), lineNumber);
+      ExecutionContext context =
+          new ExecutionContext(
+              eventThread.uniqueID(),
+              eventThread.name(),
+              location.declaringType().name(),
+              location.method().name(),
+              location.method().signature(),
+              eventThread.frameCount(),
+              location.codeIndex());
       executions.add(
           new ExecutionObservation(
               executions.size() + 1L,
@@ -252,7 +254,8 @@ public class JdiSession {
               observationPoint.endColumn(),
               observationPoint.statementKind(),
               observationPoint.code(),
-              variables));
+              variables,
+              context));
     } catch (AbsentInformationException ex) {
       throw new DebugException(
           "Target local-variable debug information is unavailable. Compile the target with -g:vars.",

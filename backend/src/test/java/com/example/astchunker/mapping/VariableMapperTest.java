@@ -19,6 +19,24 @@ class VariableMapperTest {
   private final VariableMapper mapper = new VariableMapper();
 
   @Test
+  void mapsVariablesUsingRuntimeLineWhenDifferentFromAstStart() throws Exception {
+    StackFrame frame = mock(StackFrame.class);
+    LocalVariable local = mock(LocalVariable.class);
+    when(local.name()).thenReturn("value");
+    when(local.typeName()).thenReturn("int");
+    when(frame.visibleVariables()).thenReturn(List.of(local));
+    PrimitiveValue runtimeValue = primitiveValue("7");
+    when(frame.getValue(local)).thenReturn(runtimeValue);
+    var point = new ObservationPoint("statement", "Sample", 3, 3, 8, 1, 10, "TryStmt", "try {}");
+    var declaration = new AstVariable("local-value", "value", "int", 5, 5, 4, 8);
+    assertThat(mapper.map(frame, point, List.of(declaration), 6)).singleElement().satisfies(v -> {
+      assertThat(v.lineNumber()).isEqualTo(6);
+      assertThat(v.astNodeId()).isEqualTo("local-value");
+      assertThat(v.runtimeValue()).isEqualTo("7");
+    });
+  }
+
+  @Test
   void selectsTheInnermostMatchingAstVariableForSiblingScopes() {
     AstVariable firstScope = new AstVariable("first-value", "value", "int", 5, 5, 4, 7);
     AstVariable secondScope = new AstVariable("second-value", "value", "int", 8, 8, 7, 10);

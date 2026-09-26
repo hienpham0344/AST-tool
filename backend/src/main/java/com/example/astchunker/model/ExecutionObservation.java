@@ -1,5 +1,6 @@
 package com.example.astchunker.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 /** One suspended JDI breakpoint hit and the visible locals captured at that moment. */
@@ -13,7 +14,19 @@ public record ExecutionObservation(
     int endColumn,
     String statementKind,
     String code,
-    List<ObservationResult> variables) {
+    List<ObservationResult> variables,
+    ExecutionContext context) {
+
+  /** A breakpoint precedes its bytecode location, not necessarily an entire AST statement. */
+  @JsonProperty("snapshotPhase")
+  public String snapshotPhase() {
+    return "BEFORE_LOCATION";
+  }
+
+  @JsonProperty("granularity")
+  public String granularity() {
+    return "LINE_BREAKPOINT";
+  }
 
   public ExecutionObservation {
     if (sequence < 1) {
