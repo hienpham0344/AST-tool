@@ -32,5 +32,7 @@ Example of a populated hint (illustrative):
   the hint's source range, not globally across methods.
 - `startLine`, `endLine`: inclusive, one-based source range.
 
-Next steps: runtime visual events and additional algorithm families. Hints describe source
+Step 4 adds per-step visualization states and events; see
+[the visualization contract and review](step-04-visualization-contract.md).
+Next steps: frontend rendering and additional algorithm families. Hints describe source
 patterns and do not prove correctness or that a code path was executed.

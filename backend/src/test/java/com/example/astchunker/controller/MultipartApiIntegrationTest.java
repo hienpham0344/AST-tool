@@ -61,6 +61,8 @@ class MultipartApiIntegrationTest {
             .andExpect(jsonPath("$.steps[0].endLine").isNumber())
             .andExpect(jsonPath("$.steps[0].code").isString())
             .andExpect(jsonPath("$.steps[0].variables").isArray())
+            .andExpect(jsonPath("$.steps[0].visualStates").isEmpty())
+            .andExpect(jsonPath("$.steps[0].visualEvents").isEmpty())
             .andExpect(jsonPath("$.steps[0].snapshotPhase").value("BEFORE_LOCATION"))
             .andExpect(jsonPath("$.steps[0].granularity").value("LINE_BREAKPOINT"))
             .andExpect(jsonPath("$.steps[0].context.methodName").value("main"))
@@ -125,7 +127,12 @@ class MultipartApiIntegrationTest {
         .andExpect(jsonPath("$.algorithmHints[0].type").value("binary-search"))
         .andExpect(jsonPath("$.algorithmHints[0].variables.mid").value("m"))
         .andExpect(jsonPath("$.algorithmHints[0].startLine").value(5))
-        .andExpect(jsonPath("$.algorithmHints[0].endLine").value(10));
+        .andExpect(jsonPath("$.algorithmHints[0].endLine").value(10))
+        .andExpect(jsonPath("$.steps[0].visualStates").isEmpty())
+        .andExpect(jsonPath("$.steps[4].visualStates[0].algorithm").value("binary-search"))
+        .andExpect(jsonPath("$.steps[4].visualStates[0].pointers.mid.index").value(1))
+        .andExpect(jsonPath("$.steps[4].visualStates[0].array.length").value(4))
+        .andExpect(jsonPath("$.steps[4].visualEvents").isArray());
   }
 
   @Test
