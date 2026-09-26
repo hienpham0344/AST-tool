@@ -75,12 +75,49 @@ class MultipartApiIntegrationTest {
   void rejectsAFileWithoutTheJavaExtension() throws Exception {
     MockMultipartFile file =
         new MockMultipartFile(
-            "file", "not-java.txt", MediaType.TEXT_PLAIN_VALUE, "not java".getBytes(StandardCharsets.UTF_8));
+            "file",
+            "not-java.txt",
+            MediaType.TEXT_PLAIN_VALUE,
+            "not java".getBytes(StandardCharsets.UTF_8));
 
     mockMvc
         .perform(multipart("/api/ast/parse").file(file))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("Only .java source files are supported."));
+  }
+
+  @Test
+  void returnsBinarySearchHintsAlongsideRuntimeSteps() throws Exception {
+    String source =
+        """
+        public class SearchSample {
+          public static void main(String[] args) {
+            int[] nums = {1, 3, 5, 7};
+            int lo = 0, hi = nums.length - 1, target = 5;
+            while (lo <= hi) {
+              int m = lo + (hi - lo) / 2;
+              if (nums[m] == target) break;
+              if (nums[m] < target) lo = m + 1;
+              else hi = m - 1;
+            }
+          }
+        }
+        """;
+    var file =
+        new MockMultipartFile(
+            "file",
+            "SearchSample.java",
+            "text/x-java-source",
+            source.getBytes(StandardCharsets.UTF_8));
+    mockMvc
+        .perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.steps").isNotEmpty())
+        .andExpect(jsonPath("$.algorithmHints.length()").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("binary-search"))
+        .andExpect(jsonPath("$.algorithmHints[0].variables.mid").value("m"))
+        .andExpect(jsonPath("$.algorithmHints[0].startLine").value(5))
+        .andExpect(jsonPath("$.algorithmHints[0].endLine").value(10));
   }
 
   @Test
@@ -96,7 +133,10 @@ class MultipartApiIntegrationTest {
 
   private MockMultipartFile javaFile() {
     return new MockMultipartFile(
-        "file", "ApiSample.java", "text/x-java-source", sourceCode().getBytes(StandardCharsets.UTF_8));
+        "file",
+        "ApiSample.java",
+        "text/x-java-source",
+        sourceCode().getBytes(StandardCharsets.UTF_8));
   }
 
   private String sourceCode() {

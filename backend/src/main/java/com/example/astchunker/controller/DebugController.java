@@ -1,5 +1,6 @@
 package com.example.astchunker.controller;
 
+import com.example.astchunker.algorithm.AlgorithmPatternAnalyzer;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.debug.JdiSession;
 import com.example.astchunker.debug.TargetCompiler;
@@ -24,16 +25,19 @@ public class DebugController {
   private final AstAnalyzer astAnalyzer;
   private final TargetCompiler targetCompiler;
   private final JdiSession jdiSession;
+  private final AlgorithmPatternAnalyzer algorithmAnalyzer;
 
   public DebugController(
       UploadedJavaSourceReader sourceReader,
       AstAnalyzer astAnalyzer,
       TargetCompiler targetCompiler,
-      JdiSession jdiSession) {
+      JdiSession jdiSession,
+      AlgorithmPatternAnalyzer algorithmAnalyzer) {
     this.sourceReader = sourceReader;
     this.astAnalyzer = astAnalyzer;
     this.targetCompiler = targetCompiler;
     this.jdiSession = jdiSession;
+    this.algorithmAnalyzer = algorithmAnalyzer;
   }
 
   @PostMapping(value = "/debug", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -48,13 +52,16 @@ public class DebugController {
   }
 
   @PostMapping(value = "/debug/steps", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<DebugStepsResponse> debugSteps(
-      @RequestParam("file") MultipartFile file) {
+  public ResponseEntity<DebugStepsResponse> debugSteps(@RequestParam("file") MultipartFile file) {
     String sourceCode = sourceReader.read(file);
     AstAnalyzer.Analysis analysis = astAnalyzer.analyze(sourceCode);
     try (TargetCompiler.CompiledTarget target = targetCompiler.compile(sourceCode, analysis)) {
       JdiSession.DebugRun run = jdiSession.observe(target, analysis);
-      return ResponseEntity.ok(new DebugStepsResponse(run.executions(), run.warnings()));
+      return ResponseEntity.ok(
+          new DebugStepsResponse(
+              run.executions(),
+              run.warnings(),
+              algorithmAnalyzer.analyze(analysis.compilationUnit())));
     }
   }
 }

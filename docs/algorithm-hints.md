@@ -4,12 +4,12 @@
 `algorithmHints` alongside the existing `steps` and `warnings`. `/api/debug`
 continues to return the legacy observation array.
 
-This step defines the contract only. No detection rules run yet, so the endpoint
-returns `"algorithmHints": []`. An empty list means no available suggestion; it
+Step 1 defined the contract only. Step 2 adds conservative AST detection rules;
+see [the step 2 review](step-02-ast-algorithm-detection.md). An empty list means no available suggestion; it
 does not mean the source contains no algorithm. The frontend should continue
 rendering structured variables when no hints are available.
 
-Example of a future populated hint (illustrative, not current detection output):
+Example of a populated hint (illustrative):
 
 ```json
 {
@@ -32,6 +32,5 @@ Example of a future populated hint (illustrative, not current detection output):
   the hint's source range, not globally across methods.
 - `startLine`, `endLine`: inclusive, one-based source range.
 
-Next steps: AST rules for binary search, two pointers and sliding window; then
-runtime visual events and additional algorithm families. Hints describe source
+Next steps: runtime visual events and additional algorithm families. Hints describe source
 patterns and do not prove correctness or that a code path was executed.
