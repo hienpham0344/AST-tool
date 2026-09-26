@@ -62,6 +62,8 @@ class MultipartApiIntegrationTest {
             .andExpect(jsonPath("$.steps[0].code").isString())
             .andExpect(jsonPath("$.steps[0].variables").isArray())
             .andExpect(jsonPath("$.warnings").isArray())
+            .andExpect(jsonPath("$.algorithmHints").isArray())
+            .andExpect(jsonPath("$.algorithmHints").isEmpty())
             .andReturn()
             .getResponse()
             .getContentAsString();
