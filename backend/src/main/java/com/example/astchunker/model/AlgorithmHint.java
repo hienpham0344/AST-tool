@@ -12,7 +12,31 @@ public record AlgorithmHint(
     List<String> evidence,
     Map<String, String> variables,
     int startLine,
-    int endLine) {
+    int endLine,
+    String patternAstNodeId,
+    String methodAstNodeId,
+    Map<String, String> variableDeclarationIds) {
+
+  public AlgorithmHint(
+      String type,
+      double confidence,
+      String visualPlan,
+      List<String> evidence,
+      Map<String, String> variables,
+      int startLine,
+      int endLine) {
+    this(
+        type,
+        confidence,
+        visualPlan,
+        evidence,
+        variables,
+        startLine,
+        endLine,
+        null,
+        null,
+        Map.of());
+  }
 
   public AlgorithmHint {
     Objects.requireNonNull(type, "type");
@@ -28,5 +52,6 @@ public record AlgorithmHint(
     }
     evidence = List.copyOf(evidence);
     variables = Map.copyOf(variables);
+    variableDeclarationIds = Map.copyOf(variableDeclarationIds);
   }
 }

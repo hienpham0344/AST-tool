@@ -1,5 +1,6 @@
 package com.example.astchunker.algorithm;
 
+import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
@@ -38,7 +39,7 @@ public class AlgorithmPatternAnalyzer {
       Optional<AlgorithmHint> hint = binarySearch(loop);
       if (hint.isEmpty()) hint = slidingWindow(loop);
       if (hint.isEmpty()) hint = twoPointers(loop);
-      hint.ifPresent(hints::add);
+      hint.flatMap(candidate -> bind(loop, candidate)).ifPresent(hints::add);
     }
     return List.copyOf(hints);
   }
@@ -98,6 +99,25 @@ public class AlgorithmPatternAnalyzer {
       }
     }
     return Optional.empty();
+  }
+
+  private Optional<AlgorithmHint> bind(Node loop, AlgorithmHint hint) {
+    Node method = LocalVariableBindings.callable(loop);
+    if (method == null) return Optional.empty();
+    return LocalVariableBindings.roles(loop, hint.variables())
+        .map(
+            ids ->
+                new AlgorithmHint(
+                    hint.type(),
+                    hint.confidence(),
+                    hint.visualPlan(),
+                    hint.evidence(),
+                    hint.variables(),
+                    hint.startLine(),
+                    hint.endLine(),
+                    AstAnalyzer.nodeId(loop),
+                    AstAnalyzer.nodeId(method),
+                    ids));
   }
 
   private Optional<AlgorithmHint> twoPointers(Node loop) {

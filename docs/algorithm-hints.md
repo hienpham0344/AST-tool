@@ -1,5 +1,10 @@
 # Algorithm hints API (step 1)
 
+Tasks 2-3 add lexical role validation and direct AST IDs. See
+[task 2](task-02-lexical-variable-bindings.md) and
+[task 3](task-03-pattern-metadata.md). New hints include `patternAstNodeId`,
+`methodAstNodeId`, and `variableDeclarationIds` in addition to the fields below.
+
 `POST /api/debug/steps` accepts the existing multipart Java `file` and now returns
 `algorithmHints` alongside the existing `steps` and `warnings`. `/api/debug`
 continues to return the legacy observation array.

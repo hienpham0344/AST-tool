@@ -148,6 +148,7 @@ class AlgorithmPatternAnalyzerTest {
     assertThat(
             detect(
                 """
+        int total = 0, begin = 0;
         for (int end = 0; end < data.length; end++) {
           total += data[end];
           if (end - begin + 1 > k) { total -= data[begin]; begin++; }
@@ -210,9 +211,9 @@ class AlgorithmPatternAnalyzerTest {
         parser.parseCompilationUnit(
             """
         class Sample {
-          void first() { while (a < b) { int x = data[a] + data[b]; a++; } }
-          void second() { while (a < b) { b--; } }
-          void third() { while (a < b) { int x = data[a] + data[b]; a++; b--; } }
+          void first(int[] data, int a, int b) { while (a < b) { int x = data[a] + data[b]; a++; } }
+          void second(int[] data, int a, int b) { while (a < b) { b--; } }
+          void third(int[] data, int a, int b) { while (a < b) { int x = data[a] + data[b]; a++; b--; } }
         }
         """);
     assertThat(analyzer.analyze(unit)).hasSize(1).isEqualTo(analyzer.analyze(unit));

@@ -1,8 +1,8 @@
 package com.example.astchunker.visualization;
 
+import com.example.astchunker.algorithm.LocalVariableBindings;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
-import com.example.astchunker.model.AstVariable;
 import com.example.astchunker.model.ExecutionContext;
 import com.example.astchunker.model.ExecutionObservation;
 import com.example.astchunker.model.ObservationResult;
@@ -15,7 +15,6 @@ import com.example.astchunker.model.VisualState.Scalar;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.expr.LambdaExpr;
-import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.stmt.WhileStmt;
 import java.util.ArrayList;
@@ -32,7 +31,7 @@ public class VisualTraceBuilder {
       AstAnalyzer.Analysis analysis, List<AlgorithmHint> hints, List<ExecutionObservation> steps) {
     Map<String, Node> nodes = new LinkedHashMap<>();
     analysis.compilationUnit().walk(n -> nodes.put(AstAnalyzer.nodeId(n), n));
-    List<Binding> bindings = bindings(analysis, hints);
+    List<Binding> bindings = bindings(analysis, hints, nodes);
     List<ExecutionObservation> result = new ArrayList<>();
     ExecutionObservation previous = null;
     for (ExecutionObservation step : steps) {
@@ -51,7 +50,8 @@ public class VisualTraceBuilder {
     return List.copyOf(result);
   }
 
-  private List<Binding> bindings(AstAnalyzer.Analysis analysis, List<AlgorithmHint> hints) {
+  private List<Binding> bindings(
+      AstAnalyzer.Analysis analysis, List<AlgorithmHint> hints, Map<String, Node> nodes) {
     List<Node> loops =
         analysis
             .compilationUnit()
@@ -61,6 +61,24 @@ public class VisualTraceBuilder {
       AlgorithmHint hint = hints.get(index);
       if (!List.of("binary-search", "two-pointers", "sliding-window").contains(hint.type()))
         continue;
+      if (hint.patternAstNodeId() != null) {
+        Node loop = nodes.get(hint.patternAstNodeId());
+        if (!(loop instanceof ForStmt || loop instanceof WhileStmt)
+            || owner(loop) == null
+            || !AstAnalyzer.nodeId(owner(loop)).equals(hint.methodAstNodeId())
+            || !hint.variableDeclarationIds().keySet().equals(hint.variables().keySet())) continue;
+        boolean valid =
+            hint.variableDeclarationIds().entrySet().stream()
+                .allMatch(
+                    entry ->
+                        analysis.variables().stream()
+                            .anyMatch(
+                                v ->
+                                    v.astNodeId().equals(entry.getValue())
+                                        && v.name().equals(hint.variables().get(entry.getKey()))));
+        if (valid) result.add(new Binding(index, hint, loop, hint.variableDeclarationIds()));
+        continue;
+      }
       List<Node> matches =
           loops.stream()
               .filter(
@@ -70,35 +88,15 @@ public class VisualTraceBuilder {
                               r -> r.begin.line == hint.startLine() && r.end.line == hint.endLine())
                           .orElse(false))
               .toList();
-      // The hint contract has only lines. Ambiguous same-line loops must not be guessed.
+      // Compatibility for older hints without node IDs; never guess ambiguous source lines.
       if (matches.size() != 1) continue;
       Node loop = matches.get(0);
       if (!(owner(loop) instanceof CallableDeclaration<?>)) continue;
-      Map<String, String> declarations = new LinkedHashMap<>();
-      hint.variables()
-          .forEach(
-              (role, name) -> {
-                List<String> ids =
-                    loop.findAll(NameExpr.class).stream()
-                        .filter(n -> n.getNameAsString().equals(name) && owner(n) == owner(loop))
-                        .map(n -> declaration(analysis.variables(), name, n))
-                        .filter(Objects::nonNull)
-                        .distinct()
-                        .toList();
-                if (ids.size() == 1) declarations.put(role, ids.get(0));
-              });
+      Map<String, String> declarations =
+          LocalVariableBindings.roles(loop, hint.variables()).orElse(Map.of());
       result.add(new Binding(index, hint, loop, declarations));
     }
     return result;
-  }
-
-  private String declaration(List<AstVariable> variables, String name, Node reference) {
-    int line = reference.getBegin().map(p -> p.line).orElse(-1);
-    List<AstVariable> candidates =
-        variables.stream().filter(v -> v.name().equals(name) && v.isInScopeAt(line)).toList();
-    int width = candidates.stream().mapToInt(AstVariable::scopeWidth).min().orElse(-1);
-    List<AstVariable> closest = candidates.stream().filter(v -> v.scopeWidth() == width).toList();
-    return closest.size() == 1 ? closest.get(0).astNodeId() : null;
   }
 
   private boolean applies(

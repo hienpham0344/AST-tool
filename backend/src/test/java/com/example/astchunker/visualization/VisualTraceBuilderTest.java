@@ -269,7 +269,46 @@ class VisualTraceBuilderTest {
             List.of(),
             new ExecutionContext(1, "main", "Sample", "f", "([III)V", 1, 10));
     assertThat(builder.build(other, otherHints, List.of(otherStep)).get(0).visualStates())
-        .isEmpty();
+        .hasSize(1);
+    var legacy =
+        otherHints.stream()
+            .map(
+                h ->
+                    new AlgorithmHint(
+                        h.type(),
+                        h.confidence(),
+                        h.visualPlan(),
+                        h.evidence(),
+                        h.variables(),
+                        h.startLine(),
+                        h.endLine()))
+            .toList();
+    assertThat(builder.build(other, legacy, List.of(otherStep)).get(0).visualStates()).isEmpty();
+    assertThat(otherHints).extracting(AlgorithmHint::patternAstNodeId).doesNotHaveDuplicates();
+    for (int index = 0; index < otherHints.size(); index++) {
+      var hint = otherHints.get(index);
+      var loopPoint =
+          other.observationPoints().stream()
+              .filter(p -> p.astNodeId().equals(hint.patternAstNodeId()))
+              .findFirst()
+              .orElseThrow();
+      var loopStep =
+          new ExecutionObservation(
+              1,
+              loopPoint.astNodeId(),
+              1,
+              1,
+              1,
+              loopPoint.startColumn(),
+              loopPoint.endColumn(),
+              loopPoint.statementKind(),
+              loopPoint.code(),
+              List.of(),
+              otherStep.context());
+      assertThat(builder.build(other, otherHints, List.of(loopStep)).get(0).visualStates())
+          .extracting(VisualState::hintIndex)
+          .containsExactly(index);
+    }
   }
 
   @Test

@@ -1,5 +1,9 @@
 # Buoc 4: Du lieu visualize cho tung execution step
 
+Cap nhat task 3: hint moi dung pattern/method/declaration IDs truc tiep;
+range matching mo ta duoi day chi con la fallback cho hint legacy.
+Xem [metadata review](task-03-pattern-metadata.md).
+
 ## Muc tieu va pham vi
 
 Backend them `visualStates` va `visualEvents` vao moi item trong `steps` cua
