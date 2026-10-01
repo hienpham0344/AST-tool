@@ -290,6 +290,45 @@
         .runtime-table tr:last-child td { border-bottom: none; }
         .runtime-table .runtime-value { color: var(--teal); white-space: pre-wrap; word-break: break-word; }
         .runtime-table .runtime-id { color: var(--dim); font-size: 11px; }
+        .visual-value { display: flex; flex-direction: column; gap: 6px; color: var(--teal); }
+        .visual-meta { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .visual-array, .visual-list {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 5px;
+        }
+        .visual-item, .visual-node {
+            border: 1px solid rgba(95,179,163,0.32);
+            background: rgba(95,179,163,0.09);
+            border-radius: 4px;
+            padding: 3px 7px;
+            min-width: 24px;
+            text-align: center;
+            color: var(--text);
+        }
+        .visual-arrow { color: var(--dim); }
+        .visual-map {
+            display: grid;
+            grid-template-columns: max-content max-content max-content;
+            gap: 4px 8px;
+            align-items: baseline;
+        }
+        .visual-map-key { color: var(--amber); }
+        .visual-map-arrow { color: var(--dim); }
+        .visual-map-value { color: var(--text); }
+        .visual-tree {
+            display: grid;
+            gap: 4px;
+            padding-left: 10px;
+            border-left: 1px solid rgba(95,179,163,0.28);
+        }
+        .visual-tree-node { color: var(--text); }
+        .visual-tree-children {
+            display: grid;
+            gap: 4px;
+            margin-left: 12px;
+        }
     </style>
 </head>
 <body>
@@ -429,7 +468,7 @@
                 <td>L${escapeHtml(observation.lineNumber)}</td>
                 <td>${escapeHtml(observation.variableName)}</td>
                 <td>${escapeHtml(observation.declaredType)}</td>
-                <td class="runtime-value">${escapeHtml(observation.runtimeValue)}</td>
+                <td class="runtime-value">${renderVariableValue(observation)}</td>
                 <td class="runtime-id">${escapeHtml(observation.astNodeId)}</td>
             </tr>`).join('');
 
@@ -452,21 +491,89 @@
         return lineNumber > 0 && lineNumber <= lines.length ? lines[lineNumber - 1] : '';
     }
 
-    function renderSourceViewer(lineNumber) {
+    function renderSourceViewer(activeStep) {
         const viewer = document.getElementById('sourceViewer');
         const source = String(lastSourceCode || '');
         if (!source) {
             viewer.innerHTML = '';
             return;
         }
+        const activeLine = typeof activeStep === 'number' ? activeStep : activeStep?.lineNumber;
+        const startLine = typeof activeStep === 'number' ? activeStep : activeStep?.startLine || activeLine;
+        const endLine = typeof activeStep === 'number' ? activeStep : activeStep?.endLine || activeLine;
         viewer.innerHTML = source.split(/\r?\n/).map((line, index) => {
             const number = index + 1;
-            return `<div class="source-line${number === lineNumber ? ' active' : ''}">
+            const isActive = number >= startLine && number <= endLine;
+            return `<div class="source-line${isActive ? ' active' : ''}">
                 <span class="source-line-number">${number}</span><span class="source-line-code">${escapeHtml(line)}</span>
             </div>`;
         }).join('');
         const active = viewer.querySelector('.source-line.active');
         if (active) active.scrollIntoView({ block: 'center' });
+    }
+
+    function primitiveLabel(value) {
+        if (value === null || value === undefined) return 'null';
+        if (typeof value === 'string') return value;
+        if (typeof value === 'object') return JSON.stringify(value);
+        return String(value);
+    }
+
+    function renderVisualArray(values) {
+        if (!Array.isArray(values)) return '';
+        return `<div class="visual-array">${values.map(value =>
+            `<span class="visual-item">${escapeHtml(primitiveLabel(value))}</span>`
+        ).join('')}</div>`;
+    }
+
+    function renderVisualMap(entries) {
+        if (!Array.isArray(entries)) return '';
+        return `<div class="visual-map">${entries.map(entry => {
+            if (entry?.truncated) {
+                return `<span class="visual-map-key">...</span><span></span><span class="visual-map-value">size ${escapeHtml(entry.size)}</span>`;
+            }
+            return `<span class="visual-map-key">${escapeHtml(primitiveLabel(entry?.key))}</span>
+                <span class="visual-map-arrow">=&gt;</span>
+                <span class="visual-map-value">${escapeHtml(primitiveLabel(entry?.value))}</span>`;
+        }).join('')}</div>`;
+    }
+
+    function renderVisualLinkedList(value) {
+        const nodes = Array.isArray(value?.nodes) ? value.nodes : [];
+        const html = nodes.map((node, index) =>
+            `<span class="visual-node">${escapeHtml(primitiveLabel(node))}</span>${index < nodes.length - 1 ? '<span class="visual-arrow">-&gt;</span>' : ''}`
+        ).join('');
+        const suffix = value?.cycle ? '<span class="visual-arrow">-&gt; cycle</span>' : value?.truncated ? '<span class="visual-arrow">-&gt; ...</span>' : '';
+        return `<div class="visual-list">${html}${suffix}</div>`;
+    }
+
+    function renderVisualTree(node) {
+        if (!node) return '<span class="visual-map-value">null</span>';
+        if (node.cycle) return '<span class="visual-map-value">cycle</span>';
+        if (node.referenceId) return `<span class="visual-map-value">${escapeHtml(node.type)}#${escapeHtml(node.referenceId)}</span>`;
+        return `<div class="visual-tree">
+            <div class="visual-tree-node">${escapeHtml(primitiveLabel(node.value))}</div>
+            <div class="visual-tree-children">
+                <div><span class="visual-meta">L</span> ${renderVisualTree(node.left)}</div>
+                <div><span class="visual-meta">R</span> ${renderVisualTree(node.right)}</div>
+            </div>
+        </div>`;
+    }
+
+    function renderVariableValue(variable) {
+        const type = variable.visualType;
+        const value = variable.visualValue;
+        let visual = '';
+        if (type === 'array' || type === 'collection') visual = renderVisualArray(value);
+        if (type === 'map') visual = renderVisualMap(value);
+        if (type === 'linked-list') visual = renderVisualLinkedList(value);
+        if (type === 'tree') visual = renderVisualTree(value);
+        if (!visual) visual = escapeHtml(variable.runtimeValue);
+        return `<div class="visual-value">
+            ${type ? `<span class="visual-meta">${escapeHtml(type)}</span>` : ''}
+            ${visual}
+            <span class="runtime-id">${escapeHtml(variable.runtimeValue)}</span>
+        </div>`;
     }
 
     function renderExecutionVariables(variables, previousVariables) {
@@ -477,9 +584,9 @@
         return variables.map(variable => {
             const previous = previousByKey.get(variableKey(variable));
             const changed = previous && previous.runtimeValue !== variable.runtimeValue;
-            const value = changed
-                ? `${escapeHtml(previous.runtimeValue)} <span class="change-detail">-&gt; ${escapeHtml(variable.runtimeValue)}</span>`
-                : escapeHtml(variable.runtimeValue);
+            const value = renderVariableValue(variable) + (changed
+                ? `<span class="change-detail">${escapeHtml(previous.runtimeValue)} -&gt; ${escapeHtml(variable.runtimeValue)}</span>`
+                : '');
             return `<tr><td>${escapeHtml(variable.variableName)}</td><td>${escapeHtml(variable.declaredType)}</td>
                 <td class="runtime-value${changed ? ' changed' : ''}">${value}</td><td class="runtime-id">${escapeHtml(variable.astNodeId)}</td></tr>`;
         }).join('');
@@ -514,7 +621,7 @@
         const counterEl = document.getElementById('stepCounter');
         if (locationEl) {
             locationEl.innerHTML = `<span class="location-line">Step ${step.sequence} · line ${step.lineNumber} · ${escapeHtml(step.statementKind || 'statement')}</span>
-                <code>${escapeHtml(sourceLineAt(step.lineNumber).trim() || '(source line unavailable)')}</code>`;
+                <code>${escapeHtml(String(step.code || '').trim() || sourceLineAt(step.lineNumber).trim() || '(source line unavailable)')}</code>`;
         }
         if (variablesEl) variablesEl.innerHTML = renderExecutionVariables(step.variables || [], previous);
         if (counterEl) counterEl.textContent = `Step ${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
@@ -522,7 +629,7 @@
         const nextBtn = document.getElementById('nextStepBtn');
         if (previousBtn) previousBtn.disabled = currentExecutionIndex === 0;
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
-        renderSourceViewer(step.lineNumber);
+        renderSourceViewer(step);
     }
 
     function bindExecutionNavigation() {

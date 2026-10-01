@@ -1,0 +1,11 @@
+com\example\astchunker\service\UploadedJavaSourceReaderTest.class
+com\example\astchunker\controller\MultipartApiIntegrationTest.class
+com\example\astchunker\debug\TargetCompilerTest.class
+com\example\astchunker\mapping\VariableMapperFormattingTest.class
+com\example\astchunker\service\AstServiceTest.class
+com\example\astchunker\debug\JdiSessionIntegrationTest.class
+com\example\astchunker\MainTest.class
+com\example\astchunker\ast\AstAnalyzerTest.class
+com\example\astchunker\debug\JdiSessionDisconnectTest.class
+com\example\astchunker\debug\BreakpointMapperTest.class
+com\example\astchunker\mapping\VariableMapperTest.class

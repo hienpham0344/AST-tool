@@ -57,8 +57,23 @@ class MultipartApiIntegrationTest {
             .andExpect(jsonPath("$.steps").isArray())
             .andExpect(jsonPath("$.steps[0].sequence").isNumber())
             .andExpect(jsonPath("$.steps[0].lineNumber").isNumber())
+            .andExpect(jsonPath("$.steps[0].startLine").isNumber())
+            .andExpect(jsonPath("$.steps[0].endLine").isNumber())
+            .andExpect(jsonPath("$.steps[0].code").isString())
             .andExpect(jsonPath("$.steps[0].variables").isArray())
+            .andExpect(jsonPath("$.steps[0].visualStates").isEmpty())
+            .andExpect(jsonPath("$.steps[0].visualEvents").isEmpty())
+            .andExpect(jsonPath("$.steps[0].snapshotPhase").value("BEFORE_LOCATION"))
+            .andExpect(jsonPath("$.steps[0].granularity").value("LINE_BREAKPOINT"))
+            .andExpect(jsonPath("$.steps[0].context.methodName").value("main"))
+            .andExpect(
+                jsonPath("$.steps[0].context.methodSignature").value("([Ljava/lang/String;)V"))
+            .andExpect(jsonPath("$.steps[0].context.threadId").isNumber())
+            .andExpect(jsonPath("$.steps[0].context.stackDepth").isNumber())
+            .andExpect(jsonPath("$.steps[0].context.codeIndex").isNumber())
             .andExpect(jsonPath("$.warnings").isArray())
+            .andExpect(jsonPath("$.algorithmHints").isArray())
+            .andExpect(jsonPath("$.algorithmHints").isEmpty())
             .andReturn()
             .getResponse()
             .getContentAsString();
@@ -70,12 +85,57 @@ class MultipartApiIntegrationTest {
   void rejectsAFileWithoutTheJavaExtension() throws Exception {
     MockMultipartFile file =
         new MockMultipartFile(
-            "file", "not-java.txt", MediaType.TEXT_PLAIN_VALUE, "not java".getBytes(StandardCharsets.UTF_8));
+            "file",
+            "not-java.txt",
+            MediaType.TEXT_PLAIN_VALUE,
+            "not java".getBytes(StandardCharsets.UTF_8));
 
     mockMvc
         .perform(multipart("/api/ast/parse").file(file))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("Only .java source files are supported."));
+  }
+
+  @Test
+  void returnsBinarySearchHintsAlongsideRuntimeSteps() throws Exception {
+    String source =
+        """
+        public class SearchSample {
+          public static void main(String[] args) {
+            int[] nums = {1, 3, 5, 7};
+            int lo = 0, hi = nums.length - 1, target = 5;
+            while (lo <= hi) {
+              int m = lo + (hi - lo) / 2;
+              if (nums[m] == target) break;
+              if (nums[m] < target) lo = m + 1;
+              else hi = m - 1;
+            }
+          }
+        }
+        """;
+    var file =
+        new MockMultipartFile(
+            "file",
+            "SearchSample.java",
+            "text/x-java-source",
+            source.getBytes(StandardCharsets.UTF_8));
+    mockMvc
+        .perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.steps").isNotEmpty())
+        .andExpect(jsonPath("$.algorithmHints.length()").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("binary-search"))
+        .andExpect(jsonPath("$.algorithmHints[0].patternAstNodeId").isNotEmpty())
+        .andExpect(jsonPath("$.algorithmHints[0].methodAstNodeId").isNotEmpty())
+        .andExpect(jsonPath("$.algorithmHints[0].variableDeclarationIds.mid").isNotEmpty())
+        .andExpect(jsonPath("$.algorithmHints[0].variables.mid").value("m"))
+        .andExpect(jsonPath("$.algorithmHints[0].startLine").value(5))
+        .andExpect(jsonPath("$.algorithmHints[0].endLine").value(10))
+        .andExpect(jsonPath("$.steps[0].visualStates").isEmpty())
+        .andExpect(jsonPath("$.steps[4].visualStates[0].algorithm").value("binary-search"))
+        .andExpect(jsonPath("$.steps[4].visualStates[0].pointers.mid.index").value(1))
+        .andExpect(jsonPath("$.steps[4].visualStates[0].array.length").value(4))
+        .andExpect(jsonPath("$.steps[4].visualEvents").isArray());
   }
 
   @Test
@@ -91,7 +151,10 @@ class MultipartApiIntegrationTest {
 
   private MockMultipartFile javaFile() {
     return new MockMultipartFile(
-        "file", "ApiSample.java", "text/x-java-source", sourceCode().getBytes(StandardCharsets.UTF_8));
+        "file",
+        "ApiSample.java",
+        "text/x-java-source",
+        sourceCode().getBytes(StandardCharsets.UTF_8));
   }
 
   private String sourceCode() {

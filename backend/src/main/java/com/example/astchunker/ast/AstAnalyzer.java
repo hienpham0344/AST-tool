@@ -64,7 +64,7 @@ public class AstAnalyzer {
     TargetType targetType = findTargetType(compilationUnit);
     List<AstVariable> variables = extractVariables(compilationUnit);
     List<ObservationPoint> points =
-        extractObservationPoints(targetType.declaration(), targetType.className());
+        extractObservationPoints(targetType.declaration(), targetType.className(), sourceCode);
     return new Analysis(
         compilationUnit,
         targetType.className(),
@@ -143,7 +143,7 @@ public class AstAnalyzer {
   }
 
   private List<ObservationPoint> extractObservationPoints(
-      ClassOrInterfaceDeclaration targetClass, String className) {
+      ClassOrInterfaceDeclaration targetClass, String className, String sourceCode) {
     return targetClass.findAll(Statement.class).stream()
         .filter(
             statement ->
@@ -161,9 +161,38 @@ public class AstAnalyzer {
                     statement.getRange().get().begin.line,
                     statement.getRange().get().begin.line,
                     statement.getRange().get().end.line,
-                    statement.getClass().getSimpleName()))
+                    statement.getRange().get().begin.column,
+                    statement.getRange().get().end.column,
+                    statement.getClass().getSimpleName(),
+                    rangeText(statement, sourceCode)))
         .sorted(Comparator.comparingInt(ObservationPoint::lineNumber))
         .toList();
+  }
+
+  private String rangeText(Node node, String sourceCode) {
+    return node.getRange()
+        .map(
+            range -> {
+              int startOffset = offsetOfLineColumn(sourceCode, range.begin.line, range.begin.column);
+              int endOffset = offsetOfLineColumn(sourceCode, range.end.line, range.end.column);
+              if (startOffset < 0 || endOffset < startOffset || startOffset >= sourceCode.length()) {
+                return node.toString();
+              }
+              return sourceCode.substring(startOffset, Math.min(endOffset + 1, sourceCode.length()));
+            })
+        .orElseGet(node::toString);
+  }
+
+  private int offsetOfLineColumn(String sourceCode, int line, int column) {
+    int currentLine = 1;
+    int offset = 0;
+    while (offset < sourceCode.length() && currentLine < line) {
+      if (sourceCode.charAt(offset) == '\n') {
+        currentLine++;
+      }
+      offset++;
+    }
+    return offset + column - 1;
   }
 
   private boolean isExecutableStatement(Statement statement) {

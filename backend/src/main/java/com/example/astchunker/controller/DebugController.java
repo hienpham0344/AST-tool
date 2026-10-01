@@ -1,11 +1,13 @@
 package com.example.astchunker.controller;
 
+import com.example.astchunker.algorithm.AlgorithmPatternAnalyzer;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.debug.JdiSession;
 import com.example.astchunker.debug.TargetCompiler;
 import com.example.astchunker.dto.DebugStepsResponse;
 import com.example.astchunker.model.ObservationResult;
 import com.example.astchunker.service.UploadedJavaSourceReader;
+import com.example.astchunker.visualization.VisualTraceBuilder;
 import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,16 +26,22 @@ public class DebugController {
   private final AstAnalyzer astAnalyzer;
   private final TargetCompiler targetCompiler;
   private final JdiSession jdiSession;
+  private final AlgorithmPatternAnalyzer algorithmAnalyzer;
+  private final VisualTraceBuilder visualTraceBuilder;
 
   public DebugController(
       UploadedJavaSourceReader sourceReader,
       AstAnalyzer astAnalyzer,
       TargetCompiler targetCompiler,
-      JdiSession jdiSession) {
+      JdiSession jdiSession,
+      AlgorithmPatternAnalyzer algorithmAnalyzer,
+      VisualTraceBuilder visualTraceBuilder) {
     this.sourceReader = sourceReader;
     this.astAnalyzer = astAnalyzer;
     this.targetCompiler = targetCompiler;
     this.jdiSession = jdiSession;
+    this.algorithmAnalyzer = algorithmAnalyzer;
+    this.visualTraceBuilder = visualTraceBuilder;
   }
 
   @PostMapping(value = "/debug", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -48,13 +56,15 @@ public class DebugController {
   }
 
   @PostMapping(value = "/debug/steps", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<DebugStepsResponse> debugSteps(
-      @RequestParam("file") MultipartFile file) {
+  public ResponseEntity<DebugStepsResponse> debugSteps(@RequestParam("file") MultipartFile file) {
     String sourceCode = sourceReader.read(file);
     AstAnalyzer.Analysis analysis = astAnalyzer.analyze(sourceCode);
     try (TargetCompiler.CompiledTarget target = targetCompiler.compile(sourceCode, analysis)) {
       JdiSession.DebugRun run = jdiSession.observe(target, analysis);
-      return ResponseEntity.ok(new DebugStepsResponse(run.executions(), run.warnings()));
+      var hints = algorithmAnalyzer.analyze(analysis.compilationUnit());
+      return ResponseEntity.ok(
+          new DebugStepsResponse(
+              visualTraceBuilder.build(analysis, hints, run.executions()), run.warnings(), hints));
     }
   }
 }
