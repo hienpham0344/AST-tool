@@ -15,7 +15,35 @@ public record AlgorithmHint(
     int endLine,
     String patternAstNodeId,
     String methodAstNodeId,
-    Map<String, String> variableDeclarationIds) {
+    Map<String, String> variableDeclarationIds,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        SortPattern sort) {
+
+  public AlgorithmHint(
+      String type,
+      double confidence,
+      String visualPlan,
+      List<String> evidence,
+      Map<String, String> variables,
+      int startLine,
+      int endLine,
+      String patternAstNodeId,
+      String methodAstNodeId,
+      Map<String, String> variableDeclarationIds) {
+    this(
+        type,
+        confidence,
+        visualPlan,
+        evidence,
+        variables,
+        startLine,
+        endLine,
+        patternAstNodeId,
+        methodAstNodeId,
+        variableDeclarationIds,
+        null);
+  }
 
   public AlgorithmHint(
       String type,

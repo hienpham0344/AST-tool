@@ -139,6 +139,47 @@ class MultipartApiIntegrationTest {
   }
 
   @Test
+  void returnsStructuredBubbleSortMetadataWithoutInventingRuntimeSortStates() throws Exception {
+    String source =
+        """
+        public class BubbleSample {
+          public static void main(String[] args) {
+            int[] data = {3, 1, 2};
+            for (int pass = 0; pass < data.length - 1; pass++) {
+              for (int scan = 0; scan < data.length - 1 - pass; scan++) {
+                if (data[scan] > data[scan + 1]) {
+                  int temp = data[scan];
+                  data[scan] = data[scan + 1];
+                  data[scan + 1] = temp;
+                }
+              }
+            }
+            System.out.println(java.util.Arrays.toString(data));
+          }
+        }
+        """;
+    var file =
+        new MockMultipartFile(
+            "file",
+            "BubbleSample.java",
+            "text/x-java-source",
+            source.getBytes(StandardCharsets.UTF_8));
+
+    mockMvc
+        .perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints.length()").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("bubble-sort"))
+        .andExpect(jsonPath("$.algorithmHints[0].sort.schemaVersion").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].sort.direction").value("ASCENDING"))
+        .andExpect(jsonPath("$.algorithmHints[0].sort.first.offset").value(0))
+        .andExpect(jsonPath("$.algorithmHints[0].sort.second.offset").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].sort.swapStatementAstNodeIds.length()").value(3))
+        .andExpect(jsonPath("$.algorithmHints[0].variableDeclarationIds.scan").isNotEmpty())
+        .andExpect(jsonPath("$.steps").isNotEmpty());
+  }
+
+  @Test
   void exposesCorsForTheStandaloneUi() throws Exception {
     mockMvc
         .perform(

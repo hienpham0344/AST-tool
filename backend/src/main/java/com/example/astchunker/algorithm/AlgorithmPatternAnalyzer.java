@@ -36,6 +36,11 @@ public class AlgorithmPatternAnalyzer {
     List<AlgorithmHint> hints = new ArrayList<>();
     for (Node loop : unit.findAll(Node.class, AlgorithmPatternAnalyzer::isLoop)) {
       if (loop.getRange().isEmpty()) continue;
+      Optional<AlgorithmHint> sort = BubbleSortDetector.detect(loop);
+      if (sort.isPresent()) {
+        hints.add(sort.get());
+        continue;
+      }
       Optional<AlgorithmHint> hint = binarySearch(loop);
       if (hint.isEmpty()) hint = slidingWindow(loop);
       if (hint.isEmpty()) hint = twoPointers(loop);

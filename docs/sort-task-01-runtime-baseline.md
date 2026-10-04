@@ -38,16 +38,10 @@ this is not a general solution for methods ending immediately after a write.
 
 Full Maven suite: 132 tests, zero failures, errors, or skipped tests.
 Sort runtime suite: 20 tests passed. No production or frontend code changed.
-Task 01 is partial: runtime fixtures are ready, detector negative tests remain
-to be implemented alongside the detector. Tasks 02-08 remain pending.
+Task 01 established the runtime baseline. Detector and contract progress is
+tracked in [sort tasks 02-03](sort-task-02-03-bubble-sort-detection.md).
 
 ## Remaining acceptance criteria
 
-- Contract: distinguish comparisons about to execute from writes already observed.
-- Detector: recognize complete adjacent conditional swaps with lexical identities.
-- Negative corpus: reject comparison-only loops, unconditional swaps, incomplete
-  swaps, unrelated arrays, and same-name variables from different scopes.
 - Trace: never infer completed swap or sorted region from a single assignment.
 - UI: consume self-contained states; keep generic runtime fallback.
-
-The negative corpus above is a pending detector requirement, not tested coverage.
