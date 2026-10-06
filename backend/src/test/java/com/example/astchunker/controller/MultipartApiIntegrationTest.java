@@ -176,6 +176,8 @@ class MultipartApiIntegrationTest {
         .andExpect(jsonPath("$.algorithmHints[0].sort.second.offset").value(1))
         .andExpect(jsonPath("$.algorithmHints[0].sort.swapStatementAstNodeIds.length()").value(3))
         .andExpect(jsonPath("$.algorithmHints[0].variableDeclarationIds.scan").isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].sortFrame.phase").isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].sortFrame.snapshotPhase").isNotEmpty())
         .andExpect(jsonPath("$.steps").isNotEmpty());
   }
 

@@ -6,12 +6,14 @@ import com.example.astchunker.model.AlgorithmHint;
 import com.example.astchunker.model.ExecutionContext;
 import com.example.astchunker.model.ExecutionObservation;
 import com.example.astchunker.model.ObservationResult;
+import com.example.astchunker.model.SortFrame;
 import com.example.astchunker.model.VisualEvent;
 import com.example.astchunker.model.VisualState;
 import com.example.astchunker.model.VisualState.ArrayValue;
 import com.example.astchunker.model.VisualState.IndexRange;
 import com.example.astchunker.model.VisualState.Pointer;
 import com.example.astchunker.model.VisualState.Scalar;
+import com.example.astchunker.visualization.sort.SortTraceBuilder;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.expr.LambdaExpr;
@@ -27,6 +29,8 @@ import org.springframework.stereotype.Component;
 /** Builds independent states from snapshots; never carries missing variable values forward. */
 @Component
 public class VisualTraceBuilder {
+  private final SortTraceBuilder sortTraceBuilder = new SortTraceBuilder();
+
   public List<ExecutionObservation> build(
       AstAnalyzer.Analysis analysis, List<AlgorithmHint> hints, List<ExecutionObservation> steps) {
     Map<String, Node> nodes = new LinkedHashMap<>();
@@ -39,7 +43,7 @@ public class VisualTraceBuilder {
       Node point = nodes.get(step.statementAstNodeId());
       for (Binding binding : bindings) {
         if (applies(binding, step, point, analysis.mainClassName())) {
-          states.add(state(binding, step));
+          states.add(state(binding, step, previous, point));
         }
       }
       List<VisualEvent> events = events(previous, step, states);
@@ -59,7 +63,8 @@ public class VisualTraceBuilder {
     List<Binding> result = new ArrayList<>();
     for (int index = 0; index < hints.size(); index++) {
       AlgorithmHint hint = hints.get(index);
-      if (!List.of("binary-search", "two-pointers", "sliding-window").contains(hint.type()))
+      if (!List.of("binary-search", "two-pointers", "sliding-window", "bubble-sort")
+          .contains(hint.type()))
         continue;
       if (hint.patternAstNodeId() != null) {
         Node loop = nodes.get(hint.patternAstNodeId());
@@ -103,17 +108,34 @@ public class VisualTraceBuilder {
       Binding binding, ExecutionObservation step, Node point, String mainClass) {
     if (point == null || step.context() == null || owner(point) != owner(binding.loop()))
       return false;
+    var callable = (CallableDeclaration<?>) owner(binding.loop());
+    String method = callable.isMethodDeclaration() ? callable.getNameAsString() : "<init>";
     boolean inside = false;
     for (Node current = point; current != null; current = current.getParentNode().orElse(null)) {
       if (current == binding.loop()) inside = true;
     }
-    if (!inside) return false;
-    var callable = (CallableDeclaration<?>) owner(binding.loop());
-    String method = callable.isMethodDeclaration() ? callable.getNameAsString() : "<init>";
+    boolean terminalSortPoint =
+        binding.hint().type().endsWith("-sort") && isImmediatelyAfter(binding.loop(), point);
+    if (!inside && !terminalSortPoint) return false;
     return step.context().className().equals(mainClass)
         && step.context().methodName().equals(method)
-        && step.lineNumber() >= binding.hint().startLine()
-        && step.lineNumber() <= binding.hint().endLine();
+        && (terminalSortPoint
+            || step.lineNumber() >= binding.hint().startLine()
+                && step.lineNumber() <= binding.hint().endLine());
+  }
+
+  private boolean isImmediatelyAfter(Node loop, Node point) {
+    Node parent = loop.getParentNode().orElse(null);
+    if (!(parent instanceof com.github.javaparser.ast.stmt.BlockStmt block)) return false;
+    int index = -1;
+    for (int i = 0; i < block.getStatements().size(); i++) {
+      if (block.getStatement(i) == loop) {
+        index = i;
+        break;
+      }
+    }
+    return index >= 0 && index + 1 < block.getStatements().size()
+        && block.getStatement(index + 1) == point;
   }
 
   private static Node owner(Node node) {
@@ -124,7 +146,8 @@ public class VisualTraceBuilder {
     return null;
   }
 
-  private VisualState state(Binding binding, ExecutionObservation step) {
+  private VisualState state(
+      Binding binding, ExecutionObservation step, ExecutionObservation previous, Node point) {
     ArrayValue array = array(binding, step);
     Map<String, Pointer> pointers = new LinkedHashMap<>();
     for (String role : List.of("left", "right", "mid")) {
@@ -180,6 +203,16 @@ public class VisualTraceBuilder {
     if (binding.hint().type().equals("binary-search"))
       notes.add("POINTER_SPAN_DOES_NOT_DECLARE_SEARCH_BOUND_CONVENTION");
     if (array.truncated()) notes.add("ARRAY_TRUNCATED");
+    SortFrame sortFrame =
+        sortTraceBuilder.build(
+            binding.hint(),
+            previous,
+            step,
+            previous == null ? null : array(binding, previous),
+            array,
+            role -> variable(binding, step, role),
+            role -> previous == null ? null : variable(binding, previous, role),
+            isImmediatelyAfter(binding.loop(), point));
     boolean ready =
         array.status().equals("AVAILABLE")
             && !array.truncated()
@@ -198,7 +231,8 @@ public class VisualTraceBuilder {
         pointers,
         scalars,
         range,
-        notes);
+        notes,
+        sortFrame);
   }
 
   private ObservationResult variable(Binding binding, ExecutionObservation step, String role) {

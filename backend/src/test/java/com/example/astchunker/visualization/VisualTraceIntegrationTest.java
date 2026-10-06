@@ -157,6 +157,54 @@ class VisualTraceIntegrationTest {
   }
 
   @Test
+  void bubbleSortTraceSeparatesPendingWritesFromObservedCompletedSwap() {
+    var steps =
+        run(
+            """
+        int[] nums = {2, 1};
+        for (int pass = 0; pass < nums.length - 1; pass++) {
+          for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
+            if (nums[scan] > nums[scan + 1]) {
+              int temp = nums[scan];
+              nums[scan] = nums[scan + 1];
+              nums[scan + 1] = temp;
+            }
+          }
+        }
+        System.out.println(java.util.Arrays.toString(nums));
+        """);
+    var frames = steps.stream().flatMap(s -> s.visualStates().stream())
+        .map(VisualState::sortFrame).filter(java.util.Objects::nonNull).toList();
+
+    assertThat(frames).anySatisfy(frame -> {
+      assertThat(frame.phase()).isIn("COMPARISON", "SWAP_COMPLETED_AND_COMPARISON");
+      assertThat(frame.comparison().firstIndex()).isEqualTo(0);
+      assertThat(frame.comparison().secondIndex()).isEqualTo(1);
+      assertThat(frame.comparison().firstValue()).isEqualTo(2);
+      assertThat(frame.comparison().secondValue()).isEqualTo(1);
+      assertThat(frame.comparison().swapRequired()).isTrue();
+    });
+    var partial = steps.stream().filter(s -> s.code().startsWith("nums[scan + 1] = temp"))
+        .findFirst().orElseThrow().visualStates().get(0);
+    assertThat(partial.array().values()).containsExactly(1, 1);
+    assertThat(partial.sortFrame().phase()).isEqualTo("SWAP_RIGHT_WRITE_PENDING");
+    assertThat(partial.sortFrame().pendingMutation().status()).isEqualTo("PENDING_BEFORE_LOCATION");
+    assertThat(partial.sortFrame().pendingMutation().value()).isEqualTo(2);
+
+    assertThat(frames).anySatisfy(frame -> {
+      assertThat(frame.completedMutation()).isNotNull();
+      assertThat(frame.completedMutation().status()).isEqualTo("OBSERVED_AFTER_WRITE");
+      assertThat(frame.completedMutation().fromIndex()).isEqualTo(0);
+      assertThat(frame.completedMutation().toIndex()).isEqualTo(1);
+    });
+    var terminal = steps.stream().filter(s -> s.code().startsWith("System.out.println"))
+        .findFirst().orElseThrow().visualStates().get(0);
+    assertThat(terminal.array().values()).containsExactly(1, 2);
+    assertThat(terminal.sortFrame().phase()).isEqualTo("SORT_COMPLETED");
+    assertThat(terminal.sortFrame().sortedRegion().status()).isEqualTo("COMPLETE_AFTER_LOOP");
+  }
+
+  @Test
   void capturesLargeArrayLengthAndHidesPointersOutsideCapturedPrefix() {
     var steps =
         run(
