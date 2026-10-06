@@ -173,35 +173,251 @@ class VisualTraceIntegrationTest {
         }
         System.out.println(java.util.Arrays.toString(nums));
         """);
-    var frames = steps.stream().flatMap(s -> s.visualStates().stream())
-        .map(VisualState::sortFrame).filter(java.util.Objects::nonNull).toList();
+    var frames =
+        steps.stream()
+            .flatMap(s -> s.visualStates().stream())
+            .map(VisualState::sortFrame)
+            .filter(java.util.Objects::nonNull)
+            .toList();
 
-    assertThat(frames).anySatisfy(frame -> {
-      assertThat(frame.phase()).isIn("COMPARISON", "SWAP_COMPLETED_AND_COMPARISON");
-      assertThat(frame.comparison().firstIndex()).isEqualTo(0);
-      assertThat(frame.comparison().secondIndex()).isEqualTo(1);
-      assertThat(frame.comparison().firstValue()).isEqualTo(2);
-      assertThat(frame.comparison().secondValue()).isEqualTo(1);
-      assertThat(frame.comparison().swapRequired()).isTrue();
-    });
-    var partial = steps.stream().filter(s -> s.code().startsWith("nums[scan + 1] = temp"))
-        .findFirst().orElseThrow().visualStates().get(0);
+    assertThat(frames)
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.phase()).isIn("COMPARISON", "SWAP_COMPLETED_AND_COMPARISON");
+              assertThat(frame.comparison().firstIndex()).isEqualTo(0);
+              assertThat(frame.comparison().secondIndex()).isEqualTo(1);
+              assertThat(frame.comparison().firstValue()).isEqualTo(2);
+              assertThat(frame.comparison().secondValue()).isEqualTo(1);
+              assertThat(frame.comparison().swapRequired()).isTrue();
+            });
+    var partial =
+        steps.stream()
+            .filter(s -> s.code().startsWith("nums[scan + 1] = temp"))
+            .findFirst()
+            .orElseThrow()
+            .visualStates()
+            .get(0);
     assertThat(partial.array().values()).containsExactly(1, 1);
     assertThat(partial.sortFrame().phase()).isEqualTo("SWAP_RIGHT_WRITE_PENDING");
     assertThat(partial.sortFrame().pendingMutation().status()).isEqualTo("PENDING_BEFORE_LOCATION");
     assertThat(partial.sortFrame().pendingMutation().value()).isEqualTo(2);
 
-    assertThat(frames).anySatisfy(frame -> {
-      assertThat(frame.completedMutation()).isNotNull();
-      assertThat(frame.completedMutation().status()).isEqualTo("OBSERVED_AFTER_WRITE");
-      assertThat(frame.completedMutation().fromIndex()).isEqualTo(0);
-      assertThat(frame.completedMutation().toIndex()).isEqualTo(1);
-    });
-    var terminal = steps.stream().filter(s -> s.code().startsWith("System.out.println"))
-        .findFirst().orElseThrow().visualStates().get(0);
+    assertThat(frames)
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.completedMutation()).isNotNull();
+              assertThat(frame.completedMutation().status()).isEqualTo("OBSERVED_AFTER_WRITE");
+              assertThat(frame.completedMutation().fromIndex()).isEqualTo(0);
+              assertThat(frame.completedMutation().toIndex()).isEqualTo(1);
+            });
+    var terminal =
+        steps.stream()
+            .filter(s -> s.code().startsWith("System.out.println"))
+            .findFirst()
+            .orElseThrow()
+            .visualStates()
+            .get(0);
     assertThat(terminal.array().values()).containsExactly(1, 2);
-    assertThat(terminal.sortFrame().phase()).isEqualTo("SORT_COMPLETED");
-    assertThat(terminal.sortFrame().sortedRegion().status()).isEqualTo("COMPLETE_AFTER_LOOP");
+    assertThat(terminal.sortFrame().phase()).isEqualTo("SORT_FINISHED");
+    assertThat(terminal.sortFrame().sortedRegion().status()).isEqualTo("VERIFIED_SORTED");
+  }
+
+  @Test
+  void selectionSortTraceShowsCandidateUpdatesSwapWritesAndSortedPrefix() {
+    var steps =
+        run(
+            """
+        int[] nums = {3, 1, 2};
+        for (int pass = 0; pass < nums.length - 1; pass++) {
+          int min = pass;
+          for (int scan = pass + 1; scan < nums.length; scan++) {
+            if (nums[scan] < nums[min]) {
+              min = scan;
+            }
+          }
+          int temp = nums[pass];
+          nums[pass] = nums[min];
+          nums[min] = temp;
+        }
+        System.out.println(java.util.Arrays.toString(nums));
+        """);
+    var frames =
+        steps.stream()
+            .flatMap(step -> step.visualStates().stream())
+            .map(VisualState::sortFrame)
+            .filter(java.util.Objects::nonNull)
+            .toList();
+
+    assertThat(frames.stream().filter(frame -> frame.comparison() != null).toList())
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.phase()).isEqualTo("SELECTION_COMPARE");
+              assertThat(frame.comparison().firstIndex()).isEqualTo(1);
+              assertThat(frame.comparison().secondIndex()).isEqualTo(0);
+              assertThat(frame.comparison().firstValue()).isEqualTo(1);
+              assertThat(frame.comparison().secondValue()).isEqualTo(3);
+              assertThat(frame.comparison().action()).isEqualTo("UPDATE_SELECTED_INDEX");
+              assertThat(frame.comparison().actionRequired()).isTrue();
+              assertThat(frame.comparison().swapRequired()).isNull();
+            });
+
+    var update =
+        steps.stream().filter(step -> step.code().equals("min = scan;")).findFirst().orElseThrow();
+    assertThat(update.visualStates().get(0).sortFrame().phase())
+        .isEqualTo("SELECTION_UPDATE_PENDING");
+    assertThat(update.visualStates().get(0).sortFrame().pendingMutation())
+        .satisfies(
+            mutation -> {
+              assertThat(mutation.fromIndex()).isEqualTo(0);
+              assertThat(mutation.toIndex()).isEqualTo(1);
+              assertThat(mutation.value()).isEqualTo(1);
+              assertThat(mutation.status()).isEqualTo("PENDING_BEFORE_LOCATION");
+            });
+
+    var partial =
+        steps.stream()
+            .filter(step -> step.code().equals("nums[min] = temp;"))
+            .findFirst()
+            .orElseThrow()
+            .visualStates()
+            .get(0);
+    assertThat(partial.array().values()).containsExactly(1, 1, 2);
+    assertThat(partial.sortFrame().pendingMutation().value()).isEqualTo(3);
+    assertThat(frames)
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.completedMutation()).isNotNull();
+              assertThat(frame.completedMutation().fromIndex()).isEqualTo(0);
+              assertThat(frame.completedMutation().toIndex()).isEqualTo(1);
+              assertThat(frame.completedMutation().status()).isEqualTo("OBSERVED_AFTER_WRITE");
+            });
+
+    var terminal =
+        steps.stream()
+            .filter(step -> step.code().startsWith("System.out.println"))
+            .findFirst()
+            .orElseThrow()
+            .visualStates()
+            .get(0);
+    assertThat(terminal.array().values()).containsExactly(1, 2, 3);
+    assertThat(terminal.sortFrame().phase()).isEqualTo("SORT_FINISHED");
+    assertThat(terminal.sortFrame().sortedRegion().status()).isEqualTo("VERIFIED_SORTED");
+  }
+
+  @Test
+  void insertionSortTraceShowsComparisonsShiftsAndKeyPlacement() {
+    var steps =
+        run(
+            """
+        int[] nums = {3, 1, 2};
+        for (int pass = 1; pass < nums.length; pass++) {
+          int key = nums[pass];
+          int scan = pass - 1;
+          while (scan >= 0 && nums[scan] > key) {
+            nums[scan + 1] = nums[scan];
+            scan--;
+          }
+          nums[scan + 1] = key;
+        }
+        System.out.println(java.util.Arrays.toString(nums));
+        """);
+    var frames =
+        steps.stream()
+            .flatMap(step -> step.visualStates().stream())
+            .map(VisualState::sortFrame)
+            .filter(java.util.Objects::nonNull)
+            .toList();
+
+    assertThat(frames.stream().filter(frame -> frame.comparison() != null).toList())
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.phase()).isEqualTo("INSERTION_COMPARE");
+              assertThat(frame.comparison().firstIndex()).isEqualTo(0);
+              assertThat(frame.comparison().firstValue()).isEqualTo(3);
+              assertThat(frame.comparison().secondIndex()).isNull();
+              assertThat(frame.comparison().secondValue()).isEqualTo(1);
+              assertThat(frame.comparison().action()).isEqualTo("SHIFT_RIGHT");
+              assertThat(frame.comparison().actionRequired()).isTrue();
+            });
+
+    assertThat(frames)
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.phase()).isEqualTo("SHIFT_RIGHT_PENDING");
+              assertThat(frame.pendingMutation().fromIndex()).isEqualTo(0);
+              assertThat(frame.pendingMutation().toIndex()).isEqualTo(1);
+              assertThat(frame.pendingMutation().value()).isEqualTo(3);
+              assertThat(frame.pendingMutation().status()).isEqualTo("PENDING_BEFORE_LOCATION");
+            });
+    assertThat(frames)
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.completedMutation()).isNotNull();
+              assertThat(frame.completedMutation().kind()).isEqualTo("SHIFT_RIGHT_COMPLETED");
+              assertThat(frame.completedMutation().status()).isEqualTo("OBSERVED_AFTER_WRITE");
+            });
+    assertThat(frames)
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.phase()).isEqualTo("INSERT_KEY_PENDING");
+              assertThat(frame.pendingMutation().kind()).isEqualTo("INSERT_KEY");
+              assertThat(frame.pendingMutation().toIndex()).isZero();
+              assertThat(frame.pendingMutation().value()).isEqualTo(1);
+            });
+    assertThat(frames)
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.completedMutation()).isNotNull();
+              assertThat(frame.completedMutation().kind()).isEqualTo("INSERT_KEY_COMPLETED");
+              assertThat(frame.completedMutation().toIndex()).isZero();
+              assertThat(frame.phase()).isEqualTo("INSERT_KEY_COMPLETED");
+            });
+    assertThat(frames.stream().filter(frame -> frame.comparison() != null).toList())
+        .anySatisfy(
+            frame -> {
+              assertThat(frame.comparison().status()).isEqualTo("LEFT_BOUNDARY_REACHED");
+              assertThat(frame.comparison().action()).isEqualTo("STOP_SHIFTING");
+            });
+    var terminal =
+        steps.stream()
+            .filter(step -> step.code().startsWith("System.out.println"))
+            .findFirst()
+            .orElseThrow()
+            .visualStates()
+            .get(0);
+    assertThat(terminal.array().values()).containsExactly(1, 2, 3);
+    assertThat(terminal.sortFrame().phase()).isEqualTo("SORT_FINISHED");
+    assertThat(terminal.sortFrame().sortedRegion().status()).isEqualTo("VERIFIED_SORTED");
+  }
+
+  @Test
+  void insertionSortTraceVerifiesDescendingOrder() {
+    var steps =
+        run(
+            """
+        int[] nums = {1, 3, 2};
+        for (int pass = 1; pass < nums.length; pass++) {
+          int key = nums[pass];
+          int scan = pass - 1;
+          while (scan >= 0 && nums[scan] < key) {
+            nums[scan + 1] = nums[scan];
+            scan--;
+          }
+          nums[scan + 1] = key;
+        }
+        System.out.println(java.util.Arrays.toString(nums));
+        """);
+    var terminal =
+        steps.stream()
+            .filter(step -> step.code().startsWith("System.out.println"))
+            .findFirst()
+            .orElseThrow()
+            .visualStates()
+            .get(0);
+
+    assertThat(terminal.algorithm()).isEqualTo("insertion-sort");
+    assertThat(terminal.array().values()).containsExactly(3, 2, 1);
+    assertThat(terminal.sortFrame().sortedRegion().status()).isEqualTo("VERIFIED_SORTED");
   }
 
   @Test

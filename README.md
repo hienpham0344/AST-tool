@@ -58,6 +58,12 @@ curl.exe -F "file=@backend/examples/ScopedVariablesSample.java" http://localhost
 Open `UI/dashboardPage.html`, select a `.java` file, and use the three UI actions to exercise the
 same endpoints visually.
 
+For sorting examples, upload one of `examples/sort/BubbleSortSample.java`,
+`examples/sort/SelectionSortSample.java`, or `examples/sort/InsertionSortSample.java` and choose
+the runtime-variable view. Each sample sorts six arrays in one run; see
+[`docs/sort-visualization-test-guide.md`](docs/sort-visualization-test-guide.md) for the step
+payload and supported pattern limits.
+
 ## Run the CLI pipeline
 
 `Main` accepts the path to a Java source file. Maven can run it without adding an extra build

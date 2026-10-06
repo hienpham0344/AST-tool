@@ -19,10 +19,11 @@ and values observed before that JDI location.
 - `completedMutation`: emitted only at the next observation when the preceding
   snapshot was the final swap write and the new array snapshot confirms the
   temporary value reached the right index.
-- `sortedRegion`: suffix implied by the canonical Bubble Sort pass counter.
-  Its `INFERRED` status and `CANONICAL_BUBBLE_PASS_COUNT` basis identify this as
-  an algorithm invariant, not a separate runtime proof. The first direct
-  statement after the loop receives `COMPLETE_AFTER_LOOP`.
+- `sortedRegion`: the Bubble Sort suffix expected to be fixed by prior passes,
+  checked against values in the current runtime snapshot. Terminal snapshots
+  verify the full array in the detected direction. `NOT_SORTED` includes the
+  first adjacent inversion; truncated or unavailable arrays are not marked
+  verified.
 
 If there is no later observation after the final write, the trace deliberately
 does not manufacture a completed-swap snapshot. A truncated or unavailable
@@ -42,9 +43,9 @@ mvn -Dtest=VisualTraceIntegrationTest test
 mvn test
 ```
 
-Verified 2026-10-06: the focused JDI integration class passed 7/7 tests and the
-full backend suite passed 139/139 tests. The API integration test also asserts
-that sort frames and their snapshot phase are serialized in `steps`.
+The focused JDI tests check the intermediate duplicate value, pending and
+observed writes, and terminal order validation. Current aggregate counts are
+tracked in the sort test guide because later sort strategies share these tests.
 
 ## FE handoff
 
@@ -53,8 +54,8 @@ Read `steps[n].visualStates[0].sortFrame` for the current state and
 the `PENDING_BEFORE_LOCATION` label visible for a write step; use
 `OBSERVED_AFTER_WRITE` only for `completedMutation` on a later snapshot.
 
-The terminal frame uses `SORT_COMPLETED` only at the direct next statement
-after the detected loop. `COMPLETE_AFTER_LOOP` additionally requires a fully
-available, untruncated array; missing data is `UNKNOWN`, and a truncated array
-is marked `TRUNCATED`. If target execution ends before another snapshot, the
-trace does not claim completion.
+The terminal frame uses `SORT_FINISHED` at the direct next statement after the
+detected loop. `VERIFIED_SORTED` requires a fully available, untruncated array
+and an actual adjacent-order check; missing data is `UNKNOWN`, and a truncated
+array is marked `TRUNCATED`. If target execution ends before another snapshot,
+the trace does not claim completion.

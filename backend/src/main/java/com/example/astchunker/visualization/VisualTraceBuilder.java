@@ -63,9 +63,14 @@ public class VisualTraceBuilder {
     List<Binding> result = new ArrayList<>();
     for (int index = 0; index < hints.size(); index++) {
       AlgorithmHint hint = hints.get(index);
-      if (!List.of("binary-search", "two-pointers", "sliding-window", "bubble-sort")
-          .contains(hint.type()))
-        continue;
+      if (!List.of(
+              "binary-search",
+              "two-pointers",
+              "sliding-window",
+              "bubble-sort",
+              "selection-sort",
+              "insertion-sort")
+          .contains(hint.type())) continue;
       if (hint.patternAstNodeId() != null) {
         Node loop = nodes.get(hint.patternAstNodeId());
         if (!(loop instanceof ForStmt || loop instanceof WhileStmt)
@@ -134,7 +139,8 @@ public class VisualTraceBuilder {
         break;
       }
     }
-    return index >= 0 && index + 1 < block.getStatements().size()
+    return index >= 0
+        && index + 1 < block.getStatements().size()
         && block.getStatement(index + 1) == point;
   }
 
@@ -150,7 +156,7 @@ public class VisualTraceBuilder {
       Binding binding, ExecutionObservation step, ExecutionObservation previous, Node point) {
     ArrayValue array = array(binding, step);
     Map<String, Pointer> pointers = new LinkedHashMap<>();
-    for (String role : List.of("left", "right", "mid")) {
+    for (String role : List.of("left", "right", "mid", "pass", "scan", "selected")) {
       if (!binding.hint().variables().containsKey(role)) continue;
       ObservationResult variable = variable(binding, step, role);
       Long index = variable == null ? null : integer(variable.visualValue());
@@ -174,7 +180,7 @@ public class VisualTraceBuilder {
               status));
     }
     Map<String, Scalar> scalars = new LinkedHashMap<>();
-    for (String role : List.of("accumulator", "windowSize")) {
+    for (String role : List.of("accumulator", "windowSize", "key")) {
       if (!binding.hint().variables().containsKey(role)) continue;
       ObservationResult variable = variable(binding, step, role);
       String status = status(variable);
@@ -183,7 +189,9 @@ public class VisualTraceBuilder {
         boolean valid =
             role.equals("windowSize")
                 ? integer(value) != null && integer(value) > 0
-                : value instanceof Number n && Double.isFinite(n.doubleValue());
+                : role.equals("key")
+                    ? value instanceof Number && Double.isFinite(((Number) value).doubleValue())
+                    : value instanceof Number n && Double.isFinite(n.doubleValue());
         if (!valid) status = "INVALID";
       }
       scalars.put(

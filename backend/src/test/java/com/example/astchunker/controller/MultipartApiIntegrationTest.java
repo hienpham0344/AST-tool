@@ -182,6 +182,87 @@ class MultipartApiIntegrationTest {
   }
 
   @Test
+  void returnsSelectionSortComparisonAndOperationNodeMetadata() throws Exception {
+    String source =
+        """
+        public class SelectionSample {
+          public static void main(String[] args) {
+            int[] data = {3, 1, 2};
+            for (int pass = 0; pass < data.length - 1; pass++) {
+              int min = pass;
+              for (int scan = pass + 1; scan < data.length; scan++) {
+                if (data[scan] < data[min]) min = scan;
+              }
+              int temp = data[pass];
+              data[pass] = data[min];
+              data[min] = temp;
+            }
+            System.out.println(java.util.Arrays.toString(data));
+          }
+        }
+        """;
+    var file =
+        new MockMultipartFile(
+            "file",
+            "SelectionSample.java",
+            "text/x-java-source",
+            source.getBytes(StandardCharsets.UTF_8));
+
+    mockMvc
+        .perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("selection-sort"))
+        .andExpect(
+            jsonPath("$.algorithmHints[0].sort.operationAstNodeIds.selectedIndexUpdate")
+                .isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].sortFrame.phase").isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].sortFrame.comparison.action").isNotEmpty())
+        .andExpect(jsonPath("$.steps").isNotEmpty());
+  }
+
+  @Test
+  void returnsInsertionSortTraceWithKeyAndRuntimeSortedness() throws Exception {
+    String source =
+        """
+        public class InsertionSample {
+          public static void main(String[] args) {
+            int[] data = {3, 1, 2};
+            for (int pass = 1; pass < data.length; pass++) {
+              int key = data[pass];
+              int scan = pass - 1;
+              while (scan >= 0 && data[scan] > key) {
+                data[scan + 1] = data[scan];
+                scan--;
+              }
+              data[scan + 1] = key;
+            }
+            System.out.println(java.util.Arrays.toString(data));
+          }
+        }
+        """;
+    var file =
+        new MockMultipartFile(
+            "file",
+            "InsertionSample.java",
+            "text/x-java-source",
+            source.getBytes(StandardCharsets.UTF_8));
+
+    mockMvc
+        .perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("insertion-sort"))
+        .andExpect(jsonPath("$.algorithmHints[0].sort.direction").value("ASCENDING"))
+        .andExpect(jsonPath("$.algorithmHints[0].sort.swapStatementAstNodeIds").isEmpty())
+        .andExpect(jsonPath("$.algorithmHints[0].sort.operationAstNodeIds.shiftWrite").isNotEmpty())
+        .andExpect(
+            jsonPath("$.algorithmHints[0].sort.operationAstNodeIds.insertWrite").isNotEmpty())
+        .andExpect(jsonPath("$.algorithmHints[0].variableDeclarationIds.key").isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].sortFrame.phase").isNotEmpty())
+        .andExpect(
+            jsonPath("$.steps[*].visualStates[*].sortFrame.sortedRegion.status").isNotEmpty());
+  }
+
+  @Test
   void exposesCorsForTheStandaloneUi() throws Exception {
     mockMvc
         .perform(

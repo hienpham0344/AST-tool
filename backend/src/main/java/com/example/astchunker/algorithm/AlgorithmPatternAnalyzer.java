@@ -1,5 +1,6 @@
 package com.example.astchunker.algorithm;
 
+import com.example.astchunker.algorithm.sort.SortPatternRegistry;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.github.javaparser.ast.CompilationUnit;
@@ -31,12 +32,21 @@ import org.springframework.stereotype.Component;
 /** Conservative syntax-based rules. Each loop receives at most one suggestion. */
 @Component
 public class AlgorithmPatternAnalyzer {
+  private final SortPatternRegistry sortPatterns;
+
+  public AlgorithmPatternAnalyzer() {
+    this(SortPatternRegistry.defaults());
+  }
+
+  public AlgorithmPatternAnalyzer(SortPatternRegistry sortPatterns) {
+    this.sortPatterns = sortPatterns;
+  }
 
   public List<AlgorithmHint> analyze(CompilationUnit unit) {
     List<AlgorithmHint> hints = new ArrayList<>();
     for (Node loop : unit.findAll(Node.class, AlgorithmPatternAnalyzer::isLoop)) {
       if (loop.getRange().isEmpty()) continue;
-      Optional<AlgorithmHint> sort = BubbleSortDetector.detect(loop);
+      Optional<AlgorithmHint> sort = sortPatterns.detect(loop);
       if (sort.isPresent()) {
         hints.add(sort.get());
         continue;
