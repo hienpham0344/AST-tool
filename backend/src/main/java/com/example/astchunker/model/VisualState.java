@@ -17,7 +17,24 @@ public record VisualState(
     Map<String, Pointer> pointers,
     Map<String, Scalar> scalars,
     IndexRange range,
-    List<String> notes) {
+    List<String> notes,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        SortFrame sortFrame) {
+  public VisualState(
+      String id,
+      int hintIndex,
+      String algorithm,
+      String visualPlan,
+      String status,
+      ArrayValue array,
+      Map<String, Pointer> pointers,
+      Map<String, Scalar> scalars,
+      IndexRange range,
+      List<String> notes) {
+    this(id, hintIndex, algorithm, visualPlan, status, array, pointers, scalars, range, notes, null);
+  }
+
   public VisualState {
     pointers = Collections.unmodifiableMap(new LinkedHashMap<>(pointers));
     scalars = Collections.unmodifiableMap(new LinkedHashMap<>(scalars));

@@ -41,3 +41,8 @@ Step 4 adds per-step visualization states and events; see
 [the visualization contract and review](step-04-visualization-contract.md).
 Next steps: frontend rendering and additional algorithm families. Hints describe source
 patterns and do not prove correctness or that a code path was executed.
+
+Bubble Sort detection and its versioned static metadata are documented in
+[sort tasks 02-03](sort-task-02-03-bubble-sort-detection.md). A sort hint currently
+contains the source operation IDs and direction; per-execution comparison,
+write, and completed-swap states will be added in the sort trace task.

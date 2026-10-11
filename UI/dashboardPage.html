@@ -36,7 +36,7 @@
             margin: 0 0 4px;
             font-size: 19px;
             font-weight: 600;
-            letter-spacing: -0.01em;
+            letter-spacing: 0;
         }
         header h1 span { color: var(--amber); font-family: var(--mono); }
         header p {
@@ -52,6 +52,7 @@
             grid-template-columns: 1fr 1fr;
             gap: 1px;
             background: var(--border);
+            min-width: 0;
         }
         @media (max-width: 860px) {
             main { grid-template-columns: 1fr; }
@@ -61,6 +62,7 @@
             display: flex;
             flex-direction: column;
             min-height: 0;
+            min-width: 0;
         }
         .pane-head {
             padding: 14px 20px 10px;
@@ -191,6 +193,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 14px 20px 30px;
+            min-width: 0;
         }
         .stats {
             display: flex;
@@ -328,6 +331,107 @@
             display: grid;
             gap: 4px;
             margin-left: 12px;
+        }
+        .sort-visualization {
+            border-top: 1px solid var(--border);
+            margin: 14px 0;
+            padding-top: 14px;
+        }
+        .sort-title {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .sort-title strong { color: var(--text); font-size: 13px; }
+        .sort-phase { color: var(--amber); font: 11px var(--mono); }
+        .sort-cells {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 4px 2px 9px;
+        }
+        .sort-cell {
+            flex: 0 0 50px;
+            min-height: 58px;
+            display: grid;
+            grid-template-rows: 16px 14px 1fr;
+            align-items: center;
+            text-align: center;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--panel);
+        }
+        .sort-cell-index { color: var(--muted); font: 10px var(--mono); }
+        .sort-markers { color: #8eb4d8; font: 8px var(--mono); }
+        .sort-cell-value {
+            color: var(--text);
+            font: 13px var(--mono);
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sort-cell.compare { border-color: var(--amber); background: rgba(216,166,87,.17); }
+        .sort-cell.write { border-color: var(--rose); background: rgba(201,138,154,.18); }
+        .sort-cell.sorted { border-color: var(--teal); background: rgba(95,179,163,.14); }
+        .sort-cell.invalid { border-color: #e06c75; background: rgba(224,108,117,.18); }
+        .sort-detail {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+            margin-top: 5px;
+            overflow-wrap: anywhere;
+        }
+        .sort-detection-note {
+            border-left: 2px solid var(--amber);
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+            margin: 10px 0;
+            padding-left: 9px;
+        }
+        .sort-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+        .sort-legend span { display: inline-flex; align-items: center; gap: 5px; }
+        .sort-legend i {
+            width: 9px;
+            height: 9px;
+            border-radius: 2px;
+            background: var(--amber);
+        }
+        .sort-legend .legend-write { background: var(--rose); }
+        .sort-legend .legend-sorted { background: var(--teal); }
+        .sort-legend .legend-pointer { background: #8eb4d8; }
+        .sort-legend .legend-invalid { background: #e06c75; }
+        .playback-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 12px;
+        }
+        .playback-controls input[type="range"] {
+            flex: 1;
+            min-width: 120px;
+            accent-color: var(--amber);
+        }
+        .playback-controls label, .playback-controls output { color: var(--muted); font: 11px var(--mono); }
+        .playback-controls select {
+            color: var(--text);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 5px 7px;
+        }
+        @media (max-width: 520px) {
+            .actions { flex-wrap: wrap; }
+            .playback-controls { flex-wrap: wrap; }
+            .playback-controls input[type="range"] { order: 3; flex-basis: 100%; }
         }
     </style>
 </head>
@@ -598,14 +702,34 @@
             return '<div class="empty">No breakpoint hit was recorded.</div>';
         }
         currentExecutionIndex = 0;
+        const hasSortHint = response.algorithmHints?.some(hint =>
+            ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type));
+        const sourceHasIndexedLoop = /\b(?:for|while)\b[\s\S]{0,1200}\[[^\]]+\]/.test(lastSourceCode || '');
+        const sortNotice = !hasSortHint && sourceHasIndexedLoop
+            ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion Sort phổ biến trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
+            : '';
         return `
             <div class="stats"><span class="stat">execution steps: <b>${steps.length}</b></span><span class="stat">warnings: <b>${(response.warnings || []).length}</b></span></div>
+            ${sortNotice}
             <div class="execution-toolbar">
                 <button class="ghost" id="previousStepBtn" type="button">Previous</button>
+                ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type))
+                    ? '<button class="ghost" id="playSortBtn" type="button" aria-label="Play execution">▶</button>' : ''}
                 <button class="ghost" id="nextStepBtn" type="button">Next</button>
                 <span class="step-counter" id="stepCounter"></span>
             </div>
+            ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type))
+                ? `<div class="playback-controls">
+                    <label for="executionProgress">Step</label>
+                    <input id="executionProgress" type="range" min="0" max="${steps.length - 1}" value="0" aria-label="Execution step">
+                    <output id="executionProgressLabel" for="executionProgress">1 / ${steps.length}</output>
+                    <label for="playbackSpeed">Speed</label>
+                    <select id="playbackSpeed" aria-label="Playback speed">
+                        <option value="900">0.5x</option><option value="450" selected>1x</option><option value="180">2.5x</option>
+                    </select>
+                </div>` : ''}
             <div id="executionLocation" class="execution-location"></div>
+            <div id="sortVisualization"></div>
             <div class="runtime-table-wrap"><table class="runtime-table">
                 <thead><tr><th>Variable</th><th>Declared type</th><th>Runtime value</th><th>AST declaration</th></tr></thead>
                 <tbody id="executionVariables"></tbody>
@@ -625,11 +749,114 @@
         }
         if (variablesEl) variablesEl.innerHTML = renderExecutionVariables(step.variables || [], previous);
         if (counterEl) counterEl.textContent = `Step ${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
+        const progress = document.getElementById('executionProgress');
+        const progressLabel = document.getElementById('executionProgressLabel');
+        if (progress) progress.value = String(currentExecutionIndex);
+        if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
+        const sortState = (step.visualStates || []).find(state => state.sortFrame);
+        const sortEl = document.getElementById('sortVisualization');
+        if (sortEl) sortEl.innerHTML = sortState ? renderSortVisualization(sortState) : '';
         const previousBtn = document.getElementById('previousStepBtn');
         const nextBtn = document.getElementById('nextStepBtn');
         if (previousBtn) previousBtn.disabled = currentExecutionIndex === 0;
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
+        if (nextBtn?.disabled) stopExecutionPlayback();
         renderSourceViewer(step);
+    }
+
+    function renderSortVisualization(state) {
+        const frame = state.sortFrame;
+        const values = Array.isArray(state.array?.values) ? state.array.values : [];
+        const comparison = frame.comparison;
+        const mutation = frame.pendingMutation;
+        const region = frame.sortedRegion;
+        const direction = lastExecutionData?.algorithmHints?.[state.hintIndex]?.sort?.direction;
+        const directionLabel = direction === 'DESCENDING' ? 'giảm dần' : 'tăng dần';
+        const arrayName = state.array?.variableName || 'array';
+        const algorithmLabel = ({
+            'bubble-sort': 'Bubble Sort',
+            'selection-sort': 'Selection Sort',
+            'insertion-sort': 'Insertion Sort'
+        })[state.algorithm] || state.algorithm;
+        const arrayLabel = escapeHtml(arrayName);
+        const invalidIndexes = region?.status === 'NOT_SORTED' && Number.isInteger(region.violationIndex)
+            ? [region.violationIndex - 1, region.violationIndex] : [];
+        const cells = values.map((value, index) => {
+            const classes = ['sort-cell'];
+            if (invalidIndexes.includes(index)) classes.push('invalid');
+            else if (comparison && [comparison.firstIndex, comparison.secondIndex].includes(index)) classes.push('compare');
+            else if (mutation && [mutation.fromIndex, mutation.toIndex].includes(index)) classes.push('write');
+            else if (region && ['VERIFIED_SORTED', 'VERIFIED_PREFIX'].includes(region.status)
+                && index >= region.start && index < region.endExclusive) classes.push('sorted');
+            const markerLabels = Object.entries(state.pointers || {})
+                .filter(([, pointer]) => pointer.status === 'VALID' && pointer.index === index)
+                .map(([role]) => ({pass: 'PASS', scan: 'SCAN', selected: 'SELECTED', left: 'L', right: 'R', mid: 'MID'}[role] || role.toUpperCase()));
+            const markers = markerLabels.map(label => `<span>${escapeHtml(label)}</span>`).join(' ');
+            return `<div class="${classes.join(' ')}" role="listitem" aria-label="index ${index}, value ${escapeHtml(primitiveLabel(value))}">
+                <span class="sort-cell-index">${index}</span><span class="sort-markers">${markers}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span>
+            </div>`;
+        }).join('');
+        const comparisonAction = comparison?.action === 'UPDATE_SELECTED_INDEX'
+            ? comparison.actionRequired ? `tìm thấy ứng viên ${direction === 'DESCENDING' ? 'lớn hơn' : 'nhỏ hơn'}; cập nhật chỉ số được chọn` : 'giữ nguyên chỉ số đang chọn'
+            : comparison?.action === 'SHIFT_RIGHT'
+                ? 'dịch phần tử này sang phải'
+                : comparison?.action === 'STOP_SHIFTING'
+                    ? comparison.status === 'LEFT_BOUNDARY_REACHED' ? 'đã tới đầu mảng; chèn key tại đây' : 'dừng dịch; chèn key tại đây'
+                    : (comparison?.actionRequired ?? comparison?.swapRequired) ? 'cần đổi chỗ' : 'giữ nguyên thứ tự';
+        const comparisonText = comparison
+            ? comparison.status === 'AVAILABLE_FROM_SNAPSHOT'
+                ? state.algorithm === 'insertion-sort'
+                    ? `So sánh ${arrayLabel}[${comparison.firstIndex}] = ${escapeHtml(primitiveLabel(comparison.firstValue))} với key = ${escapeHtml(primitiveLabel(comparison.secondValue))}; ${comparisonAction}.`
+                    : `So sánh ${arrayLabel}[${comparison.firstIndex}] = ${escapeHtml(primitiveLabel(comparison.firstValue))} với ${arrayLabel}[${comparison.secondIndex}] = ${escapeHtml(primitiveLabel(comparison.secondValue))}; ${comparisonAction}.`
+                : comparison.status === 'LEFT_BOUNDARY_REACHED'
+                    ? `scan = ${comparison.firstIndex}; không còn phần tử bên trái, hãy chèn key vào chỉ số ${comparison.firstIndex + 1}.`
+                    : 'Không đọc được giá trị cần so sánh ở snapshot này.'
+            : '';
+        const mutationText = mutation?.kind === 'UPDATE_SELECTED_INDEX'
+            ? `Chỉ số được chọn: ${mutation.fromIndex} → ${mutation.toIndex} (${escapeHtml(mutation.status)}).`
+            : mutation?.kind === 'SHIFT_RIGHT'
+                ? `Dời ${arrayLabel}[${mutation.fromIndex}] = ${escapeHtml(primitiveLabel(mutation.value))} sang ${arrayLabel}[${mutation.toIndex}] (${escapeHtml(mutation.status)}).`
+                : mutation?.kind === 'INSERT_KEY'
+                    ? `Ghi key = ${escapeHtml(primitiveLabel(mutation.value))} từ vị trí ${mutation.fromIndex} vào vị trí ${mutation.toIndex} (${escapeHtml(mutation.status)}).`
+            : mutation
+                ? `${escapeHtml(mutation.kind.replaceAll('_', ' ').toLowerCase())}: ${escapeHtml(primitiveLabel(mutation.value))} (${escapeHtml(mutation.status)}).`
+                : '';
+        const completedText = frame.completedMutation?.kind === 'SELF_SWAP_COMPLETED'
+            ? `Phần tử tại vị trí ${frame.completedMutation.fromIndex} đã đúng chỗ; không cần đổi.`
+            : frame.completedMutation?.kind === 'SHIFT_RIGHT_COMPLETED'
+                ? `Đã dời ${escapeHtml(primitiveLabel(frame.completedMutation.value))} từ vị trí ${frame.completedMutation.fromIndex} sang ${frame.completedMutation.toIndex}.`
+                : frame.completedMutation?.kind === 'INSERT_KEY_COMPLETED'
+                    ? `Đã chèn key = ${escapeHtml(primitiveLabel(frame.completedMutation.value))} vào vị trí ${frame.completedMutation.toIndex}.`
+            : frame.completedMutation
+                ? `Đã đổi chỗ ${arrayLabel}[${frame.completedMutation.fromIndex}] và ${arrayLabel}[${frame.completedMutation.toIndex}].`
+            : '';
+        const sortedText = region?.status === 'VERIFIED_SORTED'
+            ? `${region.start === 0 && region.endExclusive === values.length ? 'Toàn bộ mảng' : `Đoạn [${region.start}, ${region.endExclusive})`} đã được kiểm tra thứ tự ${directionLabel} từ giá trị runtime.`
+            : region?.status === 'NOT_SORTED'
+                ? `Sai thứ tự ${directionLabel}: ${arrayLabel}[${region.violationIndex - 1}] = ${escapeHtml(primitiveLabel(region.previousValue))} nhưng ${arrayLabel}[${region.violationIndex}] = ${escapeHtml(primitiveLabel(region.currentValue))}. Hãy kiểm tra điều kiện hoặc câu lệnh ghi đang tô sáng.`
+                : region?.status === 'TRUNCATED'
+                    ? 'Mảng đã bị cắt bớt; chưa thể kiểm tra toàn bộ kết quả.'
+                    : region?.status === 'UNKNOWN'
+                        ? 'Chưa thể xác minh thứ tự mảng từ snapshot này.'
+                        : region?.status === 'EMPTY'
+                            ? `Đoạn [${region.start}, ${region.endExclusive}) chưa có phần tử.` : '';
+        const runtimeVariables = [
+            ...Object.entries(state.pointers || {}).map(([role, pointer]) => `${role}=${pointer.index ?? pointer.status}`),
+            ...Object.entries(state.scalars || {}).map(([role, scalar]) => `${role}=${primitiveLabel(scalar.value)}`)
+        ].join(' · ');
+        return `<section class="sort-visualization" aria-label="${escapeHtml(algorithmLabel)} visualization">
+            <div class="sort-title"><strong>${escapeHtml(algorithmLabel)} · ${escapeHtml(directionLabel)}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
+            ${state.array?.status === 'AVAILABLE'
+                ? `<div class="sort-cells" role="list" aria-label="Array values">${cells || '<span class="sort-detail">Mảng rỗng</span>'}</div>`
+                : '<div class="sort-detail">Không đọc được giá trị mảng.</div>'}
+            ${runtimeVariables ? `<div class="sort-detail">${escapeHtml(runtimeVariables)}</div>` : ''}
+            <div class="sort-detail">${comparisonText || mutationText || completedText || 'Trạng thái runtime tại bước hiện tại.'}</div>
+            ${mutationText && comparisonText ? `<div class="sort-detail">${mutationText}</div>` : ''}
+            ${sortedText ? `<div class="sort-detail">${sortedText}</div>` : ''}
+            <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
+            <div class="sort-legend" aria-label="Array highlight legend"><span><i></i>So sánh</span><span><i class="legend-write"></i>Ghi sắp tới</span><span><i class="legend-sorted"></i>Đoạn đã kiểm tra</span><span><i class="legend-pointer"></i>pass / scan</span><span><i class="legend-invalid"></i>Sai thứ tự</span></div>
+        </section>`;
     }
 
     function bindExecutionNavigation() {
@@ -639,7 +866,43 @@
         document.getElementById('nextStepBtn')?.addEventListener('click', () => {
             if (currentExecutionIndex < lastExecutionData.steps.length - 1) { currentExecutionIndex += 1; updateExecutionStep(); }
         });
+        document.getElementById('playSortBtn')?.addEventListener('click', toggleExecutionPlayback);
+        document.getElementById('executionProgress')?.addEventListener('input', event => {
+            stopExecutionPlayback();
+            currentExecutionIndex = Number(event.target.value);
+            updateExecutionStep();
+        });
+        document.getElementById('playbackSpeed')?.addEventListener('change', () => {
+            if (playbackTimer !== null) { stopExecutionPlayback(); startExecutionPlayback(); }
+        });
         updateExecutionStep();
+    }
+
+    let playbackTimer = null;
+    function stopExecutionPlayback() {
+        if (playbackTimer !== null) clearInterval(playbackTimer);
+        playbackTimer = null;
+        const button = document.getElementById('playSortBtn');
+        if (button) { button.textContent = '▶'; button.setAttribute('aria-label', 'Play execution'); }
+    }
+
+    function startExecutionPlayback() {
+        const speed = Number(document.getElementById('playbackSpeed')?.value || 450);
+        const button = document.getElementById('playSortBtn');
+        if (button) { button.textContent = 'Ⅱ'; button.setAttribute('aria-label', 'Pause execution'); }
+        playbackTimer = setInterval(() => {
+            if (!lastExecutionData || currentExecutionIndex >= lastExecutionData.steps.length - 1) {
+                stopExecutionPlayback();
+                return;
+            }
+            currentExecutionIndex += 1;
+            updateExecutionStep();
+        }, speed);
+    }
+
+    function toggleExecutionPlayback() {
+        if (playbackTimer !== null) stopExecutionPlayback();
+        else startExecutionPlayback();
     }
 
     let lastChunks = null;
@@ -653,6 +916,7 @@
     }
 
     function resetRenderedData() {
+        stopExecutionPlayback();
         lastChunks = null;
         lastExportData = null;
         lastExecutionData = null;
@@ -767,6 +1031,7 @@
             return;
         }
 
+        stopExecutionPlayback();
         debugBtn.disabled = true;
         hintEl.textContent = 'Đang chạy target qua JDI (tối đa 30 giây)...';
         resultsEl.innerHTML = '<div class="empty">Đang chạy target và lấy giá trị biến...</div>';
