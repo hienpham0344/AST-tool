@@ -129,7 +129,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
     if (adjacent.isPresent()) return adjacent;
     if (body.size() < 4) return Optional.empty();
     Key key = key(body.get(0), pass.get(), facts);
-    if (key == null || !key.sequence().isNumericPrimitiveArray()) return Optional.empty();
+    if (key == null) return Optional.empty();
     var outerBound = facts.supportedLengthBound(outer, key.sequence());
     if (outerBound.isEmpty() || outerBound.get().lengthOffset() != 0 || outerBound.get().pass().isPresent())
       return Optional.empty();
@@ -154,6 +154,10 @@ public final class InsertionSortDetector implements SortPatternDetector {
     ids.put("pass", pass.get().declarationId());
     ids.put("scan", scan.counter().declarationId());
     ids.put("key", AstAnalyzer.nodeId(key.variable()));
+    if (condition.comparator() != null) {
+      roles.put("comparator", condition.comparator().displayName());
+      ids.put("comparator", condition.comparator().declarationId());
+    }
     SortPattern sort = condition.helperComparison() != null
             || key.sequence().kind() != SortSemanticFacts.SequenceKind.INT_ARRAY
         ? null : new SortPattern(
@@ -165,9 +169,13 @@ public final class InsertionSortDetector implements SortPatternDetector {
             "scanDecrement", AstAnalyzer.nodeId(movement.decrement()),
             "insertWrite", AstAnalyzer.nodeId(body.get(3))));
     List<String> evidence = new ArrayList<>(List.of(
-        "A forward pass retains one key from a single numeric primitive array receiver",
+        condition.comparator() == null
+            ? "A forward pass retains one key from a single numeric primitive array receiver"
+            : "A forward pass retains one key from a comparator-bound reference array receiver",
         "A boundary-first backward scan shifts adjacent values before inserting the key"));
-    if (condition.helperComparison() != null) {
+    if (condition.comparator() != null) {
+      evidence.add("A direct fully-qualified Comparator parameter compares the scan element and saved key");
+    } else if (condition.helperComparison() != null) {
       evidence.add("Resolved same-file strict comparison helper "
           + condition.helperComparison().helperCallableId() + " at " + condition.helperComparison().callSiteId());
     }
@@ -295,7 +303,8 @@ public final class InsertionSortDetector implements SortPatternDetector {
     if (sequence.isEmpty() || index.isEmpty() || index.get().offset() != 0
         || !index.get().declarationId().equals(pass.declarationId())) return null;
     var binding = sequence.get().binding();
-    if (!binding.isNumericPrimitiveArray() || !variable.getType().asString().equals(binding.elementType()))
+    if ((!binding.isNumericPrimitiveArray() && binding.kind() != SortSemanticFacts.SequenceKind.OBJECT_ARRAY)
+        || !variable.getType().asString().equals(binding.elementType()))
       return null;
     return new Key(variable, binding);
   }
@@ -321,6 +330,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
         || !boundary(conjunction.getLeft(), scan)) return null;
     Expression comparison = SortSemanticFacts.unwrap(conjunction.getRight());
     if (comparison instanceof MethodCallExpr call) {
+      if (!key.sequence().isNumericPrimitiveArray()) return null;
       var resolved = session.helpers().resolveComparison(call).value();
       if (resolved.isEmpty()) return null;
       var helper = resolved.get();
@@ -330,8 +340,25 @@ public final class InsertionSortDetector implements SortPatternDetector {
           && comparisonOperand(helper.right(), key.sequence(), scan, 0);
       if (!arrayLeft && !keyLeft) return null;
       return new SemanticCondition(arrayLeft ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
-          AstAnalyzer.nodeId(call), helper);
+          AstAnalyzer.nodeId(call), helper, null);
     }
+    var comparatorComparison = facts.strictComparatorComparison(comparison);
+    if (comparatorComparison.isPresent()) {
+      var normalized = comparatorComparison.get();
+      if (!normalized.comparator().supports(key.sequence())) return null;
+      boolean arrayLeft = arrayAt(normalized.left(), key.sequence(), scan, 0, facts)
+          && keyOperand(normalized.right(), key.variable());
+      boolean keyLeft = keyOperand(normalized.left(), key.variable())
+          && arrayAt(normalized.right(), key.sequence(), scan, 0, facts);
+      if (!arrayLeft && !keyLeft) return null;
+      boolean ascending = arrayLeft
+          ? normalized.operator() == BinaryExpr.Operator.GREATER
+          : normalized.operator() == BinaryExpr.Operator.LESS;
+      return new SemanticCondition(
+          ascending ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
+          normalized.astNodeId(), null, normalized.comparator());
+    }
+    if (!key.sequence().isNumericPrimitiveArray()) return null;
     if (!(comparison instanceof BinaryExpr binary)
         || (binary.getOperator() != BinaryExpr.Operator.GREATER && binary.getOperator() != BinaryExpr.Operator.LESS)) return null;
     boolean arrayLeft = arrayAt(binary.getLeft(), key.sequence(), scan, 0, facts)
@@ -342,7 +369,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
     boolean ascending = arrayLeft ? binary.getOperator() == BinaryExpr.Operator.GREATER
         : binary.getOperator() == BinaryExpr.Operator.LESS;
     return new SemanticCondition(ascending ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
-        AstAnalyzer.nodeId(binary), null);
+        AstAnalyzer.nodeId(binary), null, null);
   }
 
   private static boolean boundary(Expression expression, SortSemanticFacts.Counter scan) {
@@ -459,7 +486,8 @@ public final class InsertionSortDetector implements SortPatternDetector {
   private record Scan(SortSemanticFacts.Counter counter) {}
   private record Element(SortSemanticFacts.SequenceBinding binding, SortSemanticFacts.IndexOperand index) {}
   private record SemanticCondition(SortPattern.Direction direction, String comparisonId,
-      SameFileHelperSummaries.Comparison helperComparison) {}
+      SameFileHelperSummaries.Comparison helperComparison,
+      SortSemanticFacts.ComparatorBinding comparator) {}
   private record Movement(Statement shiftWrite, Statement decrement) {}
 
   private Condition shiftCondition(Expression expression, String scan, String array, String key) {

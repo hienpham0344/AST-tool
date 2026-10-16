@@ -222,4 +222,65 @@ class SortSemanticFactsTest {
     assertThat(facts.strictComparison(conditions.get(1).getCondition())).isEmpty();
     assertThat(facts.strictComparison(conditions.get(2).getCondition())).isEmpty();
   }
+
+  @Test void normalizesDirectFullyQualifiedComparatorAgainstZeroForReferenceArrayAlias() {
+    var unit = parser.parseCompilationUnit("""
+        class S {
+          void sort(String[] values, java.util.Comparator<String> order, int scan) {
+            String[] alias = values;
+            if (order.compare(alias[scan], values[scan + 1]) > 0) {}
+            if (0 > order.compare(values[scan], alias[scan + 1])) {}
+          }
+        }
+        """);
+    var facts = SortSemanticFacts.analyze(unit);
+    var conditions = unit.findAll(IfStmt.class);
+
+    var forward = facts.strictComparatorComparison(conditions.get(0).getCondition());
+    assertThat(forward).isPresent();
+    assertThat(forward.orElseThrow().operator()).isEqualTo(BinaryExpr.Operator.GREATER);
+    assertThat(forward.orElseThrow().left().toString()).isEqualTo("alias[scan]");
+    assertThat(forward.orElseThrow().right().toString()).isEqualTo("values[scan + 1]");
+    assertThat(forward.orElseThrow().comparator().elementType()).isEqualTo("String");
+    assertThat(forward.orElseThrow().comparator().supports(
+        facts.sequenceAccess(unit.findAll(ArrayAccessExpr.class).get(0)).orElseThrow().binding())).isTrue();
+
+    var reversed = facts.strictComparatorComparison(conditions.get(1).getCondition());
+    assertThat(reversed).isPresent();
+    assertThat(reversed.orElseThrow().operator()).isEqualTo(BinaryExpr.Operator.LESS);
+    assertThat(reversed.orElseThrow().left().toString()).isEqualTo("values[scan]");
+    assertThat(reversed.orElseThrow().right().toString()).isEqualTo("alias[scan + 1]");
+  }
+
+  @Test void rejectsComparatorNearMissesOutsideTheDirectExactBoundary() {
+    for (String parameter : new String[]{
+        "java.util.Comparator order",
+        "java.util.Comparator<?> order",
+        "Comparator<String> order"}) {
+      String source = "class S { void sort(String[] values, " + parameter
+          + ", int scan) { if (order.compare(values[scan], values[scan + 1]) > 0) {} } }";
+      var unit = parser.parseCompilationUnit(source);
+      assertThat(SortSemanticFacts.analyze(unit)
+          .strictComparatorComparison(unit.findFirst(IfStmt.class).orElseThrow().getCondition()))
+          .as(parameter).isEmpty();
+    }
+
+    var mismatched = parser.parseCompilationUnit("class S { void sort(String[] values, java.util.Comparator<Object> order, int scan) { if (order.compare(values[scan], values[scan + 1]) > 0) {} } }");
+    var mismatch = SortSemanticFacts.analyze(mismatched);
+    var comparison = mismatch.strictComparatorComparison(mismatched.findFirst(IfStmt.class).orElseThrow().getCondition());
+    assertThat(comparison).isPresent();
+    assertThat(comparison.orElseThrow().comparator().supports(
+        mismatch.sequenceAccess(mismatched.findFirst(ArrayAccessExpr.class).orElseThrow()).orElseThrow().binding())).isFalse();
+
+    for (String body : new String[]{
+        "if (order.compare(values[scan], values[scan + 1]) > 1) {}",
+        "if (this.order.compare(values[scan], values[scan + 1]) > 0) {}",
+        "java.util.Comparator<String> alias = order; if (alias.compare(values[scan], values[scan + 1]) > 0) {}",
+        "if (order.compare(values[scan], values[scan + 1]).intValue() > 0) {}"}) {
+      var unit = parser.parseCompilationUnit("class S { void sort(String[] values, java.util.Comparator<String> order, java.util.Comparator<String> other, int scan) { " + body + " } }");
+      assertThat(SortSemanticFacts.analyze(unit)
+          .strictComparatorComparison(unit.findFirst(IfStmt.class).orElseThrow().getCondition()))
+          .as(body).isEmpty();
+    }
+  }
 }

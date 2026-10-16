@@ -32,6 +32,7 @@ final class SortSemanticFacts {
   static final class Analysis {
     private final Map<String, SequenceBinding> bindings;
     private final Map<String, String> types;
+    private final Map<String, ComparatorBinding> comparators;
 
     Optional<NormalizedComparison> strictComparison(Expression expression) {
       Expression unwrapped = unwrap(expression);
@@ -45,6 +46,37 @@ final class SortSemanticFacts {
       List<String> ids = binary.findAll(NameExpr.class).stream().map(LocalVariableBindings::resolve)
           .flatMap(Optional::stream).distinct().toList();
       return Optional.of(new NormalizedComparison(AstAnalyzer.nodeId(expression), left, BinaryExpr.Operator.GREATER, right, ids));
+    }
+
+    /** Recognizes a direct fully-qualified Comparator compare result against literal zero. */
+    Optional<NormalizedComparatorComparison> strictComparatorComparison(Expression expression) {
+      Expression unwrapped = unwrap(expression);
+      if (!(unwrapped instanceof BinaryExpr binary)
+          || binary.getOperator() != BinaryExpr.Operator.LESS
+              && binary.getOperator() != BinaryExpr.Operator.GREATER) return Optional.empty();
+      Expression left = unwrap(binary.getLeft());
+      Expression right = unwrap(binary.getRight());
+      MethodCallExpr call;
+      BinaryExpr.Operator operator = binary.getOperator();
+      if (isZero(right) && left instanceof MethodCallExpr leftCall) {
+        call = leftCall;
+      } else if (isZero(left) && right instanceof MethodCallExpr rightCall) {
+        call = rightCall;
+        operator = operator == BinaryExpr.Operator.GREATER
+            ? BinaryExpr.Operator.LESS : BinaryExpr.Operator.GREATER;
+      } else {
+        return Optional.empty();
+      }
+      if (!call.getNameAsString().equals("compare") || call.getArguments().size() != 2
+          || call.getTypeArguments().isPresent()) return Optional.empty();
+      Expression receiver = call.getScope().map(SortSemanticFacts::unwrap).orElse(null);
+      if (!(receiver instanceof NameExpr name)) return Optional.empty();
+      ComparatorBinding comparator = LocalVariableBindings.resolve(name).map(comparators::get).orElse(null);
+      if (comparator == null) return Optional.empty();
+      List<String> ids = binary.findAll(NameExpr.class).stream().map(LocalVariableBindings::resolve)
+          .flatMap(Optional::stream).distinct().toList();
+      return Optional.of(new NormalizedComparatorComparison(AstAnalyzer.nodeId(expression), AstAnalyzer.nodeId(call),
+          comparator, call.getArgument(0), operator, call.getArgument(1), ids));
     }
 
     Optional<IndexOperand> indexOperand(Expression expression) {
@@ -193,6 +225,14 @@ final class SortSemanticFacts {
       Map<String, SequenceBinding> activeBindings = new LinkedHashMap<>(known);
       this.bindings = java.util.Collections.unmodifiableMap(activeBindings);
       this.types = Map.copyOf(declaredTypes);
+      Map<String, ComparatorBinding> directComparators = new LinkedHashMap<>();
+      for (Parameter parameter : unit.findAll(Parameter.class)) {
+        if (LocalVariableBindings.callable(parameter) == null) continue;
+        comparatorElementType(parameter.getType().asString()).ifPresent(elementType ->
+            directComparators.put(AstAnalyzer.nodeId(parameter),
+                new ComparatorBinding(AstAnalyzer.nodeId(parameter), parameter.getNameAsString(), elementType)));
+      }
+      this.comparators = Map.copyOf(directComparators);
       SameFileHelperSummaries summaries = SameFileHelperSummaries.analyze(unit, this);
       Set<String> escapedDeclarations = new HashSet<>();
       for (AssignExpr assign : unit.findAll(AssignExpr.class)) {
@@ -257,10 +297,25 @@ final class SortSemanticFacts {
       return kind == SequenceKind.INT_ARRAY || kind == SequenceKind.NUMERIC_PRIMITIVE_ARRAY;
     }
   }
+  record ComparatorBinding(String declarationId, String displayName, String elementType) {
+    ComparatorBinding {
+      if (declarationId == null || displayName == null || elementType == null || elementType.isEmpty())
+        throw new IllegalArgumentException("Comparator binding fields are required");
+    }
+
+    boolean supports(SequenceBinding sequence) {
+      return sequence != null && sequence.kind() == SequenceKind.OBJECT_ARRAY
+          && !sequence.elementType().endsWith("[]") && elementType.equals(sequence.elementType());
+    }
+  }
   record SequenceAccess(String astNodeId, SequenceBinding binding) {}
   record IndexOperand(String astNodeId, String declarationId, String displayName, int offset) {}
   record NormalizedComparison(String astNodeId, Expression left, BinaryExpr.Operator operator, Expression right, List<String> declarationIds) {
     NormalizedComparison { declarationIds = List.copyOf(declarationIds); }
+  }
+  record NormalizedComparatorComparison(String astNodeId, String callAstNodeId, ComparatorBinding comparator,
+      Expression left, BinaryExpr.Operator operator, Expression right, List<String> declarationIds) {
+    NormalizedComparatorComparison { declarationIds = List.copyOf(declarationIds); }
   }
   record Counter(String astNodeId, String declarationId, String displayName, int step, Expression initializer, String updateAstNodeId) {}
   record LoopBound(String astNodeId, IndexOperand index, SequenceBinding sequence, int lengthOffset, Optional<IndexOperand> pass) {}
@@ -310,6 +365,17 @@ final class SortSemanticFacts {
     return false;
   }
   private static boolean one(Expression expression) { return unwrap(expression) instanceof IntegerLiteralExpr literal && literal.getValue().equals("1"); }
+  private static boolean isZero(Expression expression) {
+    return unwrap(expression) instanceof IntegerLiteralExpr literal && literal.getValue().equals("0");
+  }
+  private static Optional<String> comparatorElementType(String type) {
+    String prefix = "java.util.Comparator<";
+    if (!type.startsWith(prefix) || !type.endsWith(">")) return Optional.empty();
+    String element = type.substring(prefix.length(), type.length() - 1);
+    if (element.isEmpty() || element.contains("<") || element.contains(">") || element.contains(",")
+        || element.contains("?") || element.contains("[")) return Optional.empty();
+    return Optional.of(element);
+  }
   private static boolean allowed(Node node, Node scope, Set<String> ids) {
     for (Node current = node; current != null; current = current.getParentNode().orElse(null)) {
       if (ids.contains(AstAnalyzer.nodeId(current))) return true;

@@ -161,29 +161,32 @@ public final class SelectionSortDetector implements SortPatternDetector {
     AssignExpr selectionUpdate = selectedUpdate(comparisonBranch, selectedId, scan.get());
     if (selectionUpdate == null || countWrites(outer, selectedId) != 1) return Optional.empty();
 
-    var comparison = facts.strictComparison(comparisonBranch.getCondition());
-    if (comparison.isEmpty()) return Optional.empty();
-    Element left = element(comparison.get().left(), facts);
-    Element right = element(comparison.get().right(), facts);
+    var numericComparison = facts.strictComparison(comparisonBranch.getCondition());
+    var comparatorComparison = facts.strictComparatorComparison(comparisonBranch.getCondition());
+    if (numericComparison.isEmpty() && comparatorComparison.isEmpty()) return Optional.empty();
+    Expression comparisonLeft = numericComparison.map(SortSemanticFacts.NormalizedComparison::left)
+        .orElseGet(() -> comparatorComparison.orElseThrow().left());
+    Expression comparisonRight = numericComparison.map(SortSemanticFacts.NormalizedComparison::right)
+        .orElseGet(() -> comparatorComparison.orElseThrow().right());
+    Element left = element(comparisonLeft, facts);
+    Element right = element(comparisonRight, facts);
     if (left == null || right == null
-        || !left.binding().isNumericPrimitiveArray()
         || !left.binding().canonicalDeclarationId().equals(right.binding().canonicalDeclarationId()))
       return Optional.empty();
     var sequence = left.binding();
+    if (numericComparison.isPresent() && !sequence.isNumericPrimitiveArray()
+        || comparatorComparison.isPresent() && !comparatorComparison.orElseThrow().comparator().supports(sequence))
+      return Optional.empty();
     var outerBound = facts.supportedLengthBound(outer, sequence);
     var innerBound = facts.supportedLengthBound(inner, sequence);
     if (outerBound.isEmpty() || outerBound.get().lengthOffset() != -1 || outerBound.get().pass().isPresent()
         || innerBound.isEmpty() || innerBound.get().lengthOffset() != 0 || innerBound.get().pass().isPresent())
       return Optional.empty();
 
-    SortPattern.Direction direction;
-    if (left.index().declarationId().equals(selectedId) && left.index().offset() == 0
-        && right.index().declarationId().equals(scan.get().declarationId()) && right.index().offset() == 0)
-      direction = SortPattern.Direction.ASCENDING;
-    else if (left.index().declarationId().equals(scan.get().declarationId()) && left.index().offset() == 0
-        && right.index().declarationId().equals(selectedId) && right.index().offset() == 0)
-      direction = SortPattern.Direction.DESCENDING;
-    else return Optional.empty();
+    SortPattern.Direction direction = numericComparison.isPresent()
+        ? numericDirection(left, right, selectedId, scan.get())
+        : comparatorDirection(left, right, comparatorComparison.orElseThrow().operator(), selectedId, scan.get());
+    if (direction == null) return Optional.empty();
 
     Placement placement = placement(outerStatements.subList(2, outerStatements.size()), sequence,
         pass.get(), selectedId, facts, session);
@@ -202,6 +205,11 @@ public final class SelectionSortDetector implements SortPatternDetector {
     ids.put("pass", pass.get().declarationId());
     ids.put("scan", scan.get().declarationId());
     ids.put("selected", selectedId);
+    if (comparatorComparison.isPresent()) {
+      var comparator = comparatorComparison.orElseThrow().comparator();
+      roles.put("comparator", comparator.displayName());
+      ids.put("comparator", comparator.declarationId());
+    }
     if (placement.temporary() != null) {
       roles.put("temp", placement.temporary().getNameAsString());
       ids.put("temp", AstAnalyzer.nodeId(placement.temporary()));
@@ -218,6 +226,8 @@ public final class SelectionSortDetector implements SortPatternDetector {
     List<String> evidence = new ArrayList<>(List.of(
         "A pass-bound selected index is updated only by a strict same-array comparison",
         "A complete remaining-region scan precedes one boundary placement"));
+    if (comparatorComparison.isPresent())
+      evidence.add("A direct fully-qualified Comparator parameter compares the selected array elements");
     if (placement.helper() != null)
       evidence.add("Resolved same-file exchange helper " + placement.helper().helperCallableId()
           + " at " + placement.helper().callSiteId());
@@ -245,6 +255,32 @@ public final class SelectionSortDetector implements SortPatternDetector {
       SortSemanticFacts.Analysis facts) {
     return facts.indexOperand(scan.initializer()).filter(index -> index.offset() == 1
         && index.declarationId().equals(pass.declarationId())).isPresent();
+  }
+
+  private static SortPattern.Direction numericDirection(Element left, Element right, String selectedId,
+      SortSemanticFacts.Counter scan) {
+    if (atIndex(left, selectedId) && atIndex(right, scan.declarationId()))
+      return SortPattern.Direction.ASCENDING;
+    if (atIndex(left, scan.declarationId()) && atIndex(right, selectedId))
+      return SortPattern.Direction.DESCENDING;
+    return null;
+  }
+
+  private static SortPattern.Direction comparatorDirection(Element left, Element right,
+      BinaryExpr.Operator operator, String selectedId, SortSemanticFacts.Counter scan) {
+    boolean selectedThenScan = atIndex(left, selectedId) && atIndex(right, scan.declarationId());
+    boolean scanThenSelected = atIndex(left, scan.declarationId()) && atIndex(right, selectedId);
+    if (selectedThenScan)
+      return operator == BinaryExpr.Operator.GREATER
+          ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING;
+    if (scanThenSelected)
+      return operator == BinaryExpr.Operator.LESS
+          ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING;
+    return null;
+  }
+
+  private static boolean atIndex(Element element, String declarationId) {
+    return element.index().offset() == 0 && element.index().declarationId().equals(declarationId);
   }
 
   private static IfStmt comparisonBranch(ForStmt inner, SortSemanticFacts.Counter pass,

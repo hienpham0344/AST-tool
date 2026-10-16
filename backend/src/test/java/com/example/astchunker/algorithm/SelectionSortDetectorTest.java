@@ -215,6 +215,93 @@ class SelectionSortDetectorTest {
   }
 
   @Test
+  void recognizesComparatorGuardedReferenceSelectionStaticallyWithExactBindings() {
+    String source =
+        """
+        void solve(String[] data, java.util.Comparator<String> order) {
+          for (int pass = 0; pass < data.length - 1; pass++) {
+            int selected = pass;
+            for (int scan = pass + 1; scan < data.length; scan++) {
+              if (order.compare(data[scan], data[selected]) < 0) selected = scan;
+            }
+            if (selected != pass) {
+              String saved = data[pass];
+              data[pass] = data[selected];
+              data[selected] = saved;
+            }
+          }
+        }
+        """;
+    CompilationUnit unit = parser.parseCompilationUnit("class Sample { " + source + " }");
+
+    assertThat(SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow()))
+        .satisfies(result -> {
+          assertThat(result.status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+          assertThat(result.candidates()).singleElement().satisfies(hint -> {
+            assertThat(hint.type()).isEqualTo("selection-sort");
+            assertThat(hint.sort()).isNull();
+            assertThat(hint.variableDeclarationIds()).containsEntry(
+                "array", AstAnalyzer.nodeId(unit.findAll(Parameter.class).get(0)));
+            assertThat(hint.variables()).containsEntry("comparator", "order");
+            assertThat(hint.variableDeclarationIds()).containsEntry(
+                "comparator", AstAnalyzer.nodeId(unit.findAll(Parameter.class).get(1)));
+            assertThat(hint.variableDeclarationIds()).containsEntry(
+                "pass", AstAnalyzer.nodeId(unit.findAll(VariableDeclarator.class).stream()
+                    .filter(variable -> variable.getNameAsString().equals("pass")).findFirst().orElseThrow()));
+            assertThat(hint.variableDeclarationIds()).containsEntry(
+                "scan", AstAnalyzer.nodeId(unit.findAll(VariableDeclarator.class).stream()
+                    .filter(variable -> variable.getNameAsString().equals("scan")).findFirst().orElseThrow()));
+            assertThat(hint.variableDeclarationIds()).containsEntry(
+                "selected", AstAnalyzer.nodeId(unit.findAll(VariableDeclarator.class).stream()
+                    .filter(variable -> variable.getNameAsString().equals("selected")).findFirst().orElseThrow()));
+            assertThat(hint.variableDeclarationIds()).containsEntry(
+                "temp", AstAnalyzer.nodeId(unit.findAll(VariableDeclarator.class).stream()
+                    .filter(variable -> variable.getNameAsString().equals("saved")).findFirst().orElseThrow()));
+          });
+        });
+
+    CompilationUnit reversed = parser.parseCompilationUnit("class Sample { " + source
+        .replace("order.compare(data[scan], data[selected]) < 0",
+            "order.compare(data[selected], data[scan]) > 0") + " }");
+    assertThat(SortPatternRegistry.defaults().begin(reversed)
+        .evaluate(reversed.findFirst(ForStmt.class).orElseThrow()))
+        .satisfies(result -> {
+          assertThat(result.status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+          assertThat(result.candidates()).singleElement().satisfies(hint -> assertThat(hint.sort()).isNull());
+        });
+  }
+
+  @Test
+  void rejectsComparatorSelectionWithWrongReceiverOrCrossArrayOperands() {
+    String valid =
+        """
+        void solve(String[] data, String[] other, java.util.Comparator<String> order,
+            java.util.Comparator<String> alternate) {
+          for (int pass = 0; pass < data.length - 1; pass++) {
+            int selected = pass;
+            for (int scan = pass + 1; scan < data.length; scan++) {
+              if (order.compare(data[scan], data[selected]) < 0) selected = scan;
+            }
+            if (selected != pass) {
+              String saved = data[pass];
+              data[pass] = data[selected];
+              data[selected] = saved;
+            }
+          }
+        }
+        """;
+    for (String invalid : List.of(
+        valid.replace("java.util.Comparator<String> order", "java.util.Comparator<Object> order"),
+        valid.replace("for (int pass", "java.util.Comparator<String> alias = order; for (int pass")
+            .replace("order.compare", "alias.compare"),
+        valid.replace("data[selected]) < 0", "other[selected]) < 0"),
+        valid.replace("< 0", "< 1"))) {
+      assertThat(evaluateSemantic(invalid).status()).isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    }
+  }
+
+  @Test
   void recognizesGuardedSemanticSelectionWithAliasesAndReversedComparison() {
     String source =
         """

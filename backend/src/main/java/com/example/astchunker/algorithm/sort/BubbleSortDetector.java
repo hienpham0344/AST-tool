@@ -135,14 +135,34 @@ public final class BubbleSortDetector implements SortPatternDetector {
     }
     if (branch == null || branch.getElseStmt().isPresent()) return Optional.empty();
 
-    var comparison = facts.strictComparison(branch.getCondition());
-    if (comparison.isEmpty()) return Optional.empty();
-    var left = element(comparison.get().left(), facts);
-    var right = element(comparison.get().right(), facts);
+    var primitiveComparison = facts.strictComparison(branch.getCondition());
+    var comparatorComparison = primitiveComparison.isEmpty()
+        ? facts.strictComparatorComparison(branch.getCondition()) : Optional.<SortSemanticFacts.NormalizedComparatorComparison>empty();
+    if (primitiveComparison.isEmpty() && comparatorComparison.isEmpty()) return Optional.empty();
+    Expression comparisonLeft;
+    Expression comparisonRight;
+    SortSemanticFacts.ComparatorBinding comparator = null;
+    if (primitiveComparison.isPresent()) {
+      comparisonLeft = primitiveComparison.get().left();
+      comparisonRight = primitiveComparison.get().right();
+    } else {
+      var normalized = comparatorComparison.get();
+      comparisonLeft = normalized.left();
+      comparisonRight = normalized.right();
+      comparator = normalized.comparator();
+      if (normalized.operator() == BinaryExpr.Operator.LESS) {
+        Expression reversed = comparisonLeft;
+        comparisonLeft = comparisonRight;
+        comparisonRight = reversed;
+      }
+    }
+    var left = element(comparisonLeft, facts);
+    var right = element(comparisonRight, facts);
     if (left.isEmpty() || right.isEmpty()) return Optional.empty();
     var first = left.get();
     var second = right.get();
-    if (!first.binding().isNumericPrimitiveArray()
+    if (!(first.binding().isNumericPrimitiveArray()
+            || comparator != null && comparator.supports(first.binding()))
         || !first.binding().canonicalDeclarationId().equals(second.binding().canonicalDeclarationId())
         || !first.index().declarationId().equals(scan.get().declarationId())
         || !second.index().declarationId().equals(scan.get().declarationId())) return Optional.empty();
@@ -202,6 +222,10 @@ public final class BubbleSortDetector implements SortPatternDetector {
     ids.put("array", sequence.sourceDeclarationId());
     ids.put("pass", pass.get().declarationId());
     ids.put("scan", scan.get().declarationId());
+    if (comparator != null) {
+      roles.put("comparator", comparator.displayName());
+      ids.put("comparator", comparator.declarationId());
+    }
     if (temp != null) {
       roles.put("temp", temp.getNameAsString());
       ids.put("temp", AstAnalyzer.nodeId(temp));
@@ -221,8 +245,12 @@ public final class BubbleSortDetector implements SortPatternDetector {
         new SortPattern.Operand(scan.get().declarationId(), 0),
         new SortPattern.Operand(scan.get().declarationId(), 1));
     List<String> evidence = new ArrayList<>(List.of(
-        "Two forward passes share one numeric primitive array receiver and trusted length bounds",
+        comparator == null
+            ? "Two forward passes share one numeric primitive array receiver and trusted length bounds"
+            : "Two forward passes share one comparator-bound reference array receiver and trusted length bounds",
         "A strict comparison controls an adjacent exchange"));
+    if (comparator != null) evidence.add("Direct Comparator parameter " + comparator.declarationId()
+        + " compares the two adjacent elements");
     if (helper != null) evidence.add("Resolved same-file exchange helper "
         + helper.helperCallableId() + " at " + AstAnalyzer.nodeId(helperCall));
     else evidence.add("Three caller statements prove the temporary exchange");

@@ -41,6 +41,22 @@ class BubbleSortDetectorTest {
         .evaluate(unit.findFirst(ForStmt.class).orElseThrow()));
   }
 
+  private SemanticFixture semanticComparatorFixture(String body) {
+    return semanticComparatorFixture("E[] data, java.util.Comparator<E> comparator", body);
+  }
+
+  private SemanticFixture semanticComparatorFixture(String parameters, String body) {
+    CompilationUnit unit = parser.parseCompilationUnit(
+        "class Sample<E> { void solve(" + parameters + ") {\n"
+            + body + "\n} }");
+    return new SemanticFixture(unit, SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow()));
+  }
+
+  private SortPatternRegistry.Evaluation semanticComparator(String body) {
+    return semanticComparatorFixture(body).result();
+  }
+
   private SemanticFixture semanticFixture(String body, String helpers) {
     CompilationUnit unit = parser.parseCompilationUnit(
         "class Sample { void solve(int[] data) {\n" + body + "\n} " + helpers + " }");
@@ -240,6 +256,88 @@ class BubbleSortDetectorTest {
     String wrong = "private static void exchange(int[] a,int i,int j){int t=a[i];a[i]=a[j];a[j]=t;}";
     assertThat(semanticTyped("long", body, wrong).status())
         .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+  }
+
+  @Test
+  void recognizesDirectComparatorBubbleStaticallyWithExactRoleIds() {
+    String body = bubble("comparator.compare(data[scan], data[scan + 1]) > 0", "scan + 1")
+        .replace("int temp", "E temp");
+    var fixture = semanticComparatorFixture(body);
+
+    assertThat(fixture.result().status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+    assertThat(fixture.result().candidates()).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("bubble-sort");
+      assertThat(hint.sort()).isNull();
+      assertThat(hint.variableDeclarationIds())
+          .containsEntry("array", AstAnalyzer.nodeId(fixture.unit().findFirst(Parameter.class,
+              parameter -> parameter.getNameAsString().equals("data")).orElseThrow()))
+          .containsEntry("comparator", AstAnalyzer.nodeId(fixture.unit().findFirst(Parameter.class,
+              parameter -> parameter.getNameAsString().equals("comparator")).orElseThrow()));
+      for (String role : List.of("pass", "scan", "temp")) {
+        String id = fixture.unit().findAll(VariableDeclarator.class).stream()
+            .filter(variable -> variable.getNameAsString().equals(role))
+            .findFirst().map(AstAnalyzer::nodeId).orElseThrow();
+        assertThat(hint.variableDeclarationIds()).containsEntry(role, id);
+      }
+    });
+  }
+
+  @Test
+  void recognizesReversedComparatorOperandsAndStrictLessAsAscending() {
+    String body = bubble("comparator.compare(data[scan + 1], data[scan]) < 0", "scan + 1")
+        .replace("int temp", "E temp");
+    assertThat(semanticComparator(body).status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+    assertThat(semanticComparator(body).candidates()).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("bubble-sort");
+      assertThat(hint.sort()).isNull();
+    });
+  }
+
+  @Test
+  void rejectsComparatorBubbleNearMisses() {
+    String canonical = bubble("comparator.compare(data[scan], data[scan + 1]) > 0", "scan + 1")
+        .replace("int temp", "E temp");
+    assertThat(semanticComparator(canonical.replace("> 0", ">= 0")).status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(semanticComparator(canonical.replace("E temp", "Object temp")).status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(semanticComparator(canonical.replace("comparator.compare", "comparator.reversed().compare")).status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(semanticComparator(canonical.replace("data[scan],", "(E) data[scan],")).status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(semanticComparatorFixture("E[] data, java.util.Comparator<String> comparator", canonical)
+        .result().status()).isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+
+    String crossArray = canonical
+        .replace("data[scan + 1])", "other[scan + 1])");
+    assertThat(semanticComparatorFixture("E[] data, E[] other, java.util.Comparator<E> comparator", crossArray)
+        .result().status()).isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+  }
+
+  @Test
+  void recognizesComparatorBubbleThroughASafeSameTypeArrayAlias() {
+    String body = "E[] work = data;\n"
+        + bubble("comparator.compare(work[scan], work[scan + 1]) > 0", "scan + 1")
+            .replace("data", "work")
+            .replace("int temp", "E temp");
+    var fixture = semanticComparatorFixture(body);
+    String workId = AstAnalyzer.nodeId(fixture.unit().findFirst(VariableDeclarator.class,
+        variable -> variable.getNameAsString().equals("work")).orElseThrow());
+
+    assertThat(fixture.result().status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+    assertThat(fixture.result().candidates()).singleElement().satisfies(hint -> {
+      assertThat(hint.sort()).isNull();
+      assertThat(hint.variables()).containsEntry("array", "work");
+      assertThat(hint.variableDeclarationIds()).containsEntry("array", workId);
+    });
+  }
+
+  @Test
+  void rejectsNestedReferenceArraysEvenWithAnExactComparatorParameter() {
+    String body = bubble("comparator.compare(data[scan], data[scan + 1]) > 0", "scan + 1")
+        .replace("int temp", "E[] temp");
+    assertThat(semanticComparatorFixture("E[][] data, java.util.Comparator<E[]> comparator", body)
+        .result().status()).isEqualTo(SortPatternRegistry.Status.UNKNOWN);
   }
 
   @Test
