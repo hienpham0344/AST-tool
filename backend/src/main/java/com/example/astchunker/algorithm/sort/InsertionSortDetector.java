@@ -129,7 +129,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
     if (adjacent.isPresent()) return adjacent;
     if (body.size() < 4) return Optional.empty();
     Key key = key(body.get(0), pass.get(), facts);
-    if (key == null || key.sequence().kind() != SortSemanticFacts.SequenceKind.INT_ARRAY) return Optional.empty();
+    if (key == null || !key.sequence().isNumericPrimitiveArray()) return Optional.empty();
     var outerBound = facts.supportedLengthBound(outer, key.sequence());
     if (outerBound.isEmpty() || outerBound.get().lengthOffset() != 0 || outerBound.get().pass().isPresent())
       return Optional.empty();
@@ -154,7 +154,9 @@ public final class InsertionSortDetector implements SortPatternDetector {
     ids.put("pass", pass.get().declarationId());
     ids.put("scan", scan.counter().declarationId());
     ids.put("key", AstAnalyzer.nodeId(key.variable()));
-    SortPattern sort = condition.helperComparison() != null ? null : new SortPattern(
+    SortPattern sort = condition.helperComparison() != null
+            || key.sequence().kind() != SortSemanticFacts.SequenceKind.INT_ARRAY
+        ? null : new SortPattern(
         1, condition.direction(), AstAnalyzer.nodeId(shifting), condition.comparisonId(),
         AstAnalyzer.nodeId(shifting), List.of(),
         new SortPattern.Operand(scan.counter().declarationId(), 0),
@@ -163,7 +165,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
             "scanDecrement", AstAnalyzer.nodeId(movement.decrement()),
             "insertWrite", AstAnalyzer.nodeId(body.get(3))));
     List<String> evidence = new ArrayList<>(List.of(
-        "A forward pass retains one key from a single int[] receiver",
+        "A forward pass retains one key from a single numeric primitive array receiver",
         "A boundary-first backward scan shifts adjacent values before inserting the key"));
     if (condition.helperComparison() != null) {
       evidence.add("Resolved same-file strict comparison helper "
@@ -188,7 +190,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
         || (binary.getOperator() != BinaryExpr.Operator.LESS && binary.getOperator() != BinaryExpr.Operator.GREATER))
       return Optional.empty();
     Element left = element(binary.getLeft(), facts), right = element(binary.getRight(), facts);
-    if (left == null || right == null || left.binding().kind() != SortSemanticFacts.SequenceKind.INT_ARRAY
+    if (left == null || right == null || !left.binding().isNumericPrimitiveArray()
         || !left.binding().canonicalDeclarationId().equals(right.binding().canonicalDeclarationId())
         || !left.index().declarationId().equals(scan.get().declarationId())
         || !right.index().declarationId().equals(scan.get().declarationId())) return Optional.empty();
@@ -222,7 +224,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
     ids.put("scan", scan.get().declarationId());
     if (temp != null) ids.put("temp", AstAnalyzer.nodeId(temp));
     List<String> evidence = new ArrayList<>(List.of(
-        "A forward pass drives a backward adjacent exchange over one int[] receiver",
+        "A forward pass drives a backward adjacent exchange over one numeric primitive array receiver",
         "The adjacent exchange is static-only because it has no insertion trace metadata"));
     if (helper != null) evidence.add("Resolved same-file exchange helper "
         + helper.helperCallableId() + " at " + helper.callSiteId());
@@ -245,7 +247,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
         || !(first.getExpression() instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr declaration)
         || declaration.getVariables().size() != 1) return null;
     VariableDeclarator temp = declaration.getVariable(0);
-    if (!temp.getType().asString().equals("int") || temp.getInitializer().isEmpty()) return null;
+    if (!temp.getType().asString().equals(sequence.elementType()) || temp.getInitializer().isEmpty()) return null;
     AssignExpr firstWrite = assignment(statements.get(1)), secondWrite = assignment(statements.get(2));
     if (firstWrite == null || secondWrite == null) return null;
     boolean normal = arrayAt(temp.getInitializer().get(), sequence, scan, 0, facts)
@@ -286,13 +288,16 @@ public final class InsertionSortDetector implements SortPatternDetector {
         || !(expression.getExpression() instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr declaration)
         || declaration.getVariables().size() != 1) return null;
     VariableDeclarator variable = declaration.getVariable(0);
-    if (!variable.getType().asString().equals("int") || variable.getInitializer().isEmpty()
+    if (variable.getInitializer().isEmpty()
         || !(SortSemanticFacts.unwrap(variable.getInitializer().get()) instanceof ArrayAccessExpr access)) return null;
     var sequence = facts.sequenceAccess(access);
     var index = facts.indexOperand(access.getIndex());
     if (sequence.isEmpty() || index.isEmpty() || index.get().offset() != 0
         || !index.get().declarationId().equals(pass.declarationId())) return null;
-    return new Key(variable, sequence.get().binding());
+    var binding = sequence.get().binding();
+    if (!binding.isNumericPrimitiveArray() || !variable.getType().asString().equals(binding.elementType()))
+      return null;
+    return new Key(variable, binding);
   }
 
   private static Scan scan(Statement statement, SortSemanticFacts.Counter pass,
@@ -320,8 +325,8 @@ public final class InsertionSortDetector implements SortPatternDetector {
       if (resolved.isEmpty()) return null;
       var helper = resolved.get();
       boolean arrayLeft = comparisonOperand(helper.left(), key.sequence(), scan, 0)
-          && keyOperand(helper.right(), key.variable());
-      boolean keyLeft = keyOperand(helper.left(), key.variable())
+          && keyOperand(helper.right(), key.variable(), call);
+      boolean keyLeft = keyOperand(helper.left(), key.variable(), call)
           && comparisonOperand(helper.right(), key.sequence(), scan, 0);
       if (!arrayLeft && !keyLeft) return null;
       return new SemanticCondition(arrayLeft ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
@@ -430,6 +435,15 @@ public final class InsertionSortDetector implements SortPatternDetector {
   private static boolean keyOperand(SameFileHelperSummaries.Operand operand, VariableDeclarator key) {
     return operand.sequence().isEmpty() && operand.index().isPresent()
         && operand.index().get().declarationId().equals(AstAnalyzer.nodeId(key));
+  }
+
+  private static boolean keyOperand(SameFileHelperSummaries.Operand operand, VariableDeclarator key,
+      MethodCallExpr call) {
+    if (keyOperand(operand, key)) return true;
+    return operand.sequence().isEmpty()
+        && operand.scalarType().filter(key.getType().asString()::equals).isPresent()
+        && call.getArguments().stream().anyMatch(argument ->
+            AstAnalyzer.nodeId(argument).equals(operand.astNodeId()) && keyOperand(argument, key));
   }
 
   private static boolean keyOperand(Expression expression, VariableDeclarator key) {

@@ -8,6 +8,9 @@ import com.example.astchunker.algorithm.sort.SortPatternRegistry;
 import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.VariableDeclarator;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class InsertionSortDetectorTest {
@@ -451,5 +454,154 @@ class InsertionSortDetectorTest {
     assertThat(unsafe).isEmpty();
     assertThat(wrongShift).isEmpty();
     assertThat(new AlgorithmPatternAnalyzer().analyze(nonInt.compilationUnit())).isEmpty();
+  }
+
+  @Test
+  void recognizesEachNonIntNumericPrimitiveShiftAsStaticOnly() {
+    for (String type : List.of("byte", "short", "long", "char", "float", "double")) {
+      String source = shiftSource(type);
+      var unit = new AstAnalyzer().analyze(source).compilationUnit();
+      var result = SortPatternRegistry.defaults().begin(unit)
+          .evaluate(unit.findFirst(ForStmt.class).orElseThrow());
+
+      assertThat(result.status()).as(type).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+      assertThat(result.candidates()).as(type).hasSize(1);
+      var hint = result.candidates().get(0);
+      assertThat(hint.type()).isEqualTo("insertion-sort");
+      assertThat(hint.sort()).isNull();
+      assertThat(hint.variableDeclarationIds())
+          .containsEntry("array", AstAnalyzer.nodeId(unit.findFirst(Parameter.class).orElseThrow()));
+      for (String role : List.of("pass", "scan", "key")) {
+        String declarationId = AstAnalyzer.nodeId(unit.findFirst(
+            VariableDeclarator.class, variable -> variable.getNameAsString().equals(role)).orElseThrow());
+        assertThat(hint.variableDeclarationIds()).containsEntry(role, declarationId);
+      }
+    }
+  }
+
+  @Test
+  void recognizesExactLongComparisonAndAdjacentExchangeHelpersAsStaticOnly() {
+    String comparisonSource =
+        """
+        public class Sample {
+          private static boolean greater(long left, long right) { return left > right; }
+          void sort(long[] values) {
+            for (int pass = 1; pass < values.length; pass++) {
+              long key = values[pass]; int scan = pass - 1;
+              while (scan >= 0 && greater(values[scan], key)) { values[scan + 1] = values[scan]; scan--; }
+              values[scan + 1] = key;
+            }
+          }
+        }
+        """;
+    String exchangeSource =
+        """
+        public class Sample {
+          private static void exchange(long[] array, int left, int right) {
+            long temporary = array[left]; array[left] = array[right]; array[right] = temporary;
+          }
+          void sort(long[] values) {
+            for (int pass = 1; pass < values.length; pass++) {
+              for (int scan = pass; scan > 0 && values[scan] < values[scan - 1]; scan--) {
+                exchange(values, scan, scan - 1);
+              }
+            }
+          }
+        }
+        """;
+    var comparison = detectSemantic(comparisonSource);
+    var exchange = detectSemantic(exchangeSource);
+    var comparisonUnit = new AstAnalyzer().analyze(comparisonSource).compilationUnit();
+    var exchangeUnit = new AstAnalyzer().analyze(exchangeSource).compilationUnit();
+    String comparisonHelperId = AstAnalyzer.nodeId(comparisonUnit.findFirst(
+        MethodDeclaration.class, method -> method.getNameAsString().equals("greater")).orElseThrow());
+    String comparisonCallId = AstAnalyzer.nodeId(comparisonUnit.findFirst(MethodCallExpr.class).orElseThrow());
+    String exchangeHelperId = AstAnalyzer.nodeId(exchangeUnit.findFirst(
+        MethodDeclaration.class, method -> method.getNameAsString().equals("exchange")).orElseThrow());
+    String exchangeCallId = AstAnalyzer.nodeId(exchangeUnit.findFirst(MethodCallExpr.class).orElseThrow());
+
+    assertThat(comparison).isPresent();
+    assertThat(comparison.orElseThrow().sort()).isNull();
+    assertThat(comparison.orElseThrow().evidence())
+        .anySatisfy(value -> assertThat(value).contains(comparisonHelperId).contains(comparisonCallId));
+    assertThat(exchange).isPresent();
+    assertThat(exchange.orElseThrow().sort()).isNull();
+    assertThat(exchange.orElseThrow().evidence())
+        .anySatisfy(value -> assertThat(value).contains(exchangeHelperId).contains(exchangeCallId));
+  }
+
+  @Test
+  void ignoresUnusedKeyArgumentInLongComparisonHelper() {
+    var hint = detectSemantic(
+        """
+        public class Sample {
+          private static boolean greater(long left, long alternate, long unusedKey) {
+            return left > alternate;
+          }
+          void sort(long[] values, long alternate) {
+            for (int pass = 1; pass < values.length; pass++) {
+              long key = values[pass]; int scan = pass - 1;
+              while (scan >= 0 && greater(values[scan], alternate, key)) {
+                values[scan + 1] = values[scan]; scan--;
+              }
+              values[scan + 1] = key;
+            }
+          }
+        }
+        """);
+    assertThat(hint).isEmpty();
+  }
+
+  @Test
+  void rejectsNonNumericAndMismatchedPrimitiveInsertionForms() {
+    var booleanArray = detectSemantic(shiftSource("boolean"));
+    var objectArray = detectSemantic(
+        """
+        public class Sample { void sort(Integer[] values) {
+          for (int pass = 1; pass < values.length; pass++) {
+            Integer key = values[pass]; int scan = pass - 1;
+            while (scan >= 0 && values[scan] > key) { values[scan + 1] = values[scan]; scan--; }
+            values[scan + 1] = key;
+          }
+        } }
+        """);
+    var narrowedKey = detectSemantic(
+        """
+        public class Sample { void sort(long[] values) {
+          for (int pass = 1; pass < values.length; pass++) {
+            int key = (int) values[pass]; int scan = pass - 1;
+            while (scan >= 0 && values[scan] > key) { values[scan + 1] = values[scan]; scan--; }
+            values[scan + 1] = key;
+          }
+        } }
+        """);
+    var mismatchedTemporary = detectSemantic(
+        """
+        public class Sample { void sort(long[] values) {
+          for (int pass = 1; pass < values.length; pass++) {
+            for (int scan = pass; scan > 0 && values[scan] < values[scan - 1]; scan--) {
+              int temporary = (int) values[scan];
+              values[scan] = values[scan - 1]; values[scan - 1] = temporary;
+            }
+          }
+        } }
+        """);
+
+    assertThat(booleanArray).isEmpty();
+    assertThat(objectArray).isEmpty();
+    assertThat(narrowedKey).isEmpty();
+    assertThat(mismatchedTemporary).isEmpty();
+  }
+
+  private static String shiftSource(String type) {
+    return """
+        public class Sample { void sort(%s[] values) {
+          for (int pass = 1; pass < values.length; pass++) {
+            %s key = values[pass]; int scan = pass - 1;
+            while (scan >= 0 && values[scan] > key) { values[scan + 1] = values[scan]; scan--; }
+            values[scan + 1] = key;
+          }
+        } }
+        """.formatted(type, type);
   }
 }

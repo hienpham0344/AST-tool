@@ -166,7 +166,7 @@ public final class SelectionSortDetector implements SortPatternDetector {
     Element left = element(comparison.get().left(), facts);
     Element right = element(comparison.get().right(), facts);
     if (left == null || right == null
-        || left.binding().kind() != SortSemanticFacts.SequenceKind.INT_ARRAY
+        || !left.binding().isNumericPrimitiveArray()
         || !left.binding().canonicalDeclarationId().equals(right.binding().canonicalDeclarationId()))
       return Optional.empty();
     var sequence = left.binding();
@@ -206,7 +206,8 @@ public final class SelectionSortDetector implements SortPatternDetector {
       roles.put("temp", placement.temporary().getNameAsString());
       ids.put("temp", AstAnalyzer.nodeId(placement.temporary()));
     }
-    boolean representableSwap = placement.directStatements() != null
+    boolean representableSwap = sequence.kind() == SortSemanticFacts.SequenceKind.INT_ARRAY
+        && placement.directStatements() != null
         && at(placement.temporary().getInitializer().orElseThrow(), sequence,
             pass.get().declarationId(), facts);
     SortPattern sort = !representableSwap ? null : new SortPattern(
@@ -357,7 +358,8 @@ public final class SelectionSortDetector implements SortPatternDetector {
         || !(expression.getExpression() instanceof VariableDeclarationExpr declaration)
         || declaration.getVariables().size() != 1) return null;
     VariableDeclarator temporary = declaration.getVariable(0);
-    if (!temporary.getType().asString().equals("int") || temporary.getInitializer().isEmpty()) return null;
+    if (!temporary.getType().asString().equals(sequence.elementType())
+        || temporary.getInitializer().isEmpty()) return null;
     AssignExpr first = assignment(body.get(1)), second = assignment(body.get(2));
     if (first == null || second == null
         || !(SortSemanticFacts.unwrap(second.getValue()) instanceof NameExpr restored)

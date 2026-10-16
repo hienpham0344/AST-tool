@@ -7,12 +7,15 @@ import com.example.astchunker.algorithm.sort.SortPatternRegistry;
 import com.example.astchunker.model.AlgorithmHint;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.stmt.ForStmt;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class BubbleSortDetectorTest {
   private final AstAnalyzer parser = new AstAnalyzer();
@@ -25,6 +28,17 @@ class BubbleSortDetectorTest {
 
   private SortPatternRegistry.Evaluation semantic(String body, String helpers) {
     return semanticFixture(body, helpers).result();
+  }
+
+  private SortPatternRegistry.Evaluation semanticTyped(String type, String body, String helpers) {
+    return semanticTypedFixture(type, body, helpers).result();
+  }
+
+  private SemanticFixture semanticTypedFixture(String type, String body, String helpers) {
+    CompilationUnit unit = parser.parseCompilationUnit(
+        "class Sample { void solve(" + type + "[] data) {\n" + body + "\n} " + helpers + " }");
+    return new SemanticFixture(unit, SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow()));
   }
 
   private SemanticFixture semanticFixture(String body, String helpers) {
@@ -159,21 +173,7 @@ class BubbleSortDetectorTest {
   }
 
   @Test
-  void rejectsWrongArrayTypeAndExtraStatementsInsideSwapBlock() {
-    assertThat(
-            analyzer.analyze(
-                parser.parseCompilationUnit(
-                    """
-        class Sample { void solve(long[] data) {
-          for (int pass = 0; pass < data.length - 1; pass++)
-            for (int scan = 0; scan < data.length - 1 - pass; scan++)
-              if (data[scan] > data[scan + 1]) {
-                long temp = data[scan]; data[scan] = data[scan + 1]; data[scan + 1] = temp;
-              }
-        } }
-        """)))
-        .isEmpty();
-
+  void keepsIndependentLoopScopeAndRejectsExtraStatementsInsideSwapBlock() {
     String validIndependentScope = "{ int scan = 0; }\n"
         + bubble("data[scan] > data[scan + 1]", "scan + 1");
     assertThat(detect(validIndependentScope)).singleElement().satisfies(hint -> {
@@ -184,6 +184,62 @@ class BubbleSortDetectorTest {
           .asVariableDeclarationExpr().getVariable(0));
       assertThat(hint.variableDeclarationIds()).containsEntry("scan", loopScan);
     });
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"byte", "short", "long", "char", "float", "double"})
+  void recognizesNumericPrimitiveBubbleStaticallyWithoutSortFrames(String type) {
+    for (String operator : List.of(">", "<")) {
+      String body = bubble("data[scan] " + operator + " data[scan + 1]", "scan + 1")
+          .replace("int temp", type + " temp");
+      var fixture = semanticTypedFixture(type, body, "");
+      assertThat(fixture.result().status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+      assertThat(fixture.result().candidates()).singleElement().satisfies(hint -> {
+        assertThat(hint.type()).isEqualTo("bubble-sort");
+        assertThat(hint.sort()).isNull();
+        assertThat(hint.variableDeclarationIds())
+            .containsEntry("array", AstAnalyzer.nodeId(fixture.unit().findFirst(Parameter.class).orElseThrow()));
+        for (String role : List.of("pass", "scan", "temp")) {
+          String id = fixture.unit().findAll(VariableDeclarator.class).stream()
+              .filter(variable -> variable.getNameAsString().equals(role))
+              .findFirst().map(AstAnalyzer::nodeId).orElseThrow();
+          assertThat(hint.variableDeclarationIds()).containsEntry(role, id);
+        }
+      });
+    }
+  }
+
+  @Test
+  void rejectsBooleanObjectAndMismatchedNumericTemporary() {
+    for (String type : List.of("boolean", "String", "int[]", "long[]", "double[]")) {
+      String body = bubble("data[scan] > data[scan + 1]", "scan + 1")
+          .replace("int temp", type + " temp");
+      assertThat(semanticTyped(type, body, "").status())
+          .as(type)
+          .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    }
+    assertThat(semanticTyped("long", bubble("data[scan] > data[scan + 1]", "scan + 1"), "").status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+  }
+
+  @Test
+  void recognizesExactLongExchangeHelperButRejectsWidenedHelper() {
+    String body = bubbleWithCall("exchange(data, scan, scan + 1);");
+    String exact = "private static void exchange(long[] a,int i,int j){long t=a[i];a[i]=a[j];a[j]=t;}";
+    var fixture = semanticTypedFixture("long", body, exact);
+    String callId = AstAnalyzer.nodeId(fixture.unit().findFirst(MethodCallExpr.class).orElseThrow());
+    String helperId = AstAnalyzer.nodeId(fixture.unit().findFirst(MethodDeclaration.class,
+        method -> method.getNameAsString().equals("exchange")).orElseThrow());
+    assertThat(fixture.result().candidates())
+        .singleElement()
+        .satisfies(hint -> {
+          assertThat(hint.type()).isEqualTo("bubble-sort");
+          assertThat(hint.sort()).isNull();
+          assertThat(hint.evidence()).anyMatch(item -> item.contains(callId) && item.contains(helperId));
+        });
+    String wrong = "private static void exchange(int[] a,int i,int j){int t=a[i];a[i]=a[j];a[j]=t;}";
+    assertThat(semanticTyped("long", body, wrong).status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
   }
 
   @Test

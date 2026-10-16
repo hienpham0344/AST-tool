@@ -146,8 +146,11 @@ final class SortSemanticFacts {
     private boolean scalar(Expression expression) {
       Expression value = unwrap(expression);
       if (value instanceof IntegerLiteralExpr) return true;
-      if (value instanceof NameExpr) return indexOperand(value).filter(i -> i.offset() == 0).isPresent();
-      if (value instanceof ArrayAccessExpr access) return sequenceAccess(access).filter(a -> a.binding().kind() == SequenceKind.INT_ARRAY).isPresent()
+      if (value instanceof NameExpr name) {
+        String id = LocalVariableBindings.resolve(name).orElse(null);
+        return id != null && isNumericPrimitive(types.get(id));
+      }
+      if (value instanceof ArrayAccessExpr access) return sequenceAccess(access).filter(a -> a.binding().isNumericPrimitiveArray()).isPresent()
           && (indexOperand(access.getIndex()).isPresent() || unwrap(access.getIndex()) instanceof IntegerLiteralExpr);
       return false;
     }
@@ -167,21 +170,23 @@ final class SortSemanticFacts {
         declaredTypes.put(AstAnalyzer.nodeId(parameter), parameter.getType().asString());
         if (!isArray(parameter.getType().asString())) continue;
         String id = AstAnalyzer.nodeId(parameter);
-        known.put(id, new SequenceBinding(id, id, parameter.getNameAsString(), kind(parameter.getType().asString())));
+        String arrayType = parameter.getType().asString();
+        known.put(id, new SequenceBinding(id, id, parameter.getNameAsString(), kind(arrayType), arrayType, elementType(arrayType)));
       }
       for (VariableDeclarator variable : unit.findAll(VariableDeclarator.class)) {
         if (LocalVariableBindings.callable(variable) == null) continue;
         declaredTypes.put(AstAnalyzer.nodeId(variable), variable.getType().asString());
         if (!isArray(variable.getType().asString())) continue;
         String id = AstAnalyzer.nodeId(variable);
-        SequenceBinding direct = new SequenceBinding(id, id, variable.getNameAsString(), kind(variable.getType().asString()));
+        String arrayType = variable.getType().asString();
+        SequenceBinding direct = new SequenceBinding(id, id, variable.getNameAsString(), kind(arrayType), arrayType, elementType(arrayType));
         SequenceBinding binding = direct;
         Expression initial = unwrap(variable.getInitializer().orElse(null));
         if (initial instanceof NameExpr initializer) {
           SequenceBinding source = LocalVariableBindings.resolve(initializer).map(known::get).orElse(null);
-          if (source == null || source.kind() != direct.kind()
+          if (source == null || !source.arrayType().equals(direct.arrayType())
               || invalidDeclarations.contains(source.sourceDeclarationId())) continue;
-          binding = new SequenceBinding(id, source.canonicalDeclarationId(), variable.getNameAsString(), source.kind());
+          binding = new SequenceBinding(id, source.canonicalDeclarationId(), variable.getNameAsString(), source.kind(), source.arrayType(), source.elementType());
         } else if (!(initial instanceof ArrayCreationExpr || initial instanceof ArrayInitializerExpr)) continue;
         known.put(id, binding);
       }
@@ -230,14 +235,26 @@ final class SortSemanticFacts {
       return LocalVariableBindings.resolve(name).map(bindings::get).filter(binding -> binding != null)
           .map(binding -> new SequenceAccess(AstAnalyzer.nodeId(expression), binding));
     }
+
+    Optional<String> scalarType(Expression expression) {
+      Expression value = unwrap(expression);
+      if (!(value instanceof NameExpr name)) return Optional.empty();
+      return LocalVariableBindings.resolve(name).map(types::get).filter(SortSemanticFacts::isNumericPrimitive);
+    }
   }
 
-  enum SequenceKind { INT_ARRAY, OTHER_PRIMITIVE_ARRAY, OBJECT_ARRAY, UNKNOWN }
+  enum SequenceKind { INT_ARRAY, NUMERIC_PRIMITIVE_ARRAY, BOOLEAN_ARRAY, OBJECT_ARRAY, UNKNOWN }
 
-  record SequenceBinding(String sourceDeclarationId, String canonicalDeclarationId, String displayName, SequenceKind kind) {
+  record SequenceBinding(String sourceDeclarationId, String canonicalDeclarationId, String displayName, SequenceKind kind,
+      String arrayType, String elementType) {
     SequenceBinding {
-      if (sourceDeclarationId == null || canonicalDeclarationId == null || displayName == null || kind == null)
+      if (sourceDeclarationId == null || canonicalDeclarationId == null || displayName == null || kind == null
+          || arrayType == null || elementType == null)
         throw new IllegalArgumentException("Sequence binding fields are required");
+    }
+
+    boolean isNumericPrimitiveArray() {
+      return kind == SequenceKind.INT_ARRAY || kind == SequenceKind.NUMERIC_PRIMITIVE_ARRAY;
     }
   }
   record SequenceAccess(String astNodeId, SequenceBinding binding) {}
@@ -301,10 +318,19 @@ final class SortSemanticFacts {
     return false;
   }
   private static boolean isArray(String type) { return type.endsWith("[]"); }
+  private static String elementType(String arrayType) { return arrayType.substring(0, arrayType.length() - 2); }
+  private static boolean isNumericPrimitive(String type) {
+    return switch (type == null ? "" : type) {
+      case "byte", "short", "int", "long", "char", "float", "double" -> true;
+      default -> false;
+    };
+  }
   private static SequenceKind kind(String type) {
+    if (elementType(type).endsWith("[]")) return SequenceKind.OBJECT_ARRAY;
     if ("int[]".equals(type)) return SequenceKind.INT_ARRAY;
-    return switch (type.replace("[]", "")) {
-      case "boolean", "byte", "char", "short", "long", "float", "double" -> SequenceKind.OTHER_PRIMITIVE_ARRAY;
+    return switch (elementType(type)) {
+      case "byte", "char", "short", "long", "float", "double" -> SequenceKind.NUMERIC_PRIMITIVE_ARRAY;
+      case "boolean" -> SequenceKind.BOOLEAN_ARRAY;
       default -> SequenceKind.OBJECT_ARRAY;
     };
   }

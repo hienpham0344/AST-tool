@@ -142,7 +142,7 @@ public final class BubbleSortDetector implements SortPatternDetector {
     if (left.isEmpty() || right.isEmpty()) return Optional.empty();
     var first = left.get();
     var second = right.get();
-    if (first.binding().kind() != SortSemanticFacts.SequenceKind.INT_ARRAY
+    if (!first.binding().isNumericPrimitiveArray()
         || !first.binding().canonicalDeclarationId().equals(second.binding().canonicalDeclarationId())
         || !first.index().declarationId().equals(scan.get().declarationId())
         || !second.index().declarationId().equals(scan.get().declarationId())) return Optional.empty();
@@ -212,7 +212,8 @@ public final class BubbleSortDetector implements SortPatternDetector {
     }
     var range = outer.getRange().orElse(null);
     if (range == null) return Optional.empty();
-    SortPattern sort = temp == null ? null : new SortPattern(
+    SortPattern sort = temp == null || sequence.kind() != SortSemanticFacts.SequenceKind.INT_ARRAY
+        ? null : new SortPattern(
         1, direction, AstAnalyzer.nodeId(inner),
         AstAnalyzer.nodeId(SortSemanticFacts.unwrap(branch.getCondition())),
         AstAnalyzer.nodeId(branch),
@@ -220,7 +221,7 @@ public final class BubbleSortDetector implements SortPatternDetector {
         new SortPattern.Operand(scan.get().declarationId(), 0),
         new SortPattern.Operand(scan.get().declarationId(), 1));
     List<String> evidence = new ArrayList<>(List.of(
-        "Two forward passes share one int[] receiver and trusted length bounds",
+        "Two forward passes share one numeric primitive array receiver and trusted length bounds",
         "A strict comparison controls an adjacent exchange"));
     if (helper != null) evidence.add("Resolved same-file exchange helper "
         + helper.helperCallableId() + " at " + AstAnalyzer.nodeId(helperCall));
@@ -309,7 +310,7 @@ public final class BubbleSortDetector implements SortPatternDetector {
         || !(first.getExpression() instanceof VariableDeclarationExpr declaration)
         || declaration.getVariables().size() != 1) return null;
     VariableDeclarator temp = declaration.getVariable(0);
-    if (!temp.getType().asString().equals("int") || temp.getInitializer().isEmpty()
+    if (!temp.getType().asString().equals(sequence.elementType()) || temp.getInitializer().isEmpty()
         || !at(temp.getInitializer().get(), sequence, scan, 0, facts)) return null;
     AssignExpr writeFirst = assignment(body.get(1));
     AssignExpr writeSecond = assignment(body.get(2));

@@ -15,6 +15,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Exercises recognized sort patterns against multiple independent runtime inputs. */
 class SortRuntimeIntegrationTest {
@@ -228,6 +229,41 @@ class SortRuntimeIntegrationTest {
           .extracting(this::array)
           .containsExactly(List.of(1, 2, 3));
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"byte", "short", "long", "char", "float", "double"})
+  void primitiveNumericBubbleRunsWithoutSyntheticSortFrames(String type) {
+    String values = switch (type) {
+      case "char" -> "'c', 'a', 'b'";
+      case "float" -> "3.0f, 1.0f, 2.0f";
+      case "double" -> "3.0, 1.0, 2.0";
+      default -> "3, 1, 2";
+    };
+    String source = "public class SortSample { public static void main(String[] args) {\n"
+        + type + "[] nums = {" + values + "};\n"
+        + BUBBLE.replace("int temp", type + " temp")
+        + "System.out.println(java.util.Arrays.toString(nums));\n} }";
+    var analysis = new AstAnalyzer().analyze(source);
+    assertThat(new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit()))
+        .singleElement()
+        .satisfies(hint -> {
+          assertThat(hint.type()).isEqualTo("bubble-sort");
+          assertThat(hint.sort()).isNull();
+        });
+    var steps = runSource(source);
+    var states = steps.stream().flatMap(step -> step.visualStates().stream()).toList();
+    assertThat(states).isNotEmpty();
+    assertThat(states).allSatisfy(state -> assertThat(state.sortFrame()).isNull());
+    Object expected = switch (type) {
+      case "char" -> List.of("a", "b", "c");
+      case "float", "double" -> List.of(1.0, 2.0, 3.0);
+      default -> List.of(1, 2, 3);
+    };
+    assertThat(steps)
+        .filteredOn(step -> step.code().startsWith("System.out.println"))
+        .extracting(this::array)
+        .containsExactly(expected);
   }
 
   private static String helperBubbleProgram() {

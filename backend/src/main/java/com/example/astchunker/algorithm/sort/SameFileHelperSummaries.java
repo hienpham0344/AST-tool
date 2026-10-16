@@ -79,9 +79,7 @@ final class SameFileHelperSummaries {
       Parameter parameter = method.getParameter(i);
       Optional<Operand> argument = operand(call.getArgument(i), outer);
       if (parameter.isVarArgs() || argument.isEmpty()) return failure(Status.UNRESOLVED);
-      String type = parameter.getType().asString();
-      boolean compatible = type.equals("int[]") ? arrayReference(argument.get()) : type.equals("int") && argument.get().index().isPresent();
-      if (!compatible) return failure(Status.UNRESOLVED);
+      if (!exactParameterType(parameter.getType().asString(), argument.get())) return failure(Status.UNRESOLVED);
       arguments.put(AstAnalyzer.nodeId(parameter), argument.get());
     }
     Set<String> path = new LinkedHashSet<>(visited);
@@ -105,7 +103,8 @@ final class SameFileHelperSummaries {
         if (normalized.isEmpty()) return failure(hasEffects(body) ? Status.INTERFERING_EFFECT : Status.UNRESOLVED);
         Optional<Operand> left = operand(normalized.get().left(), arguments);
         Optional<Operand> right = operand(normalized.get().right(), arguments);
-        if (left.isEmpty() || right.isEmpty() || left.get().index().isEmpty() || right.get().index().isEmpty()) return failure(Status.UNRESOLVED);
+        if (left.isEmpty() || right.isEmpty() || left.get().scalarType().isEmpty()
+            || !left.get().scalarType().equals(right.get().scalarType())) return failure(Status.UNRESOLVED);
         return resolved(new BodySummary(left.get(), right.get(), List.of(AstAnalyzer.nodeId(only)), List.of(callableId)));
       }
     }
@@ -115,7 +114,7 @@ final class SameFileHelperSummaries {
         || !(first.getExpression() instanceof VariableDeclarationExpr declaration)
         || declaration.getVariables().size() != 1) return failure(Status.UNRESOLVED);
     VariableDeclarator temporary = declaration.getVariable(0);
-    if (!temporary.getType().asString().equals("int") || temporary.getInitializer().isEmpty()) return failure(Status.UNRESOLVED);
+    if (temporary.getInitializer().isEmpty()) return failure(Status.UNRESOLVED);
     AssignExpr writeFirst = assignment(body.getStatement(1)), writeSecond = assignment(body.getStatement(2));
     if (writeFirst == null || writeSecond == null) return failure(Status.UNRESOLVED);
     Optional<Operand> saved = operand(temporary.getInitializer().get(), arguments);
@@ -128,7 +127,8 @@ final class SameFileHelperSummaries {
         || !same(saved.get(), targetFirst.get()) || !same(sourceSecond.get(), targetSecond.get())
         || !sameSequence(saved.get(), sourceSecond.get())
         || !(restored instanceof NameExpr name)
-        || !LocalVariableBindings.resolve(name).filter(AstAnalyzer.nodeId(temporary)::equals).isPresent()) return failure(Status.UNRESOLVED);
+        || !LocalVariableBindings.resolve(name).filter(AstAnalyzer.nodeId(temporary)::equals).isPresent()
+        || !temporary.getType().asString().equals(saved.get().scalarType().orElse(null))) return failure(Status.UNRESOLVED);
     return resolved(new BodySummary(saved.get(), sourceSecond.get(), body.getStatements().stream().map(AstAnalyzer::nodeId).toList(), List.of(callableId)));
   }
 
@@ -137,9 +137,7 @@ final class SameFileHelperSummaries {
       Parameter parameter = method.getParameter(i);
       Optional<Operand> argument = operand(call.getArgument(i), outer);
       if (parameter.isVarArgs() || argument.isEmpty()) return false;
-      String type = parameter.getType().asString();
-      if (!(type.equals("int[]") && arrayReference(argument.get())
-          || type.equals("int") && argument.get().index().isPresent())) return false;
+      if (!exactParameterType(parameter.getType().asString(), argument.get())) return false;
     }
     return true;
   }
@@ -151,26 +149,28 @@ final class SameFileHelperSummaries {
       if (id == null) return Optional.empty();
       if (arguments.containsKey(id)) return Optional.of(arguments.get(id));
       Optional<SortSemanticFacts.SequenceAccess> sequence = facts.sequenceAccess(name);
-      if (sequence.isPresent() && sequence.get().binding().kind() == SortSemanticFacts.SequenceKind.INT_ARRAY)
-        return Optional.of(new Operand(AstAnalyzer.nodeId(expression), Optional.of(sequence.get().binding()), Optional.empty()));
-      return facts.indexOperand(name).map(index -> new Operand(AstAnalyzer.nodeId(expression), Optional.empty(), Optional.of(index)));
+      if (sequence.isPresent() && sequence.get().binding().isNumericPrimitiveArray())
+        return Optional.of(new Operand(AstAnalyzer.nodeId(expression), Optional.of(sequence.get().binding()), Optional.empty(), Optional.empty()));
+      return facts.indexOperand(name).map(index -> new Operand(AstAnalyzer.nodeId(expression), Optional.empty(), Optional.of(index), Optional.of("int")))
+          .or(() -> facts.scalarType(name).map(type -> new Operand(AstAnalyzer.nodeId(expression), Optional.empty(), Optional.empty(), Optional.of(type))));
     }
     if (value instanceof ArrayAccessExpr access) {
       Optional<Operand> receiver = operand(access.getName(), arguments), index = operand(access.getIndex(), arguments);
       if (receiver.isEmpty() || !arrayReference(receiver.get()) || index.isEmpty() || index.get().sequence().isPresent() || index.get().index().isEmpty()) return Optional.empty();
-      return Optional.of(new Operand(AstAnalyzer.nodeId(expression), receiver.get().sequence(), index.get().index()));
+      return Optional.of(new Operand(AstAnalyzer.nodeId(expression), receiver.get().sequence(), index.get().index(),
+          Optional.of(receiver.get().sequence().orElseThrow().elementType())));
     }
     Optional<SortSemanticFacts.IndexOperand> index = facts.indexOperand(value);
     if (index.isEmpty()) return Optional.empty();
     SortSemanticFacts.IndexOperand local = index.get();
     Operand replacement = arguments.get(local.declarationId());
-    if (replacement == null) return Optional.of(new Operand(AstAnalyzer.nodeId(expression), Optional.empty(), index));
+    if (replacement == null) return Optional.of(new Operand(AstAnalyzer.nodeId(expression), Optional.empty(), index, Optional.of("int")));
     if (replacement.sequence().isPresent() || replacement.index().isEmpty()) return Optional.empty();
     SortSemanticFacts.IndexOperand actual = replacement.index().get();
     // Never combine offset arithmetic: no reassociation or overflow assumptions.
     if (actual.offset() != 0 && local.offset() != 0) return Optional.empty();
     return Optional.of(new Operand(AstAnalyzer.nodeId(expression), Optional.empty(), Optional.of(new SortSemanticFacts.IndexOperand(
-        AstAnalyzer.nodeId(expression), actual.declarationId(), actual.displayName(), actual.offset() + local.offset()))));
+        AstAnalyzer.nodeId(expression), actual.declarationId(), actual.displayName(), actual.offset() + local.offset())), Optional.of("int")));
   }
 
   private static AssignExpr assignment(Statement statement) {
@@ -178,6 +178,10 @@ final class SameFileHelperSummaries {
         && assign.getOperator() == AssignExpr.Operator.ASSIGN ? assign : null;
   }
   private static boolean arrayReference(Operand operand) { return operand.sequence().isPresent() && operand.index().isEmpty(); }
+  private static boolean exactParameterType(String type, Operand operand) {
+    if (arrayReference(operand)) return type.equals(operand.sequence().orElseThrow().arrayType());
+    return operand.scalarType().filter(type::equals).isPresent();
+  }
   private static boolean arrayElement(Operand operand) { return operand.sequence().isPresent() && operand.index().isPresent(); }
   private static boolean sameSequence(Operand a, Operand b) {
     return a.sequence().isPresent() && b.sequence().isPresent()
@@ -197,7 +201,8 @@ final class SameFileHelperSummaries {
   record Resolution<T>(Status status, Optional<T> value, List<String> limitations) {
     Resolution { limitations = List.copyOf(limitations); }
   }
-  record Operand(String astNodeId, Optional<SortSemanticFacts.SequenceBinding> sequence, Optional<SortSemanticFacts.IndexOperand> index) {}
+  record Operand(String astNodeId, Optional<SortSemanticFacts.SequenceBinding> sequence,
+      Optional<SortSemanticFacts.IndexOperand> index, Optional<String> scalarType) {}
   record Exchange(String callSiteId, String helperCallableId, SortSemanticFacts.SequenceBinding sequence,
       SortSemanticFacts.IndexOperand firstIndex, SortSemanticFacts.IndexOperand secondIndex,
       List<String> statementAstNodeIds, List<String> helperCallableIds) {

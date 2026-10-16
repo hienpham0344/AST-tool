@@ -179,4 +179,47 @@ class SortSemanticFactsTest {
     assertThat(facts.hasInterferingMutation(body.getStatement(1),sequence,Set.of())).isTrue();
     assertThat(facts.hasInterferingMutation(body.getStatement(2),sequence,Set.of())).isTrue();
   }
+
+  @Test void retainsExactNumericPrimitiveArrayAndElementTypesForAliases() {
+    var unit = parser.parseCompilationUnit("class S { void f(long[] a) { long[] b=a; long x=b[0]; } }");
+    var facts = SortSemanticFacts.analyze(unit);
+    var binding = facts.sequenceAccess(unit.findFirst(ArrayAccessExpr.class).orElseThrow()).orElseThrow().binding();
+
+    assertThat(binding.kind()).isEqualTo(SortSemanticFacts.SequenceKind.NUMERIC_PRIMITIVE_ARRAY);
+    assertThat(binding.arrayType()).isEqualTo("long[]");
+    assertThat(binding.elementType()).isEqualTo("long");
+  }
+
+  @Test void rejectsCastsAndKeepsBooleanObjectAndNestedArraysOutOfNumericComparisons() {
+    var cast = parser.parseCompilationUnit("class S { void f(long[] a) { int[] b=(int[]) (Object) a; int x=b[0]; } }");
+    assertThat(SortSemanticFacts.analyze(cast).sequenceAccess(cast.findFirst(ArrayAccessExpr.class).orElseThrow())).isEmpty();
+
+    for (String source : new String[]{
+        "class S { void f(boolean[] a,int j) { if(a[j] < a[j+1]){} } }",
+        "class S { void f(String[] a,int j) { if(a[j] < a[j+1]){} } }",
+        "class S { void f(int[][] a,int j) { if(a[j][0] < a[j+1][0]){} } }"}) {
+      var unit = parser.parseCompilationUnit(source);
+      var facts = SortSemanticFacts.analyze(unit);
+      assertThat(facts.strictComparison(unit.findFirst(IfStmt.class).orElseThrow().getCondition())).as(source).isEmpty();
+    }
+    for (String type : new String[]{"long[][]", "double[][]"}) {
+      var unit = parser.parseCompilationUnit("class S { void f(" + type + " a) { " + type + " b = a; } }");
+      var binding = SortSemanticFacts.analyze(unit)
+          .sequenceAccess(unit.findFirst(com.github.javaparser.ast.expr.NameExpr.class,
+              name -> name.getNameAsString().equals("a")).orElseThrow())
+          .orElseThrow().binding();
+      assertThat(binding.kind()).as(type).isEqualTo(SortSemanticFacts.SequenceKind.OBJECT_ARRAY);
+      assertThat(binding.isNumericPrimitiveArray()).as(type).isFalse();
+    }
+  }
+
+  @Test void normalizesNumericPrimitiveArrayComparisonWhileKeepingIndexArithmeticIntOnly() {
+    var unit = parser.parseCompilationUnit("class S { void f(long[] a, int j, long k) { if(a[j] < k){} if(a[j] < (int) k){} if(a[(long) j] < a[j+1]){} } }");
+    var facts = SortSemanticFacts.analyze(unit);
+    var conditions = unit.findAll(IfStmt.class);
+
+    assertThat(facts.strictComparison(conditions.get(0).getCondition())).isPresent();
+    assertThat(facts.strictComparison(conditions.get(1).getCondition())).isEmpty();
+    assertThat(facts.strictComparison(conditions.get(2).getCondition())).isEmpty();
+  }
 }

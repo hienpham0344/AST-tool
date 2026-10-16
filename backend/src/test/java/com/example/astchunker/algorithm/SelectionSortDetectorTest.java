@@ -9,11 +9,16 @@ import com.example.astchunker.model.AlgorithmHint;
 import com.example.astchunker.model.SortPattern.Direction;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ForStmt;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class SelectionSortDetectorTest {
   private final AstAnalyzer parser = new AstAnalyzer();
@@ -36,6 +41,14 @@ class SelectionSortDetectorTest {
     CompilationUnit unit = parser.parseCompilationUnit("class Sample { " + members + " }");
     ForStmt outer = unit.findFirst(ForStmt.class).orElseThrow();
     return SortPatternRegistry.defaults().begin(unit).evaluate(outer);
+  }
+
+  private SortPatternRegistry.Evaluation evaluateTypedSemantic(
+      String type, String body, String helpers) {
+    CompilationUnit unit = parser.parseCompilationUnit(
+        "class Sample { void solve(" + type + "[] data) { " + body + " } " + helpers + " }");
+    return SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow());
   }
 
   private String selection(String operator) {
@@ -126,6 +139,79 @@ class SelectionSortDetectorTest {
                         + selection("<")
                         + "\n} }")))
         .isEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"byte", "short", "long", "char", "float", "double"})
+  void recognizesNumericPrimitiveSelectionStaticallyWithoutSortFrames(String type) {
+    String body = selection("<").replace("int temp", type + " temp");
+    CompilationUnit unit = parser.parseCompilationUnit(
+        "class Sample { void solve(" + type + "[] data) { " + body + " } }");
+    var result = SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow());
+    assertThat(result.status())
+        .isEqualTo(SortPatternRegistry.Status.UNIQUE);
+    assertThat(result.candidates())
+        .singleElement()
+        .satisfies(hint -> {
+          assertThat(hint.type()).isEqualTo("selection-sort");
+          assertThat(hint.sort()).isNull();
+          assertThat(hint.variableDeclarationIds())
+              .containsEntry("array", AstAnalyzer.nodeId(unit.findFirst(Parameter.class).orElseThrow()));
+          for (var role : Map.of("pass", "pass", "scan", "scan", "selected", "min", "temp", "temp").entrySet()) {
+            String id = unit.findAll(VariableDeclarator.class).stream()
+                .filter(variable -> variable.getNameAsString().equals(role.getValue()))
+                .findFirst().map(AstAnalyzer::nodeId).orElseThrow();
+            assertThat(hint.variableDeclarationIds()).containsEntry(role.getKey(), id);
+          }
+        });
+  }
+
+  @Test
+  void recognizesExactLongSelectionExchangeHelperButRejectsMismatchedTypes() {
+    String body = """
+        for (int pass = 0; pass < data.length - 1; pass++) {
+          int selected = pass;
+          for (int scan = pass + 1; scan < data.length; scan++) {
+            if (data[scan] < data[selected]) selected = scan;
+          }
+          exchange(data, pass, selected);
+        }
+        """;
+    String exact =
+        "private static void exchange(long[] values, int left, int right) { long saved = values[left]; values[left] = values[right]; values[right] = saved; }";
+    CompilationUnit exactUnit = parser.parseCompilationUnit(
+        "class Sample { void solve(long[] data) { " + body + " } " + exact + " }");
+    String callId = AstAnalyzer.nodeId(exactUnit.findFirst(MethodCallExpr.class).orElseThrow());
+    String helperId = AstAnalyzer.nodeId(exactUnit.findFirst(MethodDeclaration.class,
+        method -> method.getNameAsString().equals("exchange")).orElseThrow());
+    assertThat(evaluateTypedSemantic("long", body, exact).candidates())
+        .singleElement()
+        .satisfies(hint -> {
+          assertThat(hint.type()).isEqualTo("selection-sort");
+          assertThat(hint.sort()).isNull();
+          assertThat(hint.evidence()).anyMatch(item -> item.contains(callId) && item.contains(helperId));
+        });
+
+    String wrongArray = exact.replace("long[]", "int[]").replace("long saved", "int saved");
+    assertThat(evaluateTypedSemantic("long", body, wrongArray).status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(evaluateTypedSemantic("long", body, exact.replace("long saved", "int saved")).status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+  }
+
+  @Test
+  void rejectsBooleanObjectNestedAndMismatchedSelectionTemporary() {
+    String numericBody = selection("<");
+    for (String type : List.of("boolean", "String", "int[]")) {
+      String body = numericBody.replace("int temp", type + " temp");
+      assertThat(evaluateTypedSemantic(type, body, "").status())
+          .as(type)
+          .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    }
+    assertThat(evaluateTypedSemantic(
+            "long", numericBody.replace("int temp", "int temp"), "").status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
   }
 
   @Test
