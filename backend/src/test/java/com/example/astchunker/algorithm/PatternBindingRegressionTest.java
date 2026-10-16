@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -84,5 +85,42 @@ class PatternBindingRegressionTest {
         }
         """))
         .isEmpty();
+  }
+
+  @Test
+  void keepsARecognizedSemanticSortBoundToItsOwnSameNamedParameter() {
+    var parser = new AstAnalyzer();
+    var unit =
+        parser.parseCompilationUnit(
+            """
+            class Sample {
+              private static void exchange(int[] values, int left, int right) {
+                int temporary = values[left]; values[left] = values[right]; values[right] = temporary;
+              }
+              void sort(int[] values) {
+                for (int pass = 0; pass < values.length - 1; pass++) {
+                  for (int scan = 0; scan < values.length - 1 - pass; scan++) {
+                    if (values[scan] > values[scan + 1]) exchange(values, scan, scan + 1);
+                  }
+                }
+              }
+              void nearMiss(int[] values) {
+                for (int index = 0; index < values.length; index++) values[index] = index;
+              }
+            }
+            """);
+
+    var hints = new AlgorithmPatternAnalyzer().analyze(unit);
+    var sortParameter =
+        unit.findFirst(MethodDeclaration.class, method -> method.getNameAsString().equals("sort"))
+            .orElseThrow()
+            .getParameter(0);
+
+    assertThat(hints).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("bubble-sort");
+      assertThat(hint.variableDeclarationIds().get("array"))
+          .isEqualTo(AstAnalyzer.nodeId(sortParameter));
+    });
+    assertThat(hints).isEqualTo(new AlgorithmPatternAnalyzer().analyze(unit));
   }
 }

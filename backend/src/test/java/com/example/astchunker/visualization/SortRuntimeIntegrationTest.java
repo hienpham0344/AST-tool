@@ -204,4 +204,66 @@ class SortRuntimeIntegrationTest {
     assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
         .isEqualTo("VERIFIED_SORTED");
   }
+
+  @Test
+  void leavesHelperBubbleAndAdjacentInsertionAsGenericRuntimeObservations() {
+    for (String source : List.of(helperBubbleProgram(), adjacentInsertionProgram())) {
+      var analysis = new AstAnalyzer().analyze(source);
+      assertThat(new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit()))
+          .singleElement()
+          .satisfies(hint -> assertThat(hint.sort()).isNull());
+
+      var steps = runSource(source);
+      var states = steps.stream().flatMap(step -> step.visualStates().stream()).toList();
+
+      assertThat(states).isNotEmpty();
+      assertThat(states)
+          .allSatisfy(
+              state ->
+                  assertThat(state.sortFrame())
+                      .as("generic states must not expose synthetic pending or completed swaps")
+                      .isNull());
+      assertThat(steps)
+          .filteredOn(step -> step.code().startsWith("System.out.println"))
+          .extracting(this::array)
+          .containsExactly(List.of(1, 2, 3));
+    }
+  }
+
+  private static String helperBubbleProgram() {
+    return """
+        public class SortSample {
+          public static void main(String[] args) {
+            int[] nums = {3, 1, 2};
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
+                if (nums[scan] > nums[scan + 1]) exchange(nums, scan, scan + 1);
+              }
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+          private static void exchange(int[] values, int left, int right) {
+            int temporary = values[left]; values[left] = values[right]; values[right] = temporary;
+          }
+        }
+        """;
+  }
+
+  private static String adjacentInsertionProgram() {
+    return """
+        public class SortSample {
+          public static void main(String[] args) {
+            int[] nums = {3, 1, 2};
+            for (int pass = 1; pass < nums.length; pass++) {
+              for (int scan = pass; scan > 0 && nums[scan] < nums[scan - 1]; scan--) {
+                int temporary = nums[scan];
+                nums[scan] = nums[scan - 1];
+                nums[scan - 1] = temporary;
+              }
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+        }
+        """;
+  }
 }

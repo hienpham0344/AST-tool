@@ -2,9 +2,14 @@ package com.example.astchunker.algorithm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.astchunker.algorithm.sort.SortPatternDetector;
+import com.example.astchunker.algorithm.sort.SortPatternRegistry;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
+import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.stmt.ForStmt;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class AlgorithmPatternAnalyzerTest {
@@ -238,5 +243,83 @@ class AlgorithmPatternAnalyzerTest {
         }
         """))
         .isEmpty();
+  }
+
+  @Test
+  void publishesOnlySemanticUniqueSortVariantsAndKeepsRepeatedAnalysisDeterministic() {
+    var unit =
+        parser.parseCompilationUnit(
+            """
+            class Sample {
+              private static void exchange(int[] values, int left, int right) {
+                int temporary = values[left]; values[left] = values[right]; values[right] = temporary;
+              }
+              void solve(int[] data, int target, int k) {
+                for (int pass = 0; pass < data.length - 1; pass++) {
+                  for (int scan = 0; scan < data.length - 1 - pass; scan++) {
+                    if (data[scan] > data[scan + 1]) exchange(data, scan, scan + 1);
+                  }
+                }
+                { int[] dataShadow = {2, 1}; for (int pass = 0; pass < 1; pass++) dataShadow[pass] = pass; }
+              }
+            }
+            """);
+
+    var first = analyzer.analyze(unit);
+    assertThat(first).isEqualTo(analyzer.analyze(unit));
+    assertThat(first)
+        .singleElement()
+        .satisfies(
+            hint -> {
+              assertThat(hint.type()).isEqualTo("bubble-sort");
+              assertThat(hint.sort()).isNull();
+              assertThat(hint.variables()).containsEntry("array", "data");
+            });
+  }
+
+  @Test
+  void suppressesAmbiguousAndUnknownSortCandidatesButPublishesTheUniqueCandidate() {
+    SortPatternDetector first =
+        loop -> loop instanceof ForStmt && loop.getRange().orElseThrow().begin.line == 3
+            ? java.util.Optional.of(candidate(loop, "first-ambiguous"))
+            : loop instanceof ForStmt && loop.getRange().orElseThrow().begin.line == 4
+                ? java.util.Optional.of(candidate(loop, "unique-sort"))
+                : java.util.Optional.empty();
+    SortPatternDetector second =
+        loop -> loop instanceof ForStmt && loop.getRange().orElseThrow().begin.line == 3
+            ? java.util.Optional.of(candidate(loop, "second-ambiguous"))
+            : java.util.Optional.empty();
+    var controlled = new AlgorithmPatternAnalyzer(new SortPatternRegistry(List.of(first, second)));
+    var unit =
+        parser.parseCompilationUnit(
+            """
+            class Sample {
+              void solve() {
+                for (int first = 0; first < 1; first++) { }
+                for (int second = 0; second < 1; second++) { }
+                for (int unknown = 0; unknown < 1; unknown++) { }
+              }
+            }
+            """);
+
+    assertThat(controlled.analyze(unit))
+        .singleElement()
+        .satisfies(
+            hint -> {
+              assertThat(hint.type()).isEqualTo("unique-sort");
+              assertThat(hint.startLine()).isEqualTo(4);
+            });
+  }
+
+  private static AlgorithmHint candidate(Node loop, String type) {
+    var range = loop.getRange().orElseThrow();
+    return new AlgorithmHint(
+        type,
+        0.5,
+        "array-sort",
+        List.of("controlled candidate"),
+        Map.of(),
+        range.begin.line,
+        range.end.line);
   }
 }

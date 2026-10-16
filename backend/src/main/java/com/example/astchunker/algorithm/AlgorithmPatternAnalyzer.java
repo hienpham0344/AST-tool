@@ -44,11 +44,12 @@ public class AlgorithmPatternAnalyzer {
 
   public List<AlgorithmHint> analyze(CompilationUnit unit) {
     List<AlgorithmHint> hints = new ArrayList<>();
+    SortPatternRegistry.Session sortSession = sortPatterns.begin(unit);
     for (Node loop : unit.findAll(Node.class, AlgorithmPatternAnalyzer::isLoop)) {
       if (loop.getRange().isEmpty()) continue;
-      Optional<AlgorithmHint> sort = sortPatterns.detect(loop);
-      if (sort.isPresent()) {
-        hints.add(sort.get());
+      SortPatternRegistry.Evaluation sort = sortSession.evaluate(loop);
+      if (sort.status() == SortPatternRegistry.Status.UNIQUE) {
+        hints.add(sort.candidates().get(0));
         continue;
       }
       Optional<AlgorithmHint> hint = binarySearch(loop);
