@@ -178,6 +178,75 @@ class SortRuntimeIntegrationTest {
   }
 
   @Test
+  void whileBubbleKeepsObservedSwapAndVerifiedEnding() {
+    String whileBubble =
+        """
+        int pass = 0;
+        while (pass < nums.length - 1) {
+          int scan = 0;
+          while (scan < nums.length - 1 - pass) {
+            if (nums[scan] > nums[scan + 1]) {
+              int saved = nums[scan];
+              nums[scan] = nums[scan + 1];
+              nums[scan + 1] = saved;
+            }
+            scan++;
+          }
+          pass++;
+        }
+        """;
+    var steps = run("2,1", whileBubble);
+    assertThat(steps.stream().filter(s -> s.code().equals("nums[scan + 1] = saved;")).toList())
+        .anySatisfy(
+            step ->
+                assertThat(step.visualStates().get(0).sortFrame().pendingMutation().status())
+                    .isEqualTo("PENDING_BEFORE_LOCATION"));
+    var ending = steps.stream().filter(s -> s.code().startsWith("System.out.println")).findFirst().orElseThrow();
+    assertThat(array(ending)).isEqualTo(List.of(1, 2));
+    assertThat(ending.visualStates().get(0).sortFrame().sortedRegion().status())
+        .isEqualTo("VERIFIED_SORTED");
+  }
+
+  @Test
+  void bubbleHelperSwapUsesObservedWritesAcrossMethods() {
+    String source =
+        """
+        public class SortSample {
+          public static void main(String[] args) {
+            int[] nums = {2, 1};
+            sort(nums);
+          }
+          static void sort(int[] nums) {
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
+                if (nums[scan] > nums[scan + 1]) swap(nums, scan, scan + 1);
+              }
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+          static void swap(int[] values, int left, int right) {
+            int saved = values[left];
+            values[left] = values[right];
+            values[right] = saved;
+          }
+        }
+        """;
+    var steps = runSource(source);
+    var helperWrite =
+        steps.stream().filter(s -> s.code().equals("values[right] = saved;")).findFirst().orElseThrow();
+    assertThat(helperWrite.visualStates()).hasSize(1);
+    assertThat(helperWrite.visualStates().get(0).array().values()).containsExactly(1, 1);
+    assertThat(helperWrite.visualStates().get(0).sortFrame().pendingMutation().status())
+        .isEqualTo("PENDING_BEFORE_LOCATION");
+    var ending = steps.stream().filter(s -> s.code().startsWith("System.out.println")).findFirst().orElseThrow();
+    assertThat(array(ending)).isEqualTo(List.of(1, 2));
+    assertThat(ending.visualStates().get(0).sortFrame().sortedRegion().status())
+        .isEqualTo("VERIFIED_SORTED");
+    assertThat(steps.stream().flatMap(step -> step.visualStates().stream()).map(state -> state.sortFrame()))
+        .anySatisfy(frame -> assertThat(frame.completedMutation()).isNotNull());
+  }
+
+  @Test
   void supportsDescendingSelectionRuntime() {
     String descending = SELECTION.replace("nums[j] < nums[min]", "nums[j] > nums[min]");
     var steps = run("1,3,2", descending);

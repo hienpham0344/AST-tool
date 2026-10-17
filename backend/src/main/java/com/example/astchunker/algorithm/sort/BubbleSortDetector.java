@@ -4,29 +4,31 @@ import com.example.astchunker.algorithm.LocalVariableBindings;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.example.astchunker.model.SortPattern;
+import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.*;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/** Deliberately narrow: complete canonical loops, no extra side effects in their bodies. */
+/** Recognizes complete adjacent-swap passes with lexically bound local roles. */
 public final class BubbleSortDetector implements SortPatternDetector {
   public BubbleSortDetector() {}
 
   @Override
   public Optional<AlgorithmHint> detect(Node node) {
-    if (!(node instanceof ForStmt outer)) return Optional.empty();
-    String pass = SortAstSupport.counter(outer, "0");
-    Statement outerBody = SortAstSupport.single(outer.getBody());
-    if (pass == null || !(outerBody instanceof ForStmt inner)) return Optional.empty();
-    String scan = SortAstSupport.counter(inner, "0");
-    Statement innerBody = SortAstSupport.single(inner.getBody());
-    if (scan == null
-        || scan.equals(pass)
-        || !(innerBody instanceof IfStmt branch)
+    var outer = CountedLoop.match(node, "0");
+    if (outer.isEmpty()) return Optional.empty();
+    String pass = outer.get().counter();
+    Node innerNode = nestedLoop(outer.get().bodyStatements());
+    if (innerNode == null) return Optional.empty();
+    var inner = CountedLoop.match(innerNode, "0");
+    if (inner.isEmpty() || inner.get().counter().equals(pass)) return Optional.empty();
+    String scan = inner.get().counter();
+    if (inner.get().bodyStatements().size() != 1
+        || !(inner.get().bodyStatements().get(0) instanceof IfStmt branch)
         || branch.getElseStmt().isPresent()
         || !(SortAstSupport.unwrap(branch.getCondition()) instanceof BinaryExpr comparison))
       return Optional.empty();
@@ -36,53 +38,69 @@ public final class BubbleSortDetector implements SortPatternDetector {
         || !(SortAstSupport.unwrap(first.getName()) instanceof NameExpr arrayRef))
       return Optional.empty();
     String array = arrayRef.getNameAsString();
-    String a = array + "[" + scan + "]";
-    String b = array + "[" + scan + " + 1]";
-    if (!SortAstSupport.matches(first, a)
-        || !SortAstSupport.matches(comparison.getRight(), b)
-        || !SortAstSupport.matches(
-            outer.getCompare().orElse(null), pass + " < " + array + ".length - 1")
-        || !(SortAstSupport.matches(
-                inner.getCompare().orElse(null), scan + " < " + array + ".length - 1 - " + pass)
-            || SortAstSupport.matches(
-                inner.getCompare().orElse(null), scan + " < " + array + ".length - 1"))) {
+    boolean direct =
+        SortAstSupport.matches(first, array + "[" + scan + "]")
+            && SortAstSupport.matches(comparison.getRight(), array + "[" + scan + " + 1]");
+    boolean reversed =
+        SortAstSupport.matches(first, array + "[" + scan + " + 1]")
+            && SortAstSupport.matches(comparison.getRight(), array + "[" + scan + "]");
+    if (!direct && !reversed) return Optional.empty();
+    if (!IndexExpression.sameCondition(
+            outer.get().condition(),
+            StaticJavaParser.parseExpression(pass + " < " + array + ".length - 1")))
       return Optional.empty();
-    }
-    if (!(branch.getThenStmt() instanceof BlockStmt block) || block.getStatements().size() != 3)
-      return Optional.empty();
-    Statement save = block.getStatement(0);
-    if (!(save instanceof ExpressionStmt expr)
-        || !(expr.getExpression() instanceof VariableDeclarationExpr declaration)
-        || declaration.getVariables().size() != 1) return Optional.empty();
-    VariableDeclarator temp = declaration.getVariable(0);
-    if (!temp.getType().isPrimitiveType()
-        || !temp.getType().asString().equals("int")
-        || !SortAstSupport.matches(temp.getInitializer().orElse(null), a)
-        || !SortAstSupport.assignment(block.getStatement(1), a, b)
-        || !SortAstSupport.assignment(block.getStatement(2), b, temp.getNameAsString()))
-      return Optional.empty();
+    boolean shrinking =
+        IndexExpression.sameCondition(
+            inner.get().condition(),
+            StaticJavaParser.parseExpression(scan + " < " + array + ".length - 1 - " + pass));
+    boolean full =
+        IndexExpression.sameCondition(
+            inner.get().condition(),
+            StaticJavaParser.parseExpression(scan + " < " + array + ".length - 1"));
+    if (!shrinking && !full) return Optional.empty();
 
-    Node method = LocalVariableBindings.callable(outer);
-    Map<String, String> roles =
-        Map.of("array", array, "pass", pass, "scan", scan, "temp", temp.getNameAsString());
-    var bound = LocalVariableBindings.roles(outer, roles);
+    Statement then = branch.getThenStmt();
+    List<Statement> swapStatements =
+        then instanceof BlockStmt block ? List.copyOf(block.getStatements()) : List.of(then);
+    Optional<ArrayEffects.Swap> swap =
+        ArrayEffects.temporarySwap(swapStatements, array, scan, scan + " + 1");
+    if (swap.isEmpty() && swapStatements.size() == 1)
+      swap = ArrayEffects.helperSwap(swapStatements.get(0), array, scan, scan + " + 1");
+    if (swap.isEmpty()) return Optional.empty();
+
+    Node method = LocalVariableBindings.callable(node);
+    Map<String, String> roles = new LinkedHashMap<>();
+    roles.put("array", array);
+    roles.put("pass", pass);
+    roles.put("scan", scan);
+    if (swap.get().helperMethodAstNodeId() == null) roles.put("temp", swap.get().tempName());
+    var bound = LocalVariableBindings.roles(node, roles);
     if (method == null
         || bound.isEmpty()
         || !SortAstSupport.intArray(method, bound.get().get("array"))) return Optional.empty();
-    var ids = bound.get();
-    var range = outer.getRange().orElseThrow();
+    if (!outer.get().counterDeclarationId().equals(bound.get().get("pass"))
+        || !inner.get().counterDeclarationId().equals(bound.get().get("scan")))
+      return Optional.empty();
+    var range = node.getRange().orElseThrow();
+    Map<String, String> operationIds =
+        swap.get().helperMethodAstNodeId() == null
+            ? Map.of()
+            : Map.of(
+                "swapCall", swap.get().callAstNodeId(),
+                "swapHelper", swap.get().helperMethodAstNodeId());
+    boolean ascending =
+        direct == (comparison.getOperator() == BinaryExpr.Operator.GREATER);
     var sort =
         new SortPattern(
             1,
-            comparison.getOperator() == BinaryExpr.Operator.GREATER
-                ? SortPattern.Direction.ASCENDING
-                : SortPattern.Direction.DESCENDING,
-            AstAnalyzer.nodeId(inner),
+            ascending ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
+            AstAnalyzer.nodeId(innerNode),
             AstAnalyzer.nodeId(comparison),
             AstAnalyzer.nodeId(branch),
-            block.getStatements().stream().map(AstAnalyzer::nodeId).toList(),
-            new SortPattern.Operand(ids.get("scan"), 0),
-            new SortPattern.Operand(ids.get("scan"), 1));
+            swap.get().operationAstNodeIds(),
+            new SortPattern.Operand(bound.get().get("scan"), 0),
+            new SortPattern.Operand(bound.get().get("scan"), 1),
+            operationIds);
     return Optional.of(
         new AlgorithmHint(
             "bubble-sort",
@@ -90,14 +108,25 @@ public final class BubbleSortDetector implements SortPatternDetector {
             "array-sort",
             List.of(
                 "Nested forward loops compare adjacent array elements",
-                "Strict comparison guards an ordered three-statement temporary swap",
-                "All roles resolve to local or parameter declarations; no extra loop-body statements"),
+                "Strict comparison guards a complete temporary swap",
+                "Array and counters resolve to local or parameter declarations"),
             roles,
             range.begin.line,
             range.end.line,
-            AstAnalyzer.nodeId(outer),
+            AstAnalyzer.nodeId(node),
             AstAnalyzer.nodeId(method),
-            ids,
+            bound.get(),
             sort));
+  }
+
+  private static Node nestedLoop(List<Statement> statements) {
+    if (statements.size() == 1
+        && (statements.get(0) instanceof ForStmt || statements.get(0) instanceof WhileStmt))
+      return statements.get(0);
+    if (statements.size() == 2
+        && statements.get(0) instanceof ExpressionStmt expression
+        && expression.getExpression() instanceof VariableDeclarationExpr
+        && statements.get(1) instanceof WhileStmt) return statements.get(1);
+    return null;
   }
 }

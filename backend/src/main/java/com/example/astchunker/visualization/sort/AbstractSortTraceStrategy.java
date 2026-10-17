@@ -101,7 +101,8 @@ abstract class AbstractSortTraceStrategy implements SortTraceStrategy {
         || toIndex == null
         || statements.size() != 3
         || !previous.statementAstNodeId().equals(statements.get(2))
-        || !sameInvocation(previous.context(), step.context())) return null;
+        || !(sameInvocation(previous.context(), step.context())
+            || helperReturned(hint, previous.context(), step.context()))) return null;
     if (previousArray == null
         || !previousArray.status().equals("AVAILABLE")
         || !currentArray.status().equals("AVAILABLE")
@@ -147,6 +148,16 @@ abstract class AbstractSortTraceStrategy implements SortTraceStrategy {
         && Objects.equals(first.className(), second.className())
         && Objects.equals(first.methodName(), second.methodName())
         && Objects.equals(first.methodSignature(), second.methodSignature());
+  }
+
+  private boolean helperReturned(
+      AlgorithmHint hint, ExecutionContext helper, ExecutionContext caller) {
+    if (helper == null || caller == null
+        || !hint.sort().operationAstNodeIds().containsKey("swapHelper")) return false;
+    return helper.threadId() == caller.threadId()
+        && helper.stackDepth() == caller.stackDepth() + 1
+        && Objects.equals(helper.className(), caller.className())
+        && !Objects.equals(helper.methodName(), caller.methodName());
   }
 
   protected SortedRegion terminalRegion(ArrayValue array, Direction direction) {

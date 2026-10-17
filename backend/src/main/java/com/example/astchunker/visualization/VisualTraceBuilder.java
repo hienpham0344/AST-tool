@@ -16,7 +16,11 @@ import com.example.astchunker.model.VisualState.Scalar;
 import com.example.astchunker.visualization.sort.SortTraceBuilder;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.CallableDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.LambdaExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.stmt.WhileStmt;
 import java.util.ArrayList;
@@ -42,7 +46,7 @@ public class VisualTraceBuilder {
       List<VisualState> states = new ArrayList<>();
       Node point = nodes.get(step.statementAstNodeId());
       for (Binding binding : bindings) {
-        if (applies(binding, step, point, analysis.mainClassName())) {
+        if (applies(binding, step, previous, point, analysis.mainClassName())) {
           states.add(state(binding, step, previous, point));
         }
       }
@@ -86,7 +90,9 @@ public class VisualTraceBuilder {
                                 v ->
                                     v.astNodeId().equals(entry.getValue())
                                         && v.name().equals(hint.variables().get(entry.getKey()))));
-        if (valid) result.add(new Binding(index, hint, loop, hint.variableDeclarationIds()));
+        if (valid)
+          result.add(
+              new Binding(index, hint, loop, hint.variableDeclarationIds(), helper(hint, nodes)));
         continue;
       }
       List<Node> matches =
@@ -104,15 +110,34 @@ public class VisualTraceBuilder {
       if (!(owner(loop) instanceof CallableDeclaration<?>)) continue;
       Map<String, String> declarations =
           LocalVariableBindings.roles(loop, hint.variables()).orElse(Map.of());
-      result.add(new Binding(index, hint, loop, declarations));
+      result.add(new Binding(index, hint, loop, declarations, null));
     }
     return result;
   }
 
   private boolean applies(
-      Binding binding, ExecutionObservation step, Node point, String mainClass) {
-    if (point == null || step.context() == null || owner(point) != owner(binding.loop()))
+      Binding binding,
+      ExecutionObservation step,
+      ExecutionObservation previous,
+      Node point,
+      String mainClass) {
+    if (point == null || step.context() == null)
       return false;
+    if (binding.helper() != null && owner(point) == binding.helper().method()) {
+      if (previous == null || previous.context() == null
+          || step.context().threadId() != previous.context().threadId()
+          || !step.context().className().equals(mainClass)
+          || !step.context().methodName().equals(binding.helper().method().getNameAsString()))
+        return false;
+      boolean entering =
+          previous.statementAstNodeId().equals(binding.hint().sort().conditionStatementAstNodeId())
+              && previous.context().stackDepth() + 1 == step.context().stackDepth();
+      boolean continuing =
+          previous.context().stackDepth() == step.context().stackDepth()
+              && previous.context().methodName().equals(step.context().methodName());
+      return entering || continuing;
+    }
+    if (owner(point) != owner(binding.loop())) return false;
     var callable = (CallableDeclaration<?>) owner(binding.loop());
     String method = callable.isMethodDeclaration() ? callable.getNameAsString() : "<init>";
     boolean inside = false;
@@ -174,8 +199,8 @@ public class VisualTraceBuilder {
       pointers.put(
           role,
           new Pointer(
-              binding.hint().variables().get(role),
-              binding.declarations().get(role),
+              roleName(binding, step, role),
+              roleId(binding, step, role),
               index,
               status));
     }
@@ -197,8 +222,8 @@ public class VisualTraceBuilder {
       scalars.put(
           role,
           new Scalar(
-              binding.hint().variables().get(role),
-              binding.declarations().get(role),
+              roleName(binding, step, role),
+              roleId(binding, step, role),
               value,
               status));
     }
@@ -244,16 +269,35 @@ public class VisualTraceBuilder {
   }
 
   private ObservationResult variable(Binding binding, ExecutionObservation step, String role) {
-    String id = binding.declarations().get(role);
+    String id = roleId(binding, step, role);
     if (id == null) return null;
+    String name = roleName(binding, step, role);
     List<ObservationResult> matches =
         step.variables().stream()
             .filter(
                 v ->
                     id.equals(v.astNodeId())
-                        && binding.hint().variables().get(role).equals(v.variableName()))
+                        && name.equals(v.variableName()))
             .toList();
     return matches.size() == 1 ? matches.get(0) : null;
+  }
+
+  private boolean inHelper(Binding binding, ExecutionObservation step) {
+    return binding.helper() != null
+        && step.context() != null
+        && step.context().methodName().equals(binding.helper().method().getNameAsString());
+  }
+
+  private String roleId(Binding binding, ExecutionObservation step, String role) {
+    return inHelper(binding, step)
+        ? binding.helper().declarations().get(role)
+        : binding.declarations().get(role);
+  }
+
+  private String roleName(Binding binding, ExecutionObservation step, String role) {
+    return inHelper(binding, step)
+        ? binding.helper().names().get(role)
+        : binding.hint().variables().get(role);
   }
 
   private String status(ObservationResult variable) {
@@ -301,8 +345,8 @@ public class VisualTraceBuilder {
       truncated = false;
     }
     return new ArrayValue(
-        binding.hint().variables().get("array"),
-        binding.declarations().get("array"),
+        roleName(binding, step, "array"),
+        roleId(binding, step, "array"),
         status,
         values,
         length,
@@ -434,6 +478,31 @@ public class VisualTraceBuilder {
         && b.codeIndex() > a.codeIndex();
   }
 
+  private Helper helper(AlgorithmHint hint, Map<String, Node> nodes) {
+    if (hint.sort() == null) return null;
+    String methodId = hint.sort().operationAstNodeIds().get("swapHelper");
+    if (!(nodes.get(methodId) instanceof MethodDeclaration method)
+        || method.getParameters().size() != 3
+        || method.getBody().isEmpty()
+        || method.getBody().orElseThrow().getStatements().isEmpty()
+        || !(method.getBody().orElseThrow().getStatement(0) instanceof ExpressionStmt statement)
+        || !(statement.getExpression() instanceof VariableDeclarationExpr declaration)
+        || declaration.getVariables().size() != 1) return null;
+    VariableDeclarator temp = declaration.getVariable(0);
+    return new Helper(
+        method,
+        Map.of(
+            "array", method.getParameter(0).getNameAsString(),
+            "scan", method.getParameter(1).getNameAsString(),
+            "temp", temp.getNameAsString()),
+        Map.of(
+            "array", AstAnalyzer.nodeId(method.getParameter(0)),
+            "scan", AstAnalyzer.nodeId(method.getParameter(1)),
+            "temp", AstAnalyzer.nodeId(temp)));
+  }
+
+  private record Helper(MethodDeclaration method, Map<String, String> names, Map<String, String> declarations) {}
+
   private record Binding(
-      int index, AlgorithmHint hint, Node loop, Map<String, String> declarations) {}
+      int index, AlgorithmHint hint, Node loop, Map<String, String> declarations, Helper helper) {}
 }

@@ -22,6 +22,9 @@ class SortPatternCorpusTest {
   static Stream<Arguments> recognized() {
     return Stream.of(
         Arguments.of("bubble-for.java", "bubble-sort", Direction.ASCENDING),
+        Arguments.of("bubble-while.java", "bubble-sort", Direction.ASCENDING),
+        Arguments.of("bubble-rewritten-bound.java", "bubble-sort", Direction.ASCENDING),
+        Arguments.of("bubble-helper-swap.java", "bubble-sort", Direction.ASCENDING),
         Arguments.of("selection-for.java", "selection-sort", Direction.ASCENDING),
         Arguments.of("insertion-for.java", "insertion-sort", Direction.ASCENDING));
   }
