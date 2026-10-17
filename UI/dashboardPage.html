@@ -468,6 +468,7 @@
     </main>
 </div>
 
+<script src="unified-visualization.js"></script>
 <script>
     // ---------- Cấu hình endpoint ----------
     const API_BASE_URL = 'http://localhost:8080';
@@ -696,12 +697,23 @@
         }).join('');
     }
 
+    function executionFrameCount() {
+        return currentTimeline?.frames?.length ?? lastExecutionData?.steps?.length ?? 0;
+    }
+
     function renderExecutionSteps(response) {
         const steps = Array.isArray(response?.steps) ? response.steps : [];
+        stopExecutionPlayback();
+        currentTimeline = UnifiedVisualization.createTimeline(response);
+        selectedAlgorithmId = null;
+        currentExecutionIndex = steps.length === 0 ? -1 : 0;
         if (steps.length === 0) {
-            return '<div class="empty">No breakpoint hit was recorded.</div>';
+            renderSourceViewer(null);
+            return currentTimeline.mode === 'unsupported'
+                ? `<div class="empty">${currentTimeline.message}</div>`
+                : '<div class="empty">No breakpoint hit was recorded.</div>';
         }
-        currentExecutionIndex = 0;
+        const frameCount = executionFrameCount();
         const hasSortHint = response.algorithmHints?.some(hint =>
             ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type));
         const sourceHasIndexedLoop = /\b(?:for|while)\b[\s\S]{0,1200}\[[^\]]+\]/.test(lastSourceCode || '');
@@ -713,21 +725,20 @@
             ${sortNotice}
             <div class="execution-toolbar">
                 <button class="ghost" id="previousStepBtn" type="button">Previous</button>
-                ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type))
-                    ? '<button class="ghost" id="playSortBtn" type="button" aria-label="Play execution">▶</button>' : ''}
+                <button class="ghost" id="playSortBtn" type="button" aria-label="Play execution">▶</button>
                 <button class="ghost" id="nextStepBtn" type="button">Next</button>
                 <span class="step-counter" id="stepCounter"></span>
             </div>
-            ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type))
-                ? `<div class="playback-controls">
+            <div class="playback-controls">
                     <label for="executionProgress">Step</label>
-                    <input id="executionProgress" type="range" min="0" max="${steps.length - 1}" value="0" aria-label="Execution step">
-                    <output id="executionProgressLabel" for="executionProgress">1 / ${steps.length}</output>
+                    <input id="executionProgress" type="range" min="0" max="${Math.max(0, frameCount - 1)}" value="0" aria-label="Execution step">
+                    <output id="executionProgressLabel" for="executionProgress">1 / ${frameCount}</output>
                     <label for="playbackSpeed">Speed</label>
                     <select id="playbackSpeed" aria-label="Playback speed">
                         <option value="900">0.5x</option><option value="450" selected>1x</option><option value="180">2.5x</option>
                     </select>
-                </div>` : ''}
+                </div>
+            <div id="algorithmSelectorHost"></div>
             <div id="executionLocation" class="execution-location"></div>
             <div id="sortVisualization"></div>
             <div class="runtime-table-wrap"><table class="runtime-table">
@@ -737,31 +748,57 @@
     }
 
     function updateExecutionStep() {
-        const step = lastExecutionData?.steps?.[currentExecutionIndex];
-        if (!step) return;
-        const previous = currentExecutionIndex > 0 ? lastExecutionData.steps[currentExecutionIndex - 1].variables : null;
+        const timelineFrame = currentTimeline?.frames?.[currentExecutionIndex];
+        const sequence = timelineFrame?.sequence;
+        const rendered = currentTimeline
+            ? UnifiedVisualization.renderFrame(currentTimeline, sequence, selectedAlgorithmId)
+            : null;
+        const step = currentTimeline?.mode === 'normalized'
+            ? rendered?.rawStep
+            : rendered?.rawStep || lastExecutionData?.steps?.[currentExecutionIndex];
+        if (!timelineFrame || (!step && currentTimeline?.mode !== 'normalized')) return;
+        const previousFrame = currentTimeline?.frames?.[currentExecutionIndex - 1];
+        const previous = previousFrame
+            ? currentTimeline.rawStepsBySequence.get(String(previousFrame.sequence))?.variables
+            : null;
         const locationEl = document.getElementById('executionLocation');
         const variablesEl = document.getElementById('executionVariables');
         const counterEl = document.getElementById('stepCounter');
         if (locationEl) {
-            locationEl.innerHTML = `<span class="location-line">Step ${step.sequence} · line ${step.lineNumber} · ${escapeHtml(step.statementKind || 'statement')}</span>
-                <code>${escapeHtml(String(step.code || '').trim() || sourceLineAt(step.lineNumber).trim() || '(source line unavailable)')}</code>`;
+            const source = currentTimeline?.mode === 'normalized' ? rendered.source : step;
+            const lineNumber = source?.lineNumber;
+            locationEl.innerHTML = `<span class="location-line">Step ${escapeHtml(sequence ?? step?.sequence)} · line ${escapeHtml(lineNumber)} · ${escapeHtml(step?.statementKind || 'statement')}</span>
+                <code>${escapeHtml(String(step?.code || '').trim() || sourceLineAt(lineNumber).trim() || '(source line unavailable)')}</code>`;
         }
-        if (variablesEl) variablesEl.innerHTML = renderExecutionVariables(step.variables || [], previous);
-        if (counterEl) counterEl.textContent = `Step ${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
+        if (variablesEl) variablesEl.innerHTML = renderExecutionVariables(step?.variables || [], previous);
+        if (counterEl) counterEl.textContent = `Step ${currentExecutionIndex + 1} / ${executionFrameCount()}`;
         const progress = document.getElementById('executionProgress');
         const progressLabel = document.getElementById('executionProgressLabel');
         if (progress) progress.value = String(currentExecutionIndex);
-        if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
-        const sortState = (step.visualStates || []).find(state => state.sortFrame);
+        if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${executionFrameCount()}`;
+        const selectorHost = document.getElementById('algorithmSelectorHost');
+        if (selectorHost) {
+            selectorHost.innerHTML = currentTimeline?.mode === 'normalized'
+                ? UnifiedVisualization.renderSelector(currentTimeline, selectedAlgorithmId) : '';
+            selectorHost.querySelector('#algorithmSelector')?.addEventListener('change', event => {
+                selectedAlgorithmId = event.target.value || null;
+                updateExecutionStep();
+            });
+        }
         const sortEl = document.getElementById('sortVisualization');
-        if (sortEl) sortEl.innerHTML = sortState ? renderSortVisualization(sortState) : '';
+        if (sortEl) {
+            if (currentTimeline?.mode === 'normalized' || currentTimeline?.mode === 'unsupported') sortEl.innerHTML = rendered.html;
+            else {
+                const sortState = (step?.visualStates || []).find(state => state.sortFrame);
+                sortEl.innerHTML = sortState ? renderSortVisualization(sortState) : '';
+            }
+        }
         const previousBtn = document.getElementById('previousStepBtn');
         const nextBtn = document.getElementById('nextStepBtn');
         if (previousBtn) previousBtn.disabled = currentExecutionIndex === 0;
-        if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
+        if (nextBtn) nextBtn.disabled = currentExecutionIndex === executionFrameCount() - 1;
         if (nextBtn?.disabled) stopExecutionPlayback();
-        renderSourceViewer(step);
+        renderSourceViewer(currentTimeline?.mode === 'normalized' ? rendered.source : step);
     }
 
     function renderSortVisualization(state) {
@@ -864,7 +901,7 @@
             if (currentExecutionIndex > 0) { currentExecutionIndex -= 1; updateExecutionStep(); }
         });
         document.getElementById('nextStepBtn')?.addEventListener('click', () => {
-            if (currentExecutionIndex < lastExecutionData.steps.length - 1) { currentExecutionIndex += 1; updateExecutionStep(); }
+            if (currentExecutionIndex < executionFrameCount() - 1) { currentExecutionIndex += 1; updateExecutionStep(); }
         });
         document.getElementById('playSortBtn')?.addEventListener('click', toggleExecutionPlayback);
         document.getElementById('executionProgress')?.addEventListener('input', event => {
@@ -891,7 +928,7 @@
         const button = document.getElementById('playSortBtn');
         if (button) { button.textContent = 'Ⅱ'; button.setAttribute('aria-label', 'Pause execution'); }
         playbackTimer = setInterval(() => {
-            if (!lastExecutionData || currentExecutionIndex >= lastExecutionData.steps.length - 1) {
+            if (!lastExecutionData || executionFrameCount() === 0 || currentExecutionIndex >= executionFrameCount() - 1) {
                 stopExecutionPlayback();
                 return;
             }
@@ -910,6 +947,9 @@
     let lastSourceCode = '';
     let lastExecutionData = null;
     let currentExecutionIndex = -1;
+    let currentTimeline = null;
+    let selectedAlgorithmId = null;
+    let runtimeRequestToken = 0;
 
     function selectedJavaFile() {
         return document.getElementById('fileInput').files?.[0] || null;
@@ -921,6 +961,8 @@
         lastExportData = null;
         lastExecutionData = null;
         currentExecutionIndex = -1;
+        currentTimeline = null;
+        selectedAlgorithmId = null;
         showSourcePreview();
     }
 
@@ -1031,6 +1073,9 @@
             return;
         }
 
+        const requestToken = ++runtimeRequestToken;
+        const ownsCurrentRequest = () => runtimeRequestToken === requestToken && selectedJavaFile() === file;
+
         stopExecutionPlayback();
         debugBtn.disabled = true;
         hintEl.textContent = 'Đang chạy target qua JDI (tối đa 30 giây)...';
@@ -1038,6 +1083,7 @@
 
         try {
             const executionData = await observeRuntimeSteps(file);
+            if (!ownsCurrentRequest()) return;
             if (!executionData || !Array.isArray(executionData.steps)) {
                 throw new Error('Backend trả về dữ liệu runtime không đúng định dạng.');
             }
@@ -1049,9 +1095,11 @@
             resultsEl.innerHTML = renderExecutionSteps(executionData);
             bindExecutionNavigation();
         } catch (error) {
+            if (!ownsCurrentRequest()) return;
             showRequestError(error, resultsEl);
             resetRenderedData();
         } finally {
+            if (!ownsCurrentRequest()) return;
             debugBtn.disabled = false;
             hintEl.textContent = '';
         }
@@ -1063,8 +1111,11 @@
         const viewerEl = document.getElementById('sourceViewer');
         const fileNameEl = document.getElementById('fileName');
         const hintEl = document.getElementById('hint');
+        runtimeRequestToken += 1;
         resetRenderedData();
+        document.getElementById('debugBtn').disabled = false;
         viewerEl.innerHTML = '';
+        document.getElementById('results').innerHTML = '';
 
         if (!file) {
             fileNameEl.textContent = 'Chưa chọn file';

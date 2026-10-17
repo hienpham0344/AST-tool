@@ -8,6 +8,7 @@ import com.example.astchunker.dto.DebugStepsResponse;
 import com.example.astchunker.model.ObservationResult;
 import com.example.astchunker.service.UploadedJavaSourceReader;
 import com.example.astchunker.visualization.VisualTraceBuilder;
+import com.example.astchunker.visualization.output.VisualizationOutputMapper;
 import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -62,9 +63,10 @@ public class DebugController {
     try (TargetCompiler.CompiledTarget target = targetCompiler.compile(sourceCode, analysis)) {
       JdiSession.DebugRun run = jdiSession.observe(target, analysis);
       var hints = algorithmAnalyzer.analyze(analysis.compilationUnit());
+      var steps = visualTraceBuilder.build(analysis, hints, run.executions());
       return ResponseEntity.ok(
           new DebugStepsResponse(
-              visualTraceBuilder.build(analysis, hints, run.executions()), run.warnings(), hints));
+              steps, run.warnings(), hints, new VisualizationOutputMapper().map(steps, hints)));
     }
   }
 }
