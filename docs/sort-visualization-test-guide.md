@@ -9,6 +9,18 @@ different structure may not be recognized; no hint is not proof that the user's
 algorithm is wrong. Merge, Quick, Heap, Shell, Counting, and Radix Sort are not
 covered yet.
 
+## Source rewrite corpus for the next recognition phase
+
+The current baseline is represented by `backend/src/test/resources/sort-patterns/*-for.java`.
+The same directory also contains planned equivalent rewrites that are **not yet recognized**:
+`bubble-while.java`, `bubble-rewritten-bound.java`, `bubble-helper-swap.java`,
+`selection-while.java`, and `insertion-while.java`. A detector must match the array reads,
+comparison, counter progress, and actual writes; matching a variable name or one sorted output
+is insufficient. The three `*-wrong-*` / `*-incomplete-*` samples are close negative cases.
+
+The order of implementation and review gates is in
+[`docs/superpowers/plans/2026-10-17-sort-increments.md`](superpowers/plans/2026-10-17-sort-increments.md).
+
 The Java samples under `examples/sort/` each call one `sort(int[] nums)` method
 for six inputs: empty, one value, sorted, reversed, duplicates, and negative
 values. This demonstrates that the detector uses the array observed at runtime,
