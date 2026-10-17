@@ -842,17 +842,23 @@
                         : region?.status === 'EMPTY'
                             ? `Đoạn [${region.start}, ${region.endExclusive}) chưa có phần tử.` : '';
         const runtimeVariables = [
-            ...Object.entries(state.pointers || {}).map(([role, pointer]) => `${role}=${pointer.index ?? pointer.status}`),
-            ...Object.entries(state.scalars || {}).map(([role, scalar]) => `${role}=${primitiveLabel(scalar.value)}`)
+            ...Object.entries(state.pointers || {})
+                .filter(([, pointer]) => pointer.status !== 'MISSING')
+                .map(([role, pointer]) => `${role}=${pointer.index ?? pointer.status}`),
+            ...Object.entries(state.scalars || {})
+                .filter(([, scalar]) => scalar.status !== 'MISSING')
+                .map(([role, scalar]) => `${role}=${primitiveLabel(scalar.value)}`)
         ].join(' · ');
+        const activityDetails = [comparisonText, mutationText, completedText].filter(Boolean);
         return `<section class="sort-visualization" aria-label="${escapeHtml(algorithmLabel)} visualization">
-            <div class="sort-title"><strong>${escapeHtml(algorithmLabel)} · ${escapeHtml(directionLabel)}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
+            <div class="sort-title"><strong>Mẫu ${escapeHtml(algorithmLabel)} được nhận diện · ${escapeHtml(directionLabel)}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
             ${state.array?.status === 'AVAILABLE'
                 ? `<div class="sort-cells" role="list" aria-label="Array values">${cells || '<span class="sort-detail">Mảng rỗng</span>'}</div>`
                 : '<div class="sort-detail">Không đọc được giá trị mảng.</div>'}
             ${runtimeVariables ? `<div class="sort-detail">${escapeHtml(runtimeVariables)}</div>` : ''}
-            <div class="sort-detail">${comparisonText || mutationText || completedText || 'Trạng thái runtime tại bước hiện tại.'}</div>
-            ${mutationText && comparisonText ? `<div class="sort-detail">${mutationText}</div>` : ''}
+            ${activityDetails.length
+                ? activityDetails.map(detail => `<div class="sort-detail">${detail}</div>`).join('')
+                : '<div class="sort-detail">Trạng thái runtime tại bước hiện tại.</div>'}
             ${sortedText ? `<div class="sort-detail">${sortedText}</div>` : ''}
             <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
             <div class="sort-legend" aria-label="Array highlight legend"><span><i></i>So sánh</span><span><i class="legend-write"></i>Ghi sắp tới</span><span><i class="legend-sorted"></i>Đoạn đã kiểm tra</span><span><i class="legend-pointer"></i>pass / scan</span><span><i class="legend-invalid"></i>Sai thứ tự</span></div>

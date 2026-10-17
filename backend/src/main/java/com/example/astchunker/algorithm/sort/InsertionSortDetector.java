@@ -29,20 +29,23 @@ public final class InsertionSortDetector implements SortPatternDetector {
     if (outer.isEmpty() || outer.get().bodyStatements().size() != 4) return Optional.empty();
     List<Statement> body = outer.get().bodyStatements();
     String pass = outer.get().counter();
-    if (!(body.get(0) instanceof ExpressionStmt keyStatement)
-        || !(keyStatement.getExpression()
-            instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr keyDeclaration)
-        || keyDeclaration.getVariables().size() != 1
-        || !(body.get(1) instanceof ExpressionStmt scanStatement)
-        || !(scanStatement.getExpression()
-            instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr scanDeclaration)
-        || scanDeclaration.getVariables().size() != 1
+    if (!(body.get(0) instanceof ExpressionStmt firstStatement)
+        || !(firstStatement.getExpression()
+            instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr firstDeclaration)
+        || firstDeclaration.getVariables().size() != 1
+        || !(body.get(1) instanceof ExpressionStmt secondStatement)
+        || !(secondStatement.getExpression()
+            instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr secondDeclaration)
+        || secondDeclaration.getVariables().size() != 1
         || !(body.get(2) instanceof WhileStmt shifting)
         || !(shifting.getBody() instanceof BlockStmt shiftBody)
         || shiftBody.getStatements().size() != 2) return Optional.empty();
 
-    VariableDeclarator key = keyDeclaration.getVariable(0);
-    VariableDeclarator scan = scanDeclaration.getVariable(0);
+    VariableDeclarator first = firstDeclaration.getVariable(0);
+    VariableDeclarator second = secondDeclaration.getVariable(0);
+    boolean keyFirst = SortAstSupport.unwrap(first.getInitializer().orElse(null)) instanceof ArrayAccessExpr;
+    VariableDeclarator key = keyFirst ? first : second;
+    VariableDeclarator scan = keyFirst ? second : first;
     String keyName = key.getNameAsString();
     String scanName = scan.getNameAsString();
     if (keyName.equals(pass)

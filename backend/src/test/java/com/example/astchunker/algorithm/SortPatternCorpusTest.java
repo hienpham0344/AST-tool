@@ -5,10 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.example.astchunker.model.SortPattern.Direction;
+import com.github.javaparser.ast.Node;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -29,19 +32,31 @@ class SortPatternCorpusTest {
         Arguments.of("selection-for.java", "selection-sort", Direction.ASCENDING),
         Arguments.of("selection-while.java", "selection-sort", Direction.ASCENDING),
         Arguments.of("selection-helper-swap.java", "selection-sort", Direction.ASCENDING),
+        Arguments.of("selection-rewritten-bound.java", "selection-sort", Direction.ASCENDING),
         Arguments.of("insertion-for.java", "insertion-sort", Direction.ASCENDING),
-        Arguments.of("insertion-while.java", "insertion-sort", Direction.ASCENDING));
+        Arguments.of("insertion-while.java", "insertion-sort", Direction.ASCENDING),
+        Arguments.of("insertion-reordered-locals.java", "insertion-sort", Direction.ASCENDING),
+        Arguments.of("insertion-rewritten-bound.java", "insertion-sort", Direction.ASCENDING));
   }
 
   static Stream<String> rejected() {
-    return Stream.of("bubble-incomplete-swap.java", "bubble-early-exit-missing-flag.java", "selection-wrong-index.java", "insertion-wrong-shift.java");
+    return Stream.of(
+        "bubble-incomplete-swap.java",
+        "bubble-early-exit-missing-flag.java",
+        "bubble-short-scan.java",
+        "selection-wrong-index.java",
+        "insertion-wrong-shift.java",
+        "insertion-short-pass.java");
   }
 
   @ParameterizedTest(name = "{0}")
   @MethodSource("recognized")
   void recognizesEstablishedSortPatterns(String file, String type, Direction direction)
       throws Exception {
-    List<AlgorithmHint> hints = detect(file);
+    var unit = parser.parseCompilationUnit(source(file));
+    List<AlgorithmHint> hints = analyzer.analyze(unit);
+    Set<String> sourceNodeIds = unit.findAll(Node.class).stream()
+        .map(AstAnalyzer::nodeId).collect(Collectors.toSet());
     assertThat(hints)
         .singleElement()
         .satisfies(
@@ -49,7 +64,9 @@ class SortPatternCorpusTest {
               assertThat(hint.type()).isEqualTo(type);
               assertThat(hint.sort().direction()).isEqualTo(direction);
               assertThat(hint.sort().comparisonAstNodeId()).isNotBlank();
-              assertThat(hint.sort().operationAstNodeIds()).isNotNull();
+              assertThat(sourceNodeIds).contains(hint.sort().comparisonAstNodeId());
+              assertThat(sourceNodeIds).containsAll(hint.sort().swapStatementAstNodeIds());
+              assertThat(sourceNodeIds).containsAll(hint.sort().operationAstNodeIds().values());
             });
   }
 
@@ -60,10 +77,13 @@ class SortPatternCorpusTest {
   }
 
   private List<AlgorithmHint> detect(String file) throws Exception {
+    return analyzer.analyze(parser.parseCompilationUnit(source(file)));
+  }
+
+  private String source(String file) throws Exception {
     String path = "sort-patterns/" + file;
     try (InputStream input = Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(path), path)) {
-      String source = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-      return analyzer.analyze(parser.parseCompilationUnit(source));
+      return new String(input.readAllBytes(), StandardCharsets.UTF_8);
     }
   }
 }

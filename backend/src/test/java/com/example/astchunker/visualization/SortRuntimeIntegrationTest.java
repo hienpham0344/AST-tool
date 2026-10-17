@@ -361,6 +361,52 @@ class SortRuntimeIntegrationTest {
   }
 
   @Test
+  void reorderedInsertionLocalsKeepRuntimeTrace() {
+    String algorithm =
+        """
+        for (int pass = 1; pass < nums.length; pass++) {
+          int scan = pass - 1;
+          int key = nums[pass];
+          while (scan >= 0 && nums[scan] > key) {
+            nums[scan + 1] = nums[scan];
+            scan--;
+          }
+          nums[scan + 1] = key;
+        }
+        """;
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void rewrittenBubbleBoundAndComparisonVerifyAllInputs() {
+    String algorithm = BUBBLE
+        .replace("j < nums.length - 1 - i", "j + 1 < nums.length - i")
+        .replace("nums[j] > nums[j + 1]", "nums[j + 1] < nums[j]");
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void reversedSelectionComparisonVerifiesAllInputs() {
+    String algorithm = SELECTION.replace("nums[j] < nums[min]", "nums[min] > nums[j]");
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
   void supportsDescendingSelectionRuntime() {
     String descending = SELECTION.replace("nums[j] < nums[min]", "nums[j] > nums[min]");
     var steps = run("1,3,2", descending);
