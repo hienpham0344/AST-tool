@@ -41,6 +41,7 @@ final class SortSemanticFacts {
     private final Map<String, String> types;
     private final Map<String, ComparatorBinding> comparators;
     private final boolean unshadowedJdkTypeNames;
+    private final Set<String> potentiallyShadowingTypeNames;
     private final boolean symbolResolutionAvailable;
 
     Optional<NormalizedComparison> strictComparison(Expression expression) {
@@ -112,13 +113,19 @@ final class SortSemanticFacts {
       Expression receiver = call.getScope().map(SortSemanticFacts::unwrap).orElse(null);
       Expression argument = unwrap(call.getArgument(0));
       if (!directNaturalOperand(receiver) || !directNaturalOperand(argument)) return Optional.empty();
+      if (potentiallyShadowsJdkType(receiver)) return Optional.empty();
+      String resolvedFullyQualifiedJdkType = naturalOrderBinding(receiver)
+          .map(NaturalOrderBinding::elementType)
+          .filter(type -> resolvesExactJdkNaturalOrderCompareTo(call, receiver, argument, type))
+          .orElse(null);
       String resolvedShortJdkType = shortJdkNaturalOrderType(receiver)
           .filter(type -> resolvesExactJdkNaturalOrderCompareTo(call, receiver, argument, type))
           .orElse(null);
-      if (!unshadowedJdkTypeNames && resolvedShortJdkType == null) return Optional.empty();
-      NaturalOrderBinding naturalOrder = resolvedShortJdkType != null
-          ? new NaturalOrderBinding(resolvedShortJdkType)
-          : naturalOrderBinding(receiver).orElse(null);
+      NaturalOrderBinding naturalOrder = resolvedFullyQualifiedJdkType != null
+          ? new NaturalOrderBinding(resolvedFullyQualifiedJdkType)
+          : resolvedShortJdkType != null
+              ? new NaturalOrderBinding(resolvedShortJdkType)
+              : unshadowedJdkTypeNames ? naturalOrderBinding(receiver).orElse(null) : null;
       if (naturalOrder == null) return Optional.empty();
       List<String> ids = binary.findAll(NameExpr.class).stream().map(LocalVariableBindings::resolve)
           .flatMap(Optional::stream).distinct().toList();
@@ -236,6 +243,16 @@ final class SortSemanticFacts {
 
     private Analysis(CompilationUnit unit) {
       this.symbolResolutionAvailable = installSymbolResolver(unit);
+      Set<String> typeNames = new HashSet<>();
+      unit.findAll(com.github.javaparser.ast.body.TypeDeclaration.class).stream()
+          .map(declaration -> declaration.getNameAsString()).forEach(typeNames::add);
+      unit.findAll(com.github.javaparser.ast.type.TypeParameter.class).stream()
+          .map(parameter -> parameter.getNameAsString()).forEach(typeNames::add);
+      unit.getImports().stream().filter(imported -> !imported.isAsterisk())
+          .map(imported -> imported.getNameAsString())
+          .filter(name -> !NATURAL_ORDER_ELEMENT_TYPES.contains(name))
+          .map(name -> name.substring(name.lastIndexOf('.') + 1)).forEach(typeNames::add);
+      this.potentiallyShadowingTypeNames = Set.copyOf(typeNames);
       // Without source-aware symbol solving, accept java.lang.X only in a single
       // standalone class where no source type or inherited member type can
       // shadow the leading package name `java`.
@@ -373,6 +390,20 @@ final class SortSemanticFacts {
         return LocalVariableBindings.resolve(name).map(types::get).flatMap(SortSemanticFacts::canonicalShortJdkType);
       }
       return Optional.empty();
+    }
+
+    private boolean potentiallyShadowsJdkType(Expression receiver) {
+      String sourceType = null;
+      if (receiver instanceof ArrayAccessExpr access)
+        sourceType = sequenceAccess(access).map(SequenceAccess::binding)
+            .map(SequenceBinding::elementType).orElse(null);
+      else if (receiver instanceof NameExpr name)
+        sourceType = LocalVariableBindings.resolve(name).map(types::get).orElse(null);
+      if (sourceType == null) return false;
+      // JavaParser can miss inherited member types named `java` or `String`.
+      // A same-file name collision makes a JDK resolution insufficient proof.
+      String leadingName = sourceType.startsWith("java.lang.") ? "java" : sourceType;
+      return potentiallyShadowingTypeNames.contains(leadingName);
     }
 
     private boolean resolvesExactJdkNaturalOrderCompareTo(

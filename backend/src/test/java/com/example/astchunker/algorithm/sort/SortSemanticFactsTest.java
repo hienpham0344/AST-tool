@@ -356,6 +356,19 @@ class SortSemanticFactsTest {
     }
   }
 
+  @Test void resolvesFullyQualifiedJdkCallsAcrossPackageAndImportDeclarations() {
+    var unit = parser.parseCompilationUnit("package demo; import java.util.List;"
+        + " class S { void sort(java.lang.String[] values, int scan) {"
+        + " if (values[scan].compareTo(values[scan + 1]) > 0) {} } }");
+    var facts = SortSemanticFacts.analyze(unit);
+
+    var comparison = facts.strictNaturalOrderComparison(
+        unit.findFirst(IfStmt.class).orElseThrow().getCondition());
+    assertThat(comparison).isPresent();
+    assertThat(comparison.orElseThrow().naturalOrder().elementType())
+        .isEqualTo("java.lang.String");
+  }
+
   @Test void rejectsShortJdkWrapperNameWhenShadowedBySourceType() {
     var unit = parser.parseCompilationUnit("""
         class S {
@@ -399,6 +412,29 @@ class SortSemanticFactsTest {
 
     assertThat(SortSemanticFacts.analyze(unit).strictNaturalOrderComparison(
         unit.findFirst(IfStmt.class).orElseThrow().getCondition())).isEmpty();
+    var inherited = parser.parseCompilationUnit("""
+        class Base {
+          static final class String implements Comparable<String> {
+            public int compareTo(String other) { return 0; }
+          }
+        }
+        class S extends Base {
+          void sort(String[] values, int i) {
+            if (values[i].compareTo(values[i + 1]) > 0) {}
+          }
+        }
+        """);
+    assertThat(SortSemanticFacts.analyze(inherited).strictNaturalOrderComparison(
+        inherited.findFirst(IfStmt.class).orElseThrow().getCondition())).isEmpty();
+    var typeParameter = parser.parseCompilationUnit("""
+        class S<String extends Comparable<String>> {
+          void sort(String[] values, int i) {
+            if (values[i].compareTo(values[i + 1]) > 0) {}
+          }
+        }
+        """);
+    assertThat(SortSemanticFacts.analyze(typeParameter).strictNaturalOrderComparison(
+        typeParameter.findFirst(IfStmt.class).orElseThrow().getCondition())).isEmpty();
   }
 
   @Test void acceptsSavedNaturalOrderKeyButRejectsEveryUnsafeNaturalOrderNearMiss() {
@@ -443,17 +479,38 @@ class SortSemanticFactsTest {
     var unit = parser.parseCompilationUnit(source);
     assertThat(SortSemanticFacts.analyze(unit).strictNaturalOrderComparison(
         unit.findFirst(IfStmt.class).orElseThrow().getCondition())).isEmpty();
+    var importedShadow = parser.parseCompilationUnit("import java.util.List; " + source);
+    assertThat(SortSemanticFacts.analyze(importedShadow).strictNaturalOrderComparison(
+        importedShadow.findFirst(IfStmt.class).orElseThrow().getCondition())).isEmpty();
+    var inheritedShadow = parser.parseCompilationUnit("""
+        class Base {
+          static class java {
+            static class lang {
+              static final class String implements Comparable<String> {
+                public int compareTo(String other) { return 0; }
+              }
+            }
+          }
+        }
+        class S extends Base {
+          void sort(java.lang.String[] values, int scan) {
+            if (values[scan].compareTo(values[scan + 1]) > 0) {}
+          }
+        }
+        """);
+    assertThat(SortSemanticFacts.analyze(inheritedShadow).strictNaturalOrderComparison(
+        inheritedShadow.findFirst(IfStmt.class).orElseThrow().getCondition())).isEmpty();
 
     String simple = "class S { void sort(java.lang.String[] values, int scan) {"
         + " if (values[scan].compareTo(values[scan + 1]) > 0) {} } }";
-    for (String sourceWithUnresolvedTypeScope : List.of(
+    for (String sourceWithResolvableJdkType : List.of(
         "import java.util.*; " + simple,
         simple.replace("class S {", "class S extends java.util.ArrayList<Object> {"),
         simple.replace("void sort", "void unrelated() { new Object() {}; } void sort"))) {
-      var unresolved = parser.parseCompilationUnit(sourceWithUnresolvedTypeScope);
-      assertThat(SortSemanticFacts.analyze(unresolved).strictNaturalOrderComparison(
-          unresolved.findFirst(IfStmt.class).orElseThrow().getCondition()))
-          .as(sourceWithUnresolvedTypeScope).isEmpty();
+      var resolved = parser.parseCompilationUnit(sourceWithResolvableJdkType);
+      assertThat(SortSemanticFacts.analyze(resolved).strictNaturalOrderComparison(
+          resolved.findFirst(IfStmt.class).orElseThrow().getCondition()))
+          .as(sourceWithResolvableJdkType).isPresent();
     }
   }
 }

@@ -24,6 +24,16 @@ Its unit fixtures cover all eight wrappers and a same-file `Integer` shadow;
 an `Integer[]` Bubble target runs on a real JVM. The full package passed
 298 tests on 2026-10-17. Custom `Comparable` remains outside these slices.
 
+R2d3 applies the resolved-call proof to fully-qualified JDK element types in
+packaged/imported or otherwise complex source shapes. Unit tests hold out a
+same-file `java.lang.String` shadow; a real JVM target includes an import.
+The full package passed 299 tests on 2026-10-17.
+An inherited-member shadow holdout then exposed a real false positive in
+JavaParser resolution. A RED regression was reproduced with `javac`-valid
+source, and a same-file type-name collision guard made both inherited short
+and fully-qualified shadows fail closed. The final full package passed
+299 tests after this fix on 2026-10-17.
+
 1. Write RED tests for JDK short names, same-file `java` and `String`
    shadowing, overloaded `compareTo`, custom Comparable, unresolved calls,
    and original AST ID stability.

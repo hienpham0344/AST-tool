@@ -21,6 +21,14 @@ wrapper types (`Byte`, `Short`, `Integer`, `Long`, `Character`, `Float`,
 static-only for these reference sorts. Shadowed or unresolved calls remain
 unknown. General custom `Comparable` and List stay pending.
 
+R2d3 permits the same exact JDK types with fully-qualified spelling inside
+files containing package declarations, imports, inheritance, or anonymous
+classes, but only when the resolved method and both operands prove the JDK
+identity. Same-file shadowing of the `java.lang` spelling stays unknown.
+The resolver was observed misidentifying inherited member types named `java`
+or `String` as JDK types; any same-file type-name collision now rejects the
+JDK inference conservatively.
+
 ## Problem
 
 R2b proves only an explicit `java.util.Comparator<E>` parameter. R2c proves

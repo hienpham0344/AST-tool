@@ -312,6 +312,7 @@ class SortRuntimeIntegrationTest {
   void jdkStringNaturalBubbleRunsWithoutSyntheticSortFrames(String elementType) {
     String source =
         """
+        import java.util.List;
         public class SortSample {
           private static void sort(%s[] nums) {
             for (int pass = 0; pass < nums.length - 1; pass++) {
