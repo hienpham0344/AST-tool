@@ -4,6 +4,7 @@ import com.example.astchunker.algorithm.LocalVariableBindings;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.example.astchunker.model.SortPattern;
+import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.ArrayAccessExpr;
@@ -24,21 +25,19 @@ import java.util.Optional;
 public final class InsertionSortDetector implements SortPatternDetector {
   @Override
   public Optional<AlgorithmHint> detect(Node node) {
-    if (!(node instanceof ForStmt outer)
-        || !(outer.getBody() instanceof BlockStmt body)
-        || body.getStatements().size() != 4) return Optional.empty();
-
-    String pass = SortAstSupport.counter(outer, "1");
-    if (pass == null
-        || !(body.getStatement(0) instanceof ExpressionStmt keyStatement)
+    var outer = CountedLoop.match(node, "1");
+    if (outer.isEmpty() || outer.get().bodyStatements().size() != 4) return Optional.empty();
+    List<Statement> body = outer.get().bodyStatements();
+    String pass = outer.get().counter();
+    if (!(body.get(0) instanceof ExpressionStmt keyStatement)
         || !(keyStatement.getExpression()
             instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr keyDeclaration)
         || keyDeclaration.getVariables().size() != 1
-        || !(body.getStatement(1) instanceof ExpressionStmt scanStatement)
+        || !(body.get(1) instanceof ExpressionStmt scanStatement)
         || !(scanStatement.getExpression()
             instanceof com.github.javaparser.ast.expr.VariableDeclarationExpr scanDeclaration)
         || scanDeclaration.getVariables().size() != 1
-        || !(body.getStatement(2) instanceof WhileStmt shifting)
+        || !(body.get(2) instanceof WhileStmt shifting)
         || !(shifting.getBody() instanceof BlockStmt shiftBody)
         || shiftBody.getStatements().size() != 2) return Optional.empty();
 
@@ -57,29 +56,31 @@ public final class InsertionSortDetector implements SortPatternDetector {
     String array = arrayRef.getNameAsString();
     if (!SortAstSupport.matches(keyRead.getIndex(), pass)
         || !SortAstSupport.matches(scan.getInitializer().orElse(null), pass + " - 1")
-        || !SortAstSupport.matches(
-            outer.getCompare().orElse(null), pass + " < " + array + ".length"))
+        || !IndexExpression.sameCondition(
+            outer.get().condition(),
+            StaticJavaParser.parseExpression(pass + " < " + array + ".length")))
       return Optional.empty();
 
     String arrayAtScan = array + "[" + scanName + "]";
     String shiftedSlot = array + "[" + scanName + " + 1]";
     if (!SortAstSupport.assignment(shiftBody.getStatement(0), shiftedSlot, arrayAtScan)
         || !decrements(shiftBody.getStatement(1), scanName)
-        || !SortAstSupport.assignment(body.getStatement(3), shiftedSlot, keyName))
+        || !SortAstSupport.assignment(body.get(3), shiftedSlot, keyName))
       return Optional.empty();
 
     Condition condition = shiftCondition(shifting.getCondition(), scanName, array, keyName);
     if (condition == null) return Optional.empty();
-    Node method = LocalVariableBindings.callable(outer);
+    Node method = LocalVariableBindings.callable(node);
     Map<String, String> roles =
         Map.of("array", array, "pass", pass, "scan", scanName, "key", keyName);
-    var bound = LocalVariableBindings.roles(outer, roles);
+    var bound = LocalVariableBindings.roles(node, roles);
     if (method == null
         || bound.isEmpty()
-        || !SortAstSupport.intArray(method, bound.get().get("array"))) return Optional.empty();
+        || !SortAstSupport.intArray(method, bound.get().get("array"))
+        || !outer.get().counterDeclarationId().equals(bound.get().get("pass"))) return Optional.empty();
 
     var ids = bound.get();
-    var range = outer.getRange().orElseThrow();
+    var range = node.getRange().orElseThrow();
     var pattern =
         new SortPattern(
             1,
@@ -93,7 +94,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
             Map.of(
                 "shiftWrite", AstAnalyzer.nodeId(shiftBody.getStatement(0)),
                 "scanDecrement", AstAnalyzer.nodeId(shiftBody.getStatement(1)),
-                "insertWrite", AstAnalyzer.nodeId(body.getStatement(3))));
+                "insertWrite", AstAnalyzer.nodeId(body.get(3))));
     return Optional.of(
         new AlgorithmHint(
             "insertion-sort",
@@ -106,7 +107,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
             roles,
             range.begin.line,
             range.end.line,
-            AstAnalyzer.nodeId(outer),
+            AstAnalyzer.nodeId(node),
             AstAnalyzer.nodeId(method),
             ids,
             pattern));

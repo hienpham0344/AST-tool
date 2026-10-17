@@ -4,113 +4,113 @@ import com.example.astchunker.algorithm.LocalVariableBindings;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.example.astchunker.model.SortPattern;
+import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.VariableDeclarator;
-import com.github.javaparser.ast.expr.ArrayAccessExpr;
-import com.github.javaparser.ast.expr.BinaryExpr;
-import com.github.javaparser.ast.expr.NameExpr;
-import com.github.javaparser.ast.expr.VariableDeclarationExpr;
-import com.github.javaparser.ast.stmt.BlockStmt;
-import com.github.javaparser.ast.stmt.ExpressionStmt;
-import com.github.javaparser.ast.stmt.ForStmt;
-import com.github.javaparser.ast.stmt.IfStmt;
-import com.github.javaparser.ast.stmt.Statement;
+import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.stmt.*;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/** Detects a canonical min/max selection pass and its three-statement final swap. */
+/** Recognizes complete min/max selection passes with bound local roles. */
 public final class SelectionSortDetector implements SortPatternDetector {
   public SelectionSortDetector() {}
 
   @Override
   public Optional<AlgorithmHint> detect(Node node) {
-    if (!(node instanceof ForStmt outer)) return Optional.empty();
-    String pass = SortAstSupport.counter(outer, "0");
-    if (pass == null
-        || !(outer.getBody() instanceof BlockStmt outerBody)
-        || outerBody.getStatements().size() != 5
-        || !(outerBody.getStatement(0) instanceof ExpressionStmt declarationStatement)
-        || !(declarationStatement.getExpression() instanceof VariableDeclarationExpr declaration)
-        || declaration.getVariables().size() != 1
-        || !(outerBody.getStatement(1) instanceof ForStmt inner)) return Optional.empty();
-
-    VariableDeclarator selected = declaration.getVariable(0);
+    var outer = CountedLoop.match(node, "0");
+    if (outer.isEmpty()) return Optional.empty();
+    List<Statement> body = outer.get().bodyStatements();
+    if (body.size() < 3
+        || !(body.get(0) instanceof ExpressionStmt selectedStatement)
+        || !(selectedStatement.getExpression() instanceof VariableDeclarationExpr selectedDeclaration)
+        || selectedDeclaration.getVariables().size() != 1) return Optional.empty();
+    VariableDeclarator selected = selectedDeclaration.getVariable(0);
+    String pass = outer.get().counter();
     String selectedIndex = selected.getNameAsString();
     if (!selected.getType().asString().equals("int")
         || !SortAstSupport.matches(selected.getInitializer().orElse(null), pass))
       return Optional.empty();
-
-    String scan = SortAstSupport.counter(inner, pass + " + 1");
-    Statement innerBody = SortAstSupport.single(inner.getBody());
-    if (scan == null
-        || !(innerBody instanceof IfStmt branch)
+    int innerPosition = body.get(1) instanceof ForStmt ? 1 : 2;
+    if (body.size() != innerPosition + 4 && body.size() != innerPosition + 2
+        || innerPosition == 2
+            && (!(body.get(1) instanceof ExpressionStmt scanDeclaration)
+                || !(scanDeclaration.getExpression() instanceof VariableDeclarationExpr))
+        || !(body.get(innerPosition) instanceof ForStmt || body.get(innerPosition) instanceof WhileStmt))
+      return Optional.empty();
+    Node innerNode = body.get(innerPosition);
+    var inner = CountedLoop.match(innerNode, pass + " + 1");
+    if (inner.isEmpty() || inner.get().bodyStatements().size() != 1
+        || !(inner.get().bodyStatements().get(0) instanceof IfStmt branch)
         || branch.getElseStmt().isPresent()
         || !(SortAstSupport.single(branch.getThenStmt()) instanceof ExpressionStmt update)
-        || !(update.getExpression() instanceof com.github.javaparser.ast.expr.AssignExpr assign)
-        || assign.getOperator() != com.github.javaparser.ast.expr.AssignExpr.Operator.ASSIGN
+        || !(update.getExpression() instanceof AssignExpr assign)
+        || assign.getOperator() != AssignExpr.Operator.ASSIGN
         || !SortAstSupport.matches(assign.getTarget(), selectedIndex)
-        || !SortAstSupport.matches(assign.getValue(), scan)
-        || !(branch.getCondition() instanceof BinaryExpr comparison)
+        || !SortAstSupport.matches(assign.getValue(), inner.get().counter())
+        || !(SortAstSupport.unwrap(branch.getCondition()) instanceof BinaryExpr comparison)
         || comparison.getOperator() != BinaryExpr.Operator.LESS
             && comparison.getOperator() != BinaryExpr.Operator.GREATER
-        || !(comparison.getLeft() instanceof ArrayAccessExpr first)
-        || !(first.getName() instanceof NameExpr arrayName)) return Optional.empty();
-
-    String array = arrayName.getNameAsString();
-    if (!SortAstSupport.matches(first.getIndex(), scan)
-        || !(comparison.getRight() instanceof ArrayAccessExpr second)
-        || !SortAstSupport.matches(second.getName(), array)
-        || !SortAstSupport.matches(second.getIndex(), selectedIndex)
-        || !SortAstSupport.matches(
-            inner.getCompare().orElse(null), scan + " < " + array + ".length")
-        || !SortAstSupport.matches(
-            outer.getCompare().orElse(null), pass + " < " + array + ".length - 1")
-        || !(outerBody.getStatement(2) instanceof ExpressionStmt tempStatement)
-        || !(tempStatement.getExpression() instanceof VariableDeclarationExpr tempDeclaration)
-        || tempDeclaration.getVariables().size() != 1) return Optional.empty();
-
-    VariableDeclarator temp = tempDeclaration.getVariable(0);
-    String tempName = temp.getNameAsString();
-    String left = array + "[" + pass + "]";
-    String right = array + "[" + selectedIndex + "]";
-    if (!temp.getType().asString().equals("int")
-        || !SortAstSupport.matches(temp.getInitializer().orElse(null), left)
-        || !SortAstSupport.assignment(outerBody.getStatement(3), left, right)
-        || !SortAstSupport.assignment(outerBody.getStatement(4), right, tempName))
+        || !(SortAstSupport.unwrap(comparison.getLeft()) instanceof ArrayAccessExpr first)
+        || !(SortAstSupport.unwrap(first.getName()) instanceof NameExpr arrayName))
       return Optional.empty();
-
-    Node method = LocalVariableBindings.callable(outer);
-    Map<String, String> roles =
-        Map.of(
-            "array", array,
-            "pass", pass,
-            "scan", scan,
-            "selected", selectedIndex,
-            "temp", tempName);
-    var bound = LocalVariableBindings.roles(outer, roles);
+    String array = arrayName.getNameAsString();
+    String scan = inner.get().counter();
+    boolean direct =
+        SortAstSupport.matches(first, array + "[" + scan + "]")
+            && SortAstSupport.matches(comparison.getRight(), array + "[" + selectedIndex + "]");
+    boolean reversed =
+        SortAstSupport.matches(first, array + "[" + selectedIndex + "]")
+            && SortAstSupport.matches(comparison.getRight(), array + "[" + scan + "]");
+    if (!direct && !reversed) return Optional.empty();
+    if (!IndexExpression.sameCondition(
+            outer.get().condition(),
+            StaticJavaParser.parseExpression(pass + " < " + array + ".length - 1"))
+        || !IndexExpression.sameCondition(
+            inner.get().condition(),
+            StaticJavaParser.parseExpression(scan + " < " + array + ".length")))
+      return Optional.empty();
+    List<Statement> swapStatements = body.subList(innerPosition + 1, body.size());
+    var swap = swapStatements.size() == 3
+        ? ArrayEffects.temporarySwap(swapStatements, array, pass, selectedIndex)
+        : ArrayEffects.helperSwap(swapStatements.get(0), array, pass, selectedIndex);
+    if (swap.isEmpty()) return Optional.empty();
+    Node method = LocalVariableBindings.callable(node);
+    Map<String, String> roles = new LinkedHashMap<>();
+    roles.put("array", array);
+    roles.put("pass", pass);
+    roles.put("scan", scan);
+    roles.put("selected", selectedIndex);
+    if (swap.get().helperMethodAstNodeId() == null) roles.put("temp", swap.get().tempName());
+    var bound = LocalVariableBindings.roles(node, roles);
     if (method == null
         || bound.isEmpty()
-        || !SortAstSupport.matches(comparison.getRight(), array + "[" + selectedIndex + "]")
-        || !SortAstSupport.intArray(method, bound.get().get("array"))) return Optional.empty();
-
+        || !SortAstSupport.intArray(method, bound.get().get("array"))
+        || !outer.get().counterDeclarationId().equals(bound.get().get("pass"))
+        || !inner.get().counterDeclarationId().equals(bound.get().get("scan")))
+      return Optional.empty();
     var ids = bound.get();
-    var range = outer.getRange().orElseThrow();
+    var range = node.getRange().orElseThrow();
+    boolean ascending = direct == (comparison.getOperator() == BinaryExpr.Operator.LESS);
+    Map<String, String> operationIds = new LinkedHashMap<>();
+    operationIds.put("selectedIndexUpdate", AstAnalyzer.nodeId(SortAstSupport.single(branch.getThenStmt())));
+    if (swap.get().helperMethodAstNodeId() != null) {
+      operationIds.put("swapCall", swap.get().callAstNodeId());
+      operationIds.put("swapHelper", swap.get().helperMethodAstNodeId());
+    }
     var pattern =
         new SortPattern(
             1,
-            comparison.getOperator() == BinaryExpr.Operator.LESS
-                ? SortPattern.Direction.ASCENDING
-                : SortPattern.Direction.DESCENDING,
-            AstAnalyzer.nodeId(inner),
+            ascending ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
+            AstAnalyzer.nodeId(innerNode),
             AstAnalyzer.nodeId(comparison),
             AstAnalyzer.nodeId(branch),
-            outerBody.getStatements().subList(2, 5).stream().map(AstAnalyzer::nodeId).toList(),
+            swap.get().operationAstNodeIds(),
             new SortPattern.Operand(ids.get("scan"), 0),
             new SortPattern.Operand(ids.get("selected"), 0),
-            Map.of(
-                "selectedIndexUpdate",
-                AstAnalyzer.nodeId(SortAstSupport.single(branch.getThenStmt()))));
+            operationIds);
     return Optional.of(
         new AlgorithmHint(
             "selection-sort",
@@ -119,11 +119,11 @@ public final class SelectionSortDetector implements SortPatternDetector {
             List.of(
                 "An outer pass initializes a selected index from the current boundary",
                 "An inner forward scan compares array values and conditionally replaces that index",
-                "The pass ends with a canonical three-statement temporary swap"),
+                "The pass ends with a complete three-statement temporary swap"),
             roles,
             range.begin.line,
             range.end.line,
-            AstAnalyzer.nodeId(outer),
+            AstAnalyzer.nodeId(node),
             AstAnalyzer.nodeId(method),
             ids,
             pattern));

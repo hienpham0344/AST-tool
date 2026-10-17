@@ -22,8 +22,9 @@ public final class BubbleSortDetector implements SortPatternDetector {
     var outer = CountedLoop.match(node, "0");
     if (outer.isEmpty()) return Optional.empty();
     String pass = outer.get().counter();
-    Node innerNode = nestedLoop(outer.get().bodyStatements());
-    if (innerNode == null) return Optional.empty();
+    BubbleBody body = nestedLoop(outer.get().bodyStatements());
+    if (body == null) return Optional.empty();
+    Node innerNode = body.inner();
     var inner = CountedLoop.match(innerNode, "0");
     if (inner.isEmpty() || inner.get().counter().equals(pass)) return Optional.empty();
     String scan = inner.get().counter();
@@ -62,6 +63,12 @@ public final class BubbleSortDetector implements SortPatternDetector {
     Statement then = branch.getThenStmt();
     List<Statement> swapStatements =
         then instanceof BlockStmt block ? List.copyOf(block.getStatements()) : List.of(then);
+    if (body.flag() != null) {
+      if (swapStatements.size() != 4
+          || !SortAstSupport.assignment(swapStatements.get(3), body.flag(), "true"))
+        return Optional.empty();
+      swapStatements = swapStatements.subList(0, 3);
+    }
     Optional<ArrayEffects.Swap> swap =
         ArrayEffects.temporarySwap(swapStatements, array, scan, scan + " + 1");
     if (swap.isEmpty() && swapStatements.size() == 1)
@@ -73,6 +80,7 @@ public final class BubbleSortDetector implements SortPatternDetector {
     roles.put("array", array);
     roles.put("pass", pass);
     roles.put("scan", scan);
+    if (body.flag() != null) roles.put("swapped", body.flag());
     if (swap.get().helperMethodAstNodeId() == null) roles.put("temp", swap.get().tempName());
     var bound = LocalVariableBindings.roles(node, roles);
     if (method == null
@@ -119,14 +127,31 @@ public final class BubbleSortDetector implements SortPatternDetector {
             sort));
   }
 
-  private static Node nestedLoop(List<Statement> statements) {
+  private static BubbleBody nestedLoop(List<Statement> statements) {
     if (statements.size() == 1
         && (statements.get(0) instanceof ForStmt || statements.get(0) instanceof WhileStmt))
-      return statements.get(0);
+      return new BubbleBody(statements.get(0), null);
     if (statements.size() == 2
         && statements.get(0) instanceof ExpressionStmt expression
         && expression.getExpression() instanceof VariableDeclarationExpr
-        && statements.get(1) instanceof WhileStmt) return statements.get(1);
+        && statements.get(1) instanceof WhileStmt)
+      return new BubbleBody(statements.get(1), null);
+    if (statements.size() == 3
+        && statements.get(0) instanceof ExpressionStmt expression
+        && expression.getExpression() instanceof VariableDeclarationExpr declaration
+        && declaration.getVariables().size() == 1
+        && declaration.getVariable(0).getType().asString().equals("boolean")
+        && SortAstSupport.matches(declaration.getVariable(0).getInitializer().orElse(null), "false")
+        && (statements.get(1) instanceof ForStmt || statements.get(1) instanceof WhileStmt)
+        && statements.get(2) instanceof IfStmt stop
+        && stop.getElseStmt().isEmpty()
+        && SortAstSupport.matches(
+            stop.getCondition(), "!" + declaration.getVariable(0).getNameAsString())
+        && SortAstSupport.single(stop.getThenStmt()) instanceof BreakStmt) {
+      return new BubbleBody(statements.get(1), declaration.getVariable(0).getNameAsString());
+    }
     return null;
   }
+
+  private record BubbleBody(Node inner, String flag) {}
 }

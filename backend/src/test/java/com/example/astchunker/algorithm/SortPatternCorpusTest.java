@@ -25,12 +25,16 @@ class SortPatternCorpusTest {
         Arguments.of("bubble-while.java", "bubble-sort", Direction.ASCENDING),
         Arguments.of("bubble-rewritten-bound.java", "bubble-sort", Direction.ASCENDING),
         Arguments.of("bubble-helper-swap.java", "bubble-sort", Direction.ASCENDING),
+        Arguments.of("bubble-early-exit.java", "bubble-sort", Direction.ASCENDING),
         Arguments.of("selection-for.java", "selection-sort", Direction.ASCENDING),
-        Arguments.of("insertion-for.java", "insertion-sort", Direction.ASCENDING));
+        Arguments.of("selection-while.java", "selection-sort", Direction.ASCENDING),
+        Arguments.of("selection-helper-swap.java", "selection-sort", Direction.ASCENDING),
+        Arguments.of("insertion-for.java", "insertion-sort", Direction.ASCENDING),
+        Arguments.of("insertion-while.java", "insertion-sort", Direction.ASCENDING));
   }
 
   static Stream<String> rejected() {
-    return Stream.of("bubble-incomplete-swap.java", "selection-wrong-index.java", "insertion-wrong-shift.java");
+    return Stream.of("bubble-incomplete-swap.java", "bubble-early-exit-missing-flag.java", "selection-wrong-index.java", "insertion-wrong-shift.java");
   }
 
   @ParameterizedTest(name = "{0}")

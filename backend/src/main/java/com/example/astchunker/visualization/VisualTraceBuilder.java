@@ -130,7 +130,9 @@ public class VisualTraceBuilder {
           || !step.context().methodName().equals(binding.helper().method().getNameAsString()))
         return false;
       boolean entering =
-          previous.statementAstNodeId().equals(binding.hint().sort().conditionStatementAstNodeId())
+          (previous.statementAstNodeId().equals(binding.hint().sort().conditionStatementAstNodeId())
+              || previous.statementAstNodeId().equals(
+                  binding.hint().sort().operationAstNodeIds().get("swapCall")))
               && previous.context().stackDepth() + 1 == step.context().stackDepth();
       boolean continuing =
           previous.context().stackDepth() == step.context().stackDepth()
@@ -489,16 +491,21 @@ public class VisualTraceBuilder {
         || !(statement.getExpression() instanceof VariableDeclarationExpr declaration)
         || declaration.getVariables().size() != 1) return null;
     VariableDeclarator temp = declaration.getVariable(0);
-    return new Helper(
-        method,
-        Map.of(
-            "array", method.getParameter(0).getNameAsString(),
-            "scan", method.getParameter(1).getNameAsString(),
-            "temp", temp.getNameAsString()),
-        Map.of(
-            "array", AstAnalyzer.nodeId(method.getParameter(0)),
-            "scan", AstAnalyzer.nodeId(method.getParameter(1)),
-            "temp", AstAnalyzer.nodeId(temp)));
+    String leftRole = hint.type().equals("selection-sort") ? "pass" : "scan";
+    String rightRole = hint.type().equals("selection-sort") ? "selected" : null;
+    Map<String, String> names = new LinkedHashMap<>();
+    Map<String, String> declarations = new LinkedHashMap<>();
+    names.put("array", method.getParameter(0).getNameAsString());
+    declarations.put("array", AstAnalyzer.nodeId(method.getParameter(0)));
+    names.put(leftRole, method.getParameter(1).getNameAsString());
+    declarations.put(leftRole, AstAnalyzer.nodeId(method.getParameter(1)));
+    if (rightRole != null) {
+      names.put(rightRole, method.getParameter(2).getNameAsString());
+      declarations.put(rightRole, AstAnalyzer.nodeId(method.getParameter(2)));
+    }
+    names.put("temp", temp.getNameAsString());
+    declarations.put("temp", AstAnalyzer.nodeId(temp));
+    return new Helper(method, Map.copyOf(names), Map.copyOf(declarations));
   }
 
   private record Helper(MethodDeclaration method, Map<String, String> names, Map<String, String> declarations) {}
