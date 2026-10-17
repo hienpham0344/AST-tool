@@ -398,14 +398,15 @@ class BubbleSortDetectorTest {
         .result().status()).isEqualTo(SortPatternRegistry.Status.UNKNOWN);
   }
 
-  @Test
-  void doesNotTreatSameFileStringShadowAsJdkNaturalOrder() {
+  @ParameterizedTest
+  @ValueSource(strings = {"String", "Integer"})
+  void doesNotTreatSameFileShortNameShadowAsJdkNaturalOrder(String type) {
     String body = bubble("data[scan].compareTo(data[scan + 1]) > 0", "scan + 1")
-        .replace("int temp", "String temp");
+        .replace("int temp", type + " temp");
     CompilationUnit unit = parser.parseCompilationUnit("class Sample {"
-        + " static final class String implements Comparable<String> {"
-        + " public int compareTo(String other) { return 0; } }"
-        + " void solve(String[] data) {\n" + body + "\n} }");
+        + " static final class " + type + " implements Comparable<" + type + "> {"
+        + " public int compareTo(" + type + " other) { return 0; } }"
+        + " void solve(" + type + "[] data) {\n" + body + "\n} }");
 
     assertThat(SortPatternRegistry.defaults().begin(unit)
         .evaluate(unit.findFirst(ForStmt.class).orElseThrow()).status())

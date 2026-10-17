@@ -15,9 +15,11 @@ slice, although broader source-defined and cross-file cases remain open.
 
 R2d1 recognizes only a direct short-name `String.compareTo(String)` when
 the resolved declaring type, receiver, and argument are all exactly
-`java.lang.String`. Bubble, Selection, and shift-Insertion remain static-only
-for this reference sort. Shadowed or unresolved calls remain unknown. General
-custom `Comparable`, other short JDK type names, and List stay pending.
+`java.lang.String`. R2d2 extends the same proof to short names of final JDK
+wrapper types (`Byte`, `Short`, `Integer`, `Long`, `Character`, `Float`,
+`Double`, `Boolean`). Bubble, Selection, and shift-Insertion remain
+static-only for these reference sorts. Shadowed or unresolved calls remain
+unknown. General custom `Comparable` and List stay pending.
 
 ## Problem
 

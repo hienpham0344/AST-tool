@@ -112,11 +112,12 @@ final class SortSemanticFacts {
       Expression receiver = call.getScope().map(SortSemanticFacts::unwrap).orElse(null);
       Expression argument = unwrap(call.getArgument(0));
       if (!directNaturalOperand(receiver) || !directNaturalOperand(argument)) return Optional.empty();
-      boolean resolvedShortJdkString = hasShortJdkStringSpelling(receiver)
-          && resolvesExactJdkStringCompareTo(call, receiver, argument);
-      if (!unshadowedJdkTypeNames && !resolvedShortJdkString) return Optional.empty();
-      NaturalOrderBinding naturalOrder = resolvedShortJdkString
-          ? new NaturalOrderBinding("java.lang.String")
+      String resolvedShortJdkType = shortJdkNaturalOrderType(receiver)
+          .filter(type -> resolvesExactJdkNaturalOrderCompareTo(call, receiver, argument, type))
+          .orElse(null);
+      if (!unshadowedJdkTypeNames && resolvedShortJdkType == null) return Optional.empty();
+      NaturalOrderBinding naturalOrder = resolvedShortJdkType != null
+          ? new NaturalOrderBinding(resolvedShortJdkType)
           : naturalOrderBinding(receiver).orElse(null);
       if (naturalOrder == null) return Optional.empty();
       List<String> ids = binary.findAll(NameExpr.class).stream().map(LocalVariableBindings::resolve)
@@ -360,29 +361,29 @@ final class SortSemanticFacts {
     }
 
     /**
-     * A short {@code String} spelling is trusted only after the resolver has
-     * proven that the receiver's declaration is {@code java.lang.String}.
+     * A short JDK wrapper spelling is trusted only after the resolver proves
+     * the direct compareTo call and both operands use the matching JDK type.
      */
-    private boolean hasShortJdkStringSpelling(Expression receiver) {
+    private Optional<String> shortJdkNaturalOrderType(Expression receiver) {
       if (receiver instanceof ArrayAccessExpr access) {
         return sequenceAccess(access).map(SequenceAccess::binding)
-            .map(SequenceBinding::elementType).filter("String"::equals).isPresent();
+            .map(SequenceBinding::elementType).flatMap(SortSemanticFacts::canonicalShortJdkType);
       }
       if (receiver instanceof NameExpr name) {
-        return LocalVariableBindings.resolve(name).map(types::get).filter("String"::equals).isPresent();
+        return LocalVariableBindings.resolve(name).map(types::get).flatMap(SortSemanticFacts::canonicalShortJdkType);
       }
-      return false;
+      return Optional.empty();
     }
 
-    private boolean resolvesExactJdkStringCompareTo(
-        MethodCallExpr call, Expression receiver, Expression argument) {
+    private boolean resolvesExactJdkNaturalOrderCompareTo(
+        MethodCallExpr call, Expression receiver, Expression argument, String canonicalType) {
       if (!symbolResolutionAvailable) return false;
       try {
         var declaration = call.resolve();
         return declaration.getNumberOfParams() == 1
-            && "java.lang.String".equals(declaration.declaringType().getQualifiedName())
-            && "java.lang.String".equals(receiver.calculateResolvedType().describe())
-            && "java.lang.String".equals(argument.calculateResolvedType().describe());
+            && canonicalType.equals(declaration.declaringType().getQualifiedName())
+            && canonicalType.equals(receiver.calculateResolvedType().describe())
+            && canonicalType.equals(argument.calculateResolvedType().describe());
       } catch (RuntimeException unresolved) {
         // Source parsing is intentionally best-effort; unresolved external types must not be recognized.
         return false;
@@ -438,7 +439,7 @@ final class SortSemanticFacts {
     boolean supports(SequenceBinding sequence) {
       return sequence != null && sequence.kind() == SequenceKind.OBJECT_ARRAY
           && !sequence.elementType().endsWith("[]") && (elementType.equals(sequence.elementType())
-              || "java.lang.String".equals(elementType) && "String".equals(sequence.elementType()));
+              || canonicalShortJdkType(sequence.elementType()).filter(elementType::equals).isPresent());
     }
   }
   record SequenceAccess(String astNodeId, SequenceBinding binding) {}
@@ -512,6 +513,11 @@ final class SortSemanticFacts {
     if (element.isEmpty() || element.contains("<") || element.contains(">") || element.contains(",")
         || element.contains("?") || element.contains("[")) return Optional.empty();
     return Optional.of(element);
+  }
+  private static Optional<String> canonicalShortJdkType(String sourceType) {
+    if (sourceType == null || sourceType.indexOf('.') >= 0) return Optional.empty();
+    String canonical = "java.lang." + sourceType;
+    return NATURAL_ORDER_ELEMENT_TYPES.contains(canonical) ? Optional.of(canonical) : Optional.empty();
   }
   private static boolean allowed(Node node, Node scope, Set<String> ids) {
     for (Node current = node; current != null; current = current.getParentNode().orElse(null)) {

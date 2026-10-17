@@ -19,6 +19,11 @@ the broader R2d sequence below. Final `mvn -f backend/pom.xml clean package`
 passed 293 tests, including the real JVM short-`String[]` target, on
 2026-10-17.
 
+R2d2 generalized that exact resolved-call gate to short JDK wrapper names.
+Its unit fixtures cover all eight wrappers and a same-file `Integer` shadow;
+an `Integer[]` Bubble target runs on a real JVM. The full package passed
+298 tests on 2026-10-17. Custom `Comparable` remains outside these slices.
+
 1. Write RED tests for JDK short names, same-file `java` and `String`
    shadowing, overloaded `compareTo`, custom Comparable, unresolved calls,
    and original AST ID stability.

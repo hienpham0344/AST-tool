@@ -339,6 +339,39 @@ class SortSemanticFactsTest {
     }
   }
 
+  @Test void recognizesShortJdkWrapperTypesOnlyWhenTheResolvedCallMatches() {
+    for (String simple : List.of("Byte", "Short", "Integer", "Long", "Character", "Float", "Double", "Boolean")) {
+      var unit = parser.parseCompilationUnit("class S { void sort(" + simple + "[] values, int scan) {"
+          + " if (values[scan].compareTo(values[scan + 1]) > 0) {} } }");
+      var facts = SortSemanticFacts.analyze(unit);
+      var comparison = facts.strictNaturalOrderComparison(
+          unit.findFirst(IfStmt.class).orElseThrow().getCondition());
+
+      assertThat(comparison).as(simple).isPresent();
+      assertThat(comparison.orElseThrow().naturalOrder().elementType())
+          .as(simple).isEqualTo("java.lang." + simple);
+      assertThat(comparison.orElseThrow().naturalOrder().supports(
+          facts.sequenceAccess(unit.findFirst(ArrayAccessExpr.class).orElseThrow()).orElseThrow().binding()))
+          .as(simple).isTrue();
+    }
+  }
+
+  @Test void rejectsShortJdkWrapperNameWhenShadowedBySourceType() {
+    var unit = parser.parseCompilationUnit("""
+        class S {
+          static final class Integer implements Comparable<Integer> {
+            public int compareTo(Integer other) { return 0; }
+          }
+          void sort(Integer[] values, int i) {
+            if (values[i].compareTo(values[i + 1]) > 0) {}
+          }
+        }
+        """);
+
+    assertThat(SortSemanticFacts.analyze(unit).strictNaturalOrderComparison(
+        unit.findFirst(IfStmt.class).orElseThrow().getCondition())).isEmpty();
+  }
+
   @Test void preservesAnExistingCallerSymbolResolver() {
     var unit = parser.parseCompilationUnit("class S { void sort(String[] values, int i) {"
         + " if (values[i].compareTo(values[i + 1]) > 0) {} } }");

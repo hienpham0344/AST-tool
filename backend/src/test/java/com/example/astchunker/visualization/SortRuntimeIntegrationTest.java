@@ -349,6 +349,45 @@ class SortRuntimeIntegrationTest {
         .containsExactly(List.of("a", "b", "c"));
   }
 
+  @Test
+  void shortIntegerNaturalBubbleRunsWithoutSyntheticSortFrames() {
+    String source = """
+        public class SortSample {
+          private static void sort(Integer[] nums) {
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
+                if (nums[scan].compareTo(nums[scan + 1]) > 0) {
+                  Integer temp = nums[scan];
+                  nums[scan] = nums[scan + 1];
+                  nums[scan + 1] = temp;
+                }
+              }
+            }
+          }
+          public static void main(String[] args) {
+            Integer[] nums = {3, 1, 2};
+            sort(nums);
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+        }
+        """;
+    var analysis = new AstAnalyzer().analyze(source);
+    assertThat(new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit()))
+        .singleElement().satisfies(hint -> {
+          assertThat(hint.type()).isEqualTo("bubble-sort");
+          assertThat(hint.sort()).isNull();
+        });
+
+    var steps = runSource(source);
+    var states = steps.stream().flatMap(step -> step.visualStates().stream()).toList();
+    assertThat(states).isNotEmpty();
+    assertThat(states).allSatisfy(state -> assertThat(state.sortFrame()).isNull());
+    assertThat(steps)
+        .filteredOn(step -> step.code().startsWith("System.out.println"))
+        .extracting(this::array)
+        .containsExactly(List.of(1, 2, 3));
+  }
+
   private static String helperBubbleProgram() {
     return """
         public class SortSample {
