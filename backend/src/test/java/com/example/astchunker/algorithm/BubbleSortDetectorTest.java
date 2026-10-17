@@ -385,8 +385,8 @@ class BubbleSortDetectorTest {
   void rejectsNaturalOrderBubbleNearMisses() {
     String canonical = bubble("data[scan].compareTo(data[scan + 1]) > 0", "scan + 1")
         .replace("int temp", "java.lang.String temp");
-    assertThat(semanticTyped("String", canonical, "").status())
-        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(semanticTyped("String", canonical.replace("java.lang.String temp", "String temp"), "").status())
+        .isEqualTo(SortPatternRegistry.Status.UNIQUE);
     assertThat(semanticTyped("java.lang.String", canonical.replace("java.lang.String temp", "Object temp"), "").status())
         .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
     assertThat(semanticTyped("java.lang.String", canonical.replace("data[scan].compareTo", "((java.lang.String) data[scan]).compareTo"), "").status())
@@ -396,6 +396,20 @@ class BubbleSortDetectorTest {
     String crossArray = canonical.replace("data[scan + 1]", "other[scan + 1]");
     assertThat(semanticNaturalFixture("java.lang.String[] data, java.lang.String[] other", crossArray)
         .result().status()).isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+  }
+
+  @Test
+  void doesNotTreatSameFileStringShadowAsJdkNaturalOrder() {
+    String body = bubble("data[scan].compareTo(data[scan + 1]) > 0", "scan + 1")
+        .replace("int temp", "String temp");
+    CompilationUnit unit = parser.parseCompilationUnit("class Sample {"
+        + " static final class String implements Comparable<String> {"
+        + " public int compareTo(String other) { return 0; } }"
+        + " void solve(String[] data) {\n" + body + "\n} }");
+
+    assertThat(SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow()).status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
   }
 
   private SemanticFixture semanticNaturalFixture(String parameters, String body) {

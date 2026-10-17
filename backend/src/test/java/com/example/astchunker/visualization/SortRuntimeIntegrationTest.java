@@ -307,16 +307,17 @@ class SortRuntimeIntegrationTest {
         .containsExactly(List.of("a", "b", "c"));
   }
 
-  @Test
-  void fullyQualifiedStringNaturalBubbleRunsWithoutSyntheticSortFrames() {
+  @ParameterizedTest
+  @ValueSource(strings = {"java.lang.String", "String"})
+  void jdkStringNaturalBubbleRunsWithoutSyntheticSortFrames(String elementType) {
     String source =
         """
         public class SortSample {
-          private static void sort(java.lang.String[] nums) {
+          private static void sort(%s[] nums) {
             for (int pass = 0; pass < nums.length - 1; pass++) {
               for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
                 if (nums[scan].compareTo(nums[scan + 1]) > 0) {
-                  java.lang.String temp = nums[scan];
+                  %s temp = nums[scan];
                   nums[scan] = nums[scan + 1];
                   nums[scan + 1] = temp;
                 }
@@ -329,7 +330,7 @@ class SortRuntimeIntegrationTest {
             System.out.println(java.util.Arrays.toString(nums));
           }
         }
-        """;
+        """.formatted(elementType, elementType);
     var analysis = new AstAnalyzer().analyze(source);
     assertThat(new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit()))
         .singleElement()

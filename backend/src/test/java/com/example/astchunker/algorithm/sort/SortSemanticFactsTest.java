@@ -2,8 +2,11 @@ package com.example.astchunker.algorithm.sort;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.example.astchunker.ast.AstAnalyzer;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.*;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -317,6 +320,54 @@ class SortSemanticFactsTest {
     }
   }
 
+  @Test void recognizesShortJdkStringOnlyAfterResolvingTheCallAndBothOperands() {
+    for (String prefix : List.of("", "import java.lang.String; ")) {
+      var unit = parser.parseCompilationUnit(prefix + "class S { void sort(String[] values, int scan) {"
+          + " if (values[scan].compareTo(values[scan + 1]) > 0) {} } }");
+      var call = unit.findFirst(MethodCallExpr.class).orElseThrow();
+      String originalCallId = AstAnalyzer.nodeId(call);
+      var facts = SortSemanticFacts.analyze(unit);
+
+      var comparison = facts.strictNaturalOrderComparison(
+          unit.findFirst(IfStmt.class).orElseThrow().getCondition());
+      assertThat(comparison).as(prefix).isPresent();
+      assertThat(comparison.orElseThrow().naturalOrder().elementType()).isEqualTo("java.lang.String");
+      assertThat(comparison.orElseThrow().naturalOrder().supports(
+          facts.sequenceAccess(unit.findFirst(ArrayAccessExpr.class).orElseThrow()).orElseThrow().binding()))
+          .isTrue();
+      assertThat(comparison.orElseThrow().callAstNodeId()).isEqualTo(originalCallId);
+    }
+  }
+
+  @Test void preservesAnExistingCallerSymbolResolver() {
+    var unit = parser.parseCompilationUnit("class S { void sort(String[] values, int i) {"
+        + " if (values[i].compareTo(values[i + 1]) > 0) {} } }");
+    var callerResolver = new JavaSymbolSolver(new ReflectionTypeSolver(true));
+    callerResolver.inject(unit);
+
+    SortSemanticFacts.analyze(unit);
+
+    assertThat(unit.getData(Node.SYMBOL_RESOLVER_KEY)).isSameAs(callerResolver);
+    assertThat(unit.findFirst(MethodCallExpr.class).orElseThrow().resolve()
+        .declaringType().getQualifiedName()).isEqualTo("java.lang.String");
+  }
+
+  @Test void rejectsShortNameShadowInProductionFacts() {
+    var unit = parser.parseCompilationUnit("""
+        class S {
+          static final class String implements Comparable<String> {
+            public int compareTo(String other) { return 0; }
+          }
+          void sort(String[] values, int i) {
+            if (values[i].compareTo(values[i + 1]) > 0) {}
+          }
+        }
+        """);
+
+    assertThat(SortSemanticFacts.analyze(unit).strictNaturalOrderComparison(
+        unit.findFirst(IfStmt.class).orElseThrow().getCondition())).isEmpty();
+  }
+
   @Test void acceptsSavedNaturalOrderKeyButRejectsEveryUnsafeNaturalOrderNearMiss() {
     var savedKey = parser.parseCompilationUnit("class S { void sort(java.lang.String[] values, int scan) {"
         + " java.lang.String key=values[scan]; if (key.compareTo(values[scan - 1]) < 0) {} } }");
@@ -327,7 +378,6 @@ class SortSemanticFactsTest {
     assertThat(savedKeyComparison.orElseThrow().argument()).isInstanceOf(ArrayAccessExpr.class);
 
     for (String source : new String[]{
-        "class S { void sort(String[] values, int scan) { if (values[scan].compareTo(values[scan + 1]) > 0) {} } }",
         "class S { void sort(java.lang.String[] values, int scan) { if (((java.lang.String) values[scan]).compareTo(values[scan + 1]) > 0) {} } }",
         "class S { void sort(java.lang.String[] values, int scan) { if (values[scan].trim().compareTo(values[scan + 1]) > 0) {} } }",
         "class S { void sort(java.lang.String[] values, int scan) { if (values[scan].compareTo(values[scan + 1], values[scan]) > 0) {} } }",

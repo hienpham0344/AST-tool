@@ -7,6 +7,8 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.List;
@@ -39,6 +41,7 @@ final class SortSemanticFacts {
     private final Map<String, String> types;
     private final Map<String, ComparatorBinding> comparators;
     private final boolean unshadowedJdkTypeNames;
+    private final boolean symbolResolutionAvailable;
 
     Optional<NormalizedComparison> strictComparison(Expression expression) {
       Expression unwrapped = unwrap(expression);
@@ -87,7 +90,6 @@ final class SortSemanticFacts {
 
     /** Recognizes a direct exact-type natural-order compareTo result against literal zero. */
     Optional<NormalizedNaturalOrderComparison> strictNaturalOrderComparison(Expression expression) {
-      if (!unshadowedJdkTypeNames) return Optional.empty();
       Expression unwrapped = unwrap(expression);
       if (!(unwrapped instanceof BinaryExpr binary)
           || binary.getOperator() != BinaryExpr.Operator.LESS
@@ -110,7 +112,12 @@ final class SortSemanticFacts {
       Expression receiver = call.getScope().map(SortSemanticFacts::unwrap).orElse(null);
       Expression argument = unwrap(call.getArgument(0));
       if (!directNaturalOperand(receiver) || !directNaturalOperand(argument)) return Optional.empty();
-      NaturalOrderBinding naturalOrder = naturalOrderBinding(receiver).orElse(null);
+      boolean resolvedShortJdkString = hasShortJdkStringSpelling(receiver)
+          && resolvesExactJdkStringCompareTo(call, receiver, argument);
+      if (!unshadowedJdkTypeNames && !resolvedShortJdkString) return Optional.empty();
+      NaturalOrderBinding naturalOrder = resolvedShortJdkString
+          ? new NaturalOrderBinding("java.lang.String")
+          : naturalOrderBinding(receiver).orElse(null);
       if (naturalOrder == null) return Optional.empty();
       List<String> ids = binary.findAll(NameExpr.class).stream().map(LocalVariableBindings::resolve)
           .flatMap(Optional::stream).distinct().toList();
@@ -227,6 +234,7 @@ final class SortSemanticFacts {
     }
 
     private Analysis(CompilationUnit unit) {
+      this.symbolResolutionAvailable = installSymbolResolver(unit);
       // Without source-aware symbol solving, accept java.lang.X only in a single
       // standalone class where no source type or inherited member type can
       // shadow the leading package name `java`.
@@ -350,6 +358,50 @@ final class SortSemanticFacts {
       }
       return Optional.empty();
     }
+
+    /**
+     * A short {@code String} spelling is trusted only after the resolver has
+     * proven that the receiver's declaration is {@code java.lang.String}.
+     */
+    private boolean hasShortJdkStringSpelling(Expression receiver) {
+      if (receiver instanceof ArrayAccessExpr access) {
+        return sequenceAccess(access).map(SequenceAccess::binding)
+            .map(SequenceBinding::elementType).filter("String"::equals).isPresent();
+      }
+      if (receiver instanceof NameExpr name) {
+        return LocalVariableBindings.resolve(name).map(types::get).filter("String"::equals).isPresent();
+      }
+      return false;
+    }
+
+    private boolean resolvesExactJdkStringCompareTo(
+        MethodCallExpr call, Expression receiver, Expression argument) {
+      if (!symbolResolutionAvailable) return false;
+      try {
+        var declaration = call.resolve();
+        return declaration.getNumberOfParams() == 1
+            && "java.lang.String".equals(declaration.declaringType().getQualifiedName())
+            && "java.lang.String".equals(receiver.calculateResolvedType().describe())
+            && "java.lang.String".equals(argument.calculateResolvedType().describe());
+      } catch (RuntimeException unresolved) {
+        // Source parsing is intentionally best-effort; unresolved external types must not be recognized.
+        return false;
+      }
+    }
+
+    private static boolean installSymbolResolver(CompilationUnit unit) {
+      try {
+        synchronized (unit) {
+          // A caller may already have a source/classpath-aware resolver; never replace it.
+          if (unit.containsData(Node.SYMBOL_RESOLVER_KEY)) return true;
+          new JavaSymbolSolver(new ReflectionTypeSolver(true)).inject(unit);
+          return true;
+        }
+      } catch (RuntimeException unavailable) {
+        // Fail closed when a caller supplied an AST that cannot accept a resolver.
+        return false;
+      }
+    }
   }
 
   enum SequenceKind { INT_ARRAY, NUMERIC_PRIMITIVE_ARRAY, BOOLEAN_ARRAY, OBJECT_ARRAY, UNKNOWN }
@@ -385,7 +437,8 @@ final class SortSemanticFacts {
 
     boolean supports(SequenceBinding sequence) {
       return sequence != null && sequence.kind() == SequenceKind.OBJECT_ARRAY
-          && !sequence.elementType().endsWith("[]") && elementType.equals(sequence.elementType());
+          && !sequence.elementType().endsWith("[]") && (elementType.equals(sequence.elementType())
+              || "java.lang.String".equals(elementType) && "String".equals(sequence.elementType()));
     }
   }
   record SequenceAccess(String astNodeId, SequenceBinding binding) {}

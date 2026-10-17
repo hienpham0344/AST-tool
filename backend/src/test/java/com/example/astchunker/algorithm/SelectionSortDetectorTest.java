@@ -215,7 +215,7 @@ class SelectionSortDetectorTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"java.lang.String", "java.lang.Integer"})
+  @ValueSource(strings = {"java.lang.String", "java.lang.Integer", "String"})
   void recognizesFullyQualifiedNaturalOrderSelectionStaticallyWithExactBindings(String elementType) {
     String source =
         """
@@ -295,7 +295,6 @@ class SelectionSortDetectorTest {
         }
         """;
     for (String invalid : List.of(
-        valid.replace("java.lang.String[] data", "String[] data"),
         valid.replace("data[selected]) < 0", "other[selected]) < 0"),
         valid.replace("java.lang.String saved", "java.lang.Object saved"),
         valid.replace("< 0", "< 1"))) {

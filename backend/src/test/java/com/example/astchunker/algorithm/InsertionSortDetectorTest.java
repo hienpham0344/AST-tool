@@ -709,6 +709,32 @@ class InsertionSortDetectorTest {
   }
 
   @Test
+  void recognizesShortStringNaturalOrderInsertionStatically() {
+    String source = """
+        public class Sample {
+          void sort(String[] values) {
+            for (int pass = 1; pass < values.length; pass++) {
+              String key = values[pass]; int scan = pass - 1;
+              while (scan >= 0 && values[scan].compareTo(key) > 0) {
+                values[scan + 1] = values[scan]; scan--;
+              }
+              values[scan + 1] = key;
+            }
+          }
+        }
+        """;
+    var unit = new AstAnalyzer().analyze(source).compilationUnit();
+    var result = SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow());
+
+    assertThat(result.status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+    assertThat(result.candidates()).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("insertion-sort");
+      assertThat(hint.sort()).isNull();
+    });
+  }
+
+  @Test
   void rejectsNaturalOrderInsertionNearMisses() {
     String valid =
         """
@@ -725,7 +751,6 @@ class InsertionSortDetectorTest {
         }
         """;
     for (String invalid : List.of(
-        valid.replace("java.lang.String[] values", "String[] values"),
         valid.replace("values[scan].compareTo(key)", "other[scan].compareTo(key)"),
         valid.replace("java.lang.String key", "Object key").replace("key = values[pass]", "key = values[pass]"),
         valid.replace("values[scan].compareTo(key)", "((java.lang.String) values[scan]).compareTo(key)"),
