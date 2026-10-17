@@ -668,6 +668,77 @@ class InsertionSortDetectorTest {
     }
   }
 
+  @Test
+  void recognizesFullyQualifiedNaturalOrderInsertionAsStaticOnlyWithExactBindings() {
+    String source =
+        """
+        public class Sample {
+          void sort(java.lang.String[] values) {
+            for (int pass = 1; pass < values.length; pass++) {
+              java.lang.String key = values[pass]; int scan = pass - 1;
+              while (scan >= 0 && values[scan].compareTo(key) > 0) {
+                values[scan + 1] = values[scan]; scan--;
+              }
+              values[scan + 1] = key;
+            }
+          }
+        }
+        """;
+    var unit = new AstAnalyzer().analyze(source).compilationUnit();
+    var result = SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow());
+
+    assertThat(result.status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+    assertThat(result.candidates()).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("insertion-sort");
+      assertThat(hint.sort()).isNull();
+      assertThat(hint.variableDeclarationIds())
+          .containsEntry("array", AstAnalyzer.nodeId(unit.findFirst(Parameter.class).orElseThrow()));
+      for (String role : List.of("pass", "scan", "key")) {
+        String id = AstAnalyzer.nodeId(unit.findFirst(
+            VariableDeclarator.class, variable -> variable.getNameAsString().equals(role)).orElseThrow());
+        assertThat(hint.variableDeclarationIds()).containsEntry(role, id);
+      }
+    });
+
+    String zeroLeftReversed = source.replace("values[scan].compareTo(key) > 0", "0 < key.compareTo(values[scan])");
+    var reversedUnit = new AstAnalyzer().analyze(zeroLeftReversed).compilationUnit();
+    assertThat(SortPatternRegistry.defaults().begin(reversedUnit)
+        .evaluate(reversedUnit.findFirst(ForStmt.class).orElseThrow()).status())
+        .isEqualTo(SortPatternRegistry.Status.UNIQUE);
+  }
+
+  @Test
+  void rejectsNaturalOrderInsertionNearMisses() {
+    String valid =
+        """
+        public class Sample {
+          void sort(java.lang.String[] values, java.lang.String[] other) {
+            for (int pass = 1; pass < values.length; pass++) {
+              java.lang.String key = values[pass]; int scan = pass - 1;
+              while (scan >= 0 && values[scan].compareTo(key) > 0) {
+                values[scan + 1] = values[scan]; scan--;
+              }
+              values[scan + 1] = key;
+            }
+          }
+        }
+        """;
+    for (String invalid : List.of(
+        valid.replace("java.lang.String[] values", "String[] values"),
+        valid.replace("values[scan].compareTo(key)", "other[scan].compareTo(key)"),
+        valid.replace("java.lang.String key", "Object key").replace("key = values[pass]", "key = values[pass]"),
+        valid.replace("values[scan].compareTo(key)", "((java.lang.String) values[scan]).compareTo(key)"),
+        valid.replace("values[scan].compareTo(key)", "values[scan].trim().compareTo(key)"),
+        valid.replace("> 0", "> 1"),
+        valid.replace("> 0", ">= 0"))) {
+      var unit = new AstAnalyzer().analyze(invalid).compilationUnit();
+      assertThat(SortPatternRegistry.defaults().begin(unit)
+          .evaluate(unit.findFirst(ForStmt.class).orElseThrow()).status())
+          .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    }
+  }
+
   private static String shiftSource(String type) {
     return """
         public class Sample { void sort(%s[] values) {

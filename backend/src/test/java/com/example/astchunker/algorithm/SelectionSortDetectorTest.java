@@ -214,6 +214,95 @@ class SelectionSortDetectorTest {
         .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"java.lang.String", "java.lang.Integer"})
+  void recognizesFullyQualifiedNaturalOrderSelectionStaticallyWithExactBindings(String elementType) {
+    String source =
+        """
+        void solve(%s[] data) {
+          for (int pass = 0; pass < data.length - 1; pass++) {
+            int selected = pass;
+            for (int scan = pass + 1; scan < data.length; scan++) {
+              if (data[scan].compareTo(data[selected]) < 0) selected = scan;
+            }
+            %s saved = data[pass];
+            data[pass] = data[selected];
+            data[selected] = saved;
+          }
+        }
+        """.formatted(elementType, elementType);
+    CompilationUnit unit = parser.parseCompilationUnit("class Sample { " + source + " }");
+
+    assertThat(SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow()))
+        .satisfies(result -> {
+          assertThat(result.status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+          assertThat(result.candidates()).singleElement().satisfies(hint -> {
+            assertThat(hint.type()).isEqualTo("selection-sort");
+            assertThat(hint.sort()).isNull();
+            assertThat(hint.variableDeclarationIds()).containsEntry(
+                "array", AstAnalyzer.nodeId(unit.findFirst(Parameter.class).orElseThrow()));
+            for (var role : Map.of("pass", "pass", "scan", "scan", "selected", "selected", "temp", "saved").entrySet()) {
+              String id = unit.findAll(VariableDeclarator.class).stream()
+                  .filter(variable -> variable.getNameAsString().equals(role.getValue()))
+                  .findFirst().map(AstAnalyzer::nodeId).orElseThrow();
+              assertThat(hint.variableDeclarationIds()).containsEntry(role.getKey(), id);
+            }
+            String callId = AstAnalyzer.nodeId(unit.findFirst(MethodCallExpr.class,
+                call -> call.getNameAsString().equals("compareTo")).orElseThrow());
+            assertThat(hint.evidence()).anyMatch(item -> item.contains(callId));
+          });
+        });
+  }
+
+  @Test
+  void recognizesReversedAndZeroOnLeftNaturalOrderSelection() {
+    String source =
+        """
+        void solve(java.lang.String[] data) {
+          for (int pass = 0; pass < data.length - 1; pass++) {
+            int selected = pass;
+            for (int scan = pass + 1; scan < data.length; scan++) {
+              if (0 > data[selected].compareTo(data[scan])) selected = scan;
+            }
+            java.lang.String saved = data[pass];
+            data[pass] = data[selected];
+            data[selected] = saved;
+          }
+        }
+        """;
+    CompilationUnit unit = parser.parseCompilationUnit("class Sample { " + source + " }");
+
+    assertThat(SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow()).status())
+        .isEqualTo(SortPatternRegistry.Status.UNIQUE);
+  }
+
+  @Test
+  void rejectsUnsafeNaturalOrderSelectionShapes() {
+    String valid =
+        """
+        void solve(java.lang.String[] data, java.lang.String[] other) {
+          for (int pass = 0; pass < data.length - 1; pass++) {
+            int selected = pass;
+            for (int scan = pass + 1; scan < data.length; scan++) {
+              if (data[scan].compareTo(data[selected]) < 0) selected = scan;
+            }
+            java.lang.String saved = data[pass];
+            data[pass] = data[selected];
+            data[selected] = saved;
+          }
+        }
+        """;
+    for (String invalid : List.of(
+        valid.replace("java.lang.String[] data", "String[] data"),
+        valid.replace("data[selected]) < 0", "other[selected]) < 0"),
+        valid.replace("java.lang.String saved", "java.lang.Object saved"),
+        valid.replace("< 0", "< 1"))) {
+      assertThat(evaluateSemantic(invalid).status()).isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    }
+  }
+
   @Test
   void recognizesComparatorGuardedReferenceSelectionStaticallyWithExactBindings() {
     String source =

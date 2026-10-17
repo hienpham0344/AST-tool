@@ -163,11 +163,15 @@ public final class SelectionSortDetector implements SortPatternDetector {
 
     var numericComparison = facts.strictComparison(comparisonBranch.getCondition());
     var comparatorComparison = facts.strictComparatorComparison(comparisonBranch.getCondition());
-    if (numericComparison.isEmpty() && comparatorComparison.isEmpty()) return Optional.empty();
+    var naturalComparison = facts.strictNaturalOrderComparison(comparisonBranch.getCondition());
+    if (numericComparison.isEmpty() && comparatorComparison.isEmpty() && naturalComparison.isEmpty())
+      return Optional.empty();
     Expression comparisonLeft = numericComparison.map(SortSemanticFacts.NormalizedComparison::left)
-        .orElseGet(() -> comparatorComparison.orElseThrow().left());
+        .orElseGet(() -> comparatorComparison.map(SortSemanticFacts.NormalizedComparatorComparison::left)
+            .orElseGet(() -> naturalComparison.orElseThrow().receiver()));
     Expression comparisonRight = numericComparison.map(SortSemanticFacts.NormalizedComparison::right)
-        .orElseGet(() -> comparatorComparison.orElseThrow().right());
+        .orElseGet(() -> comparatorComparison.map(SortSemanticFacts.NormalizedComparatorComparison::right)
+            .orElseGet(() -> naturalComparison.orElseThrow().argument()));
     Element left = element(comparisonLeft, facts);
     Element right = element(comparisonRight, facts);
     if (left == null || right == null
@@ -175,7 +179,8 @@ public final class SelectionSortDetector implements SortPatternDetector {
       return Optional.empty();
     var sequence = left.binding();
     if (numericComparison.isPresent() && !sequence.isNumericPrimitiveArray()
-        || comparatorComparison.isPresent() && !comparatorComparison.orElseThrow().comparator().supports(sequence))
+        || comparatorComparison.isPresent() && !comparatorComparison.orElseThrow().comparator().supports(sequence)
+        || naturalComparison.isPresent() && !naturalComparison.orElseThrow().naturalOrder().supports(sequence))
       return Optional.empty();
     var outerBound = facts.supportedLengthBound(outer, sequence);
     var innerBound = facts.supportedLengthBound(inner, sequence);
@@ -185,7 +190,10 @@ public final class SelectionSortDetector implements SortPatternDetector {
 
     SortPattern.Direction direction = numericComparison.isPresent()
         ? numericDirection(left, right, selectedId, scan.get())
-        : comparatorDirection(left, right, comparatorComparison.orElseThrow().operator(), selectedId, scan.get());
+        : comparatorDirection(left, right,
+            comparatorComparison.map(SortSemanticFacts.NormalizedComparatorComparison::operator)
+                .orElseGet(() -> naturalComparison.orElseThrow().operator()),
+            selectedId, scan.get());
     if (direction == null) return Optional.empty();
 
     Placement placement = placement(outerStatements.subList(2, outerStatements.size()), sequence,
@@ -228,6 +236,9 @@ public final class SelectionSortDetector implements SortPatternDetector {
         "A complete remaining-region scan precedes one boundary placement"));
     if (comparatorComparison.isPresent())
       evidence.add("A direct fully-qualified Comparator parameter compares the selected array elements");
+    if (naturalComparison.isPresent())
+      evidence.add("Direct final JDK natural-order compareTo call "
+          + naturalComparison.orElseThrow().callAstNodeId() + " compares the selected array elements");
     if (placement.helper() != null)
       evidence.add("Resolved same-file exchange helper " + placement.helper().helperCallableId()
           + " at " + placement.helper().callSiteId());

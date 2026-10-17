@@ -333,6 +333,79 @@ class BubbleSortDetectorTest {
   }
 
   @Test
+  void recognizesDirectNaturalOrderBubbleStaticallyWithExactRoleIds() {
+    String body = bubble("data[scan].compareTo(data[scan + 1]) > 0", "scan + 1")
+        .replace("int temp", "java.lang.String temp");
+    var fixture = semanticTypedFixture("java.lang.String", body, "");
+    String dataId = AstAnalyzer.nodeId(fixture.unit().findFirst(Parameter.class,
+        parameter -> parameter.getNameAsString().equals("data")).orElseThrow());
+    String passId = AstAnalyzer.nodeId(fixture.unit().findFirst(VariableDeclarator.class,
+        variable -> variable.getNameAsString().equals("pass")).orElseThrow());
+    String scanId = AstAnalyzer.nodeId(fixture.unit().findFirst(VariableDeclarator.class,
+        variable -> variable.getNameAsString().equals("scan")).orElseThrow());
+    String tempId = AstAnalyzer.nodeId(fixture.unit().findFirst(VariableDeclarator.class,
+        variable -> variable.getNameAsString().equals("temp")).orElseThrow());
+
+    assertThat(fixture.result().status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+    assertThat(fixture.result().candidates()).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("bubble-sort");
+      assertThat(hint.sort()).isNull();
+      assertThat(hint.variableDeclarationIds()).containsExactlyInAnyOrderEntriesOf(
+          java.util.Map.of("array", dataId, "pass", passId, "scan", scanId, "temp", tempId));
+      assertThat(hint.evidence()).anyMatch(item -> item.contains("natural-order"));
+    });
+  }
+
+  @Test
+  void recognizesNaturalOrderBubbleThroughSafeAliasAndZeroLeftComparison() {
+    String body = "java.lang.String[] work = data;\n"
+        + bubble("0 < work[scan].compareTo(work[scan + 1])", "scan + 1")
+            .replace("data", "work")
+            .replace("int temp", "java.lang.String temp");
+    var fixture = semanticTypedFixture("java.lang.String", body, "");
+    String workId = AstAnalyzer.nodeId(fixture.unit().findFirst(VariableDeclarator.class,
+        variable -> variable.getNameAsString().equals("work")).orElseThrow());
+    String passId = AstAnalyzer.nodeId(fixture.unit().findFirst(VariableDeclarator.class,
+        variable -> variable.getNameAsString().equals("pass")).orElseThrow());
+    String scanId = AstAnalyzer.nodeId(fixture.unit().findFirst(VariableDeclarator.class,
+        variable -> variable.getNameAsString().equals("scan")).orElseThrow());
+    String tempId = AstAnalyzer.nodeId(fixture.unit().findFirst(VariableDeclarator.class,
+        variable -> variable.getNameAsString().equals("temp")).orElseThrow());
+
+    assertThat(fixture.result().status()).isEqualTo(SortPatternRegistry.Status.UNIQUE);
+    assertThat(fixture.result().candidates()).singleElement().satisfies(hint -> {
+      assertThat(hint.sort()).isNull();
+      assertThat(hint.variables()).containsEntry("array", "work");
+      assertThat(hint.variableDeclarationIds()).containsExactlyInAnyOrderEntriesOf(
+          java.util.Map.of("array", workId, "pass", passId, "scan", scanId, "temp", tempId));
+    });
+  }
+
+  @Test
+  void rejectsNaturalOrderBubbleNearMisses() {
+    String canonical = bubble("data[scan].compareTo(data[scan + 1]) > 0", "scan + 1")
+        .replace("int temp", "java.lang.String temp");
+    assertThat(semanticTyped("String", canonical, "").status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(semanticTyped("java.lang.String", canonical.replace("java.lang.String temp", "Object temp"), "").status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(semanticTyped("java.lang.String", canonical.replace("data[scan].compareTo", "((java.lang.String) data[scan]).compareTo"), "").status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    assertThat(semanticTyped("java.lang.String", canonical.replace("data[scan].compareTo", "data[scan].trim().compareTo"), "").status())
+        .isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+    String crossArray = canonical.replace("data[scan + 1]", "other[scan + 1]");
+    assertThat(semanticNaturalFixture("java.lang.String[] data, java.lang.String[] other", crossArray)
+        .result().status()).isEqualTo(SortPatternRegistry.Status.UNKNOWN);
+  }
+
+  private SemanticFixture semanticNaturalFixture(String parameters, String body) {
+    CompilationUnit unit = parser.parseCompilationUnit(
+        "class Sample { void solve(" + parameters + ") {\n" + body + "\n} }");
+    return new SemanticFixture(unit, SortPatternRegistry.defaults().begin(unit)
+        .evaluate(unit.findFirst(ForStmt.class).orElseThrow()));
+  }
+
+  @Test
   void rejectsNestedReferenceArraysEvenWithAnExactComparatorParameter() {
     String body = bubble("comparator.compare(data[scan], data[scan + 1]) > 0", "scan + 1")
         .replace("int temp", "E[] temp");

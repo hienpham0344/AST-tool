@@ -22,6 +22,11 @@ import java.util.Optional;
 
 /** Immutable, declaration-aware facts used by conservative sort detectors. */
 final class SortSemanticFacts {
+  private static final Set<String> NATURAL_ORDER_ELEMENT_TYPES = Set.of(
+      "java.lang.String", "java.lang.Byte", "java.lang.Short", "java.lang.Integer",
+      "java.lang.Long", "java.lang.Character", "java.lang.Float", "java.lang.Double",
+      "java.lang.Boolean");
+
   private SortSemanticFacts() {}
 
   static Analysis analyze(CompilationUnit unit) {
@@ -33,6 +38,7 @@ final class SortSemanticFacts {
     private final Map<String, SequenceBinding> bindings;
     private final Map<String, String> types;
     private final Map<String, ComparatorBinding> comparators;
+    private final boolean unshadowedJdkTypeNames;
 
     Optional<NormalizedComparison> strictComparison(Expression expression) {
       Expression unwrapped = unwrap(expression);
@@ -77,6 +83,39 @@ final class SortSemanticFacts {
           .flatMap(Optional::stream).distinct().toList();
       return Optional.of(new NormalizedComparatorComparison(AstAnalyzer.nodeId(expression), AstAnalyzer.nodeId(call),
           comparator, call.getArgument(0), operator, call.getArgument(1), ids));
+    }
+
+    /** Recognizes a direct exact-type natural-order compareTo result against literal zero. */
+    Optional<NormalizedNaturalOrderComparison> strictNaturalOrderComparison(Expression expression) {
+      if (!unshadowedJdkTypeNames) return Optional.empty();
+      Expression unwrapped = unwrap(expression);
+      if (!(unwrapped instanceof BinaryExpr binary)
+          || binary.getOperator() != BinaryExpr.Operator.LESS
+              && binary.getOperator() != BinaryExpr.Operator.GREATER) return Optional.empty();
+      Expression left = unwrap(binary.getLeft());
+      Expression right = unwrap(binary.getRight());
+      MethodCallExpr call;
+      BinaryExpr.Operator operator = binary.getOperator();
+      if (isZero(right) && left instanceof MethodCallExpr leftCall) {
+        call = leftCall;
+      } else if (isZero(left) && right instanceof MethodCallExpr rightCall) {
+        call = rightCall;
+        operator = operator == BinaryExpr.Operator.GREATER
+            ? BinaryExpr.Operator.LESS : BinaryExpr.Operator.GREATER;
+      } else {
+        return Optional.empty();
+      }
+      if (!call.getNameAsString().equals("compareTo") || call.getArguments().size() != 1
+          || call.getTypeArguments().isPresent()) return Optional.empty();
+      Expression receiver = call.getScope().map(SortSemanticFacts::unwrap).orElse(null);
+      Expression argument = unwrap(call.getArgument(0));
+      if (!directNaturalOperand(receiver) || !directNaturalOperand(argument)) return Optional.empty();
+      NaturalOrderBinding naturalOrder = naturalOrderBinding(receiver).orElse(null);
+      if (naturalOrder == null) return Optional.empty();
+      List<String> ids = binary.findAll(NameExpr.class).stream().map(LocalVariableBindings::resolve)
+          .flatMap(Optional::stream).distinct().toList();
+      return Optional.of(new NormalizedNaturalOrderComparison(AstAnalyzer.nodeId(expression), AstAnalyzer.nodeId(call),
+          naturalOrder, receiver, operator, argument, ids));
     }
 
     Optional<IndexOperand> indexOperand(Expression expression) {
@@ -188,6 +227,17 @@ final class SortSemanticFacts {
     }
 
     private Analysis(CompilationUnit unit) {
+      // Without source-aware symbol solving, accept java.lang.X only in a single
+      // standalone class where no source type or inherited member type can
+      // shadow the leading package name `java`.
+      this.unshadowedJdkTypeNames = unit.getPackageDeclaration().isEmpty()
+          && unit.getImports().isEmpty()
+          && unit.findAll(com.github.javaparser.ast.body.TypeDeclaration.class).size() == 1
+          && unit.getTypes().size() == 1
+          && unit.getType(0) instanceof com.github.javaparser.ast.body.ClassOrInterfaceDeclaration owner
+          && owner.getExtendedTypes().isEmpty() && owner.getImplementedTypes().isEmpty()
+          && unit.findAll(ObjectCreationExpr.class).stream()
+              .noneMatch(creation -> creation.getAnonymousClassBody().isPresent());
       Map<String, SequenceBinding> known = new LinkedHashMap<>();
       Map<String, String> declaredTypes = new LinkedHashMap<>();
       Set<String> invalidDeclarations = new HashSet<>();
@@ -281,6 +331,25 @@ final class SortSemanticFacts {
       if (!(value instanceof NameExpr name)) return Optional.empty();
       return LocalVariableBindings.resolve(name).map(types::get).filter(SortSemanticFacts::isNumericPrimitive);
     }
+
+    private boolean directNaturalOperand(Expression expression) {
+      return expression instanceof ArrayAccessExpr || expression instanceof NameExpr;
+    }
+
+    private Optional<NaturalOrderBinding> naturalOrderBinding(Expression receiver) {
+      if (receiver instanceof ArrayAccessExpr access) {
+        return sequenceAccess(access).map(SequenceAccess::binding)
+            .filter(sequence -> sequence.kind() == SequenceKind.OBJECT_ARRAY
+                && !sequence.elementType().endsWith("[]")
+                && NATURAL_ORDER_ELEMENT_TYPES.contains(sequence.elementType()))
+            .map(sequence -> new NaturalOrderBinding(sequence.elementType()));
+      }
+      if (receiver instanceof NameExpr name) {
+        return LocalVariableBindings.resolve(name).map(types::get).filter(NATURAL_ORDER_ELEMENT_TYPES::contains)
+            .map(NaturalOrderBinding::new);
+      }
+      return Optional.empty();
+    }
   }
 
   enum SequenceKind { INT_ARRAY, NUMERIC_PRIMITIVE_ARRAY, BOOLEAN_ARRAY, OBJECT_ARRAY, UNKNOWN }
@@ -308,6 +377,17 @@ final class SortSemanticFacts {
           && !sequence.elementType().endsWith("[]") && elementType.equals(sequence.elementType());
     }
   }
+  record NaturalOrderBinding(String elementType) {
+    NaturalOrderBinding {
+      if (!NATURAL_ORDER_ELEMENT_TYPES.contains(elementType))
+        throw new IllegalArgumentException("Natural-order element type must be an exact supported JDK type");
+    }
+
+    boolean supports(SequenceBinding sequence) {
+      return sequence != null && sequence.kind() == SequenceKind.OBJECT_ARRAY
+          && !sequence.elementType().endsWith("[]") && elementType.equals(sequence.elementType());
+    }
+  }
   record SequenceAccess(String astNodeId, SequenceBinding binding) {}
   record IndexOperand(String astNodeId, String declarationId, String displayName, int offset) {}
   record NormalizedComparison(String astNodeId, Expression left, BinaryExpr.Operator operator, Expression right, List<String> declarationIds) {
@@ -316,6 +396,10 @@ final class SortSemanticFacts {
   record NormalizedComparatorComparison(String astNodeId, String callAstNodeId, ComparatorBinding comparator,
       Expression left, BinaryExpr.Operator operator, Expression right, List<String> declarationIds) {
     NormalizedComparatorComparison { declarationIds = List.copyOf(declarationIds); }
+  }
+  record NormalizedNaturalOrderComparison(String astNodeId, String callAstNodeId, NaturalOrderBinding naturalOrder,
+      Expression receiver, BinaryExpr.Operator operator, Expression argument, List<String> declarationIds) {
+    NormalizedNaturalOrderComparison { declarationIds = List.copyOf(declarationIds); }
   }
   record Counter(String astNodeId, String declarationId, String displayName, int step, Expression initializer, String updateAstNodeId) {}
   record LoopBound(String astNodeId, IndexOperand index, SequenceBinding sequence, int lengthOffset, Optional<IndexOperand> pass) {}

@@ -138,22 +138,39 @@ public final class BubbleSortDetector implements SortPatternDetector {
     var primitiveComparison = facts.strictComparison(branch.getCondition());
     var comparatorComparison = primitiveComparison.isEmpty()
         ? facts.strictComparatorComparison(branch.getCondition()) : Optional.<SortSemanticFacts.NormalizedComparatorComparison>empty();
-    if (primitiveComparison.isEmpty() && comparatorComparison.isEmpty()) return Optional.empty();
+    var naturalOrderComparison = primitiveComparison.isEmpty() && comparatorComparison.isEmpty()
+        ? facts.strictNaturalOrderComparison(branch.getCondition())
+        : Optional.<SortSemanticFacts.NormalizedNaturalOrderComparison>empty();
+    if (primitiveComparison.isEmpty() && comparatorComparison.isEmpty()
+        && naturalOrderComparison.isEmpty()) return Optional.empty();
     Expression comparisonLeft;
     Expression comparisonRight;
     SortSemanticFacts.ComparatorBinding comparator = null;
+    SortSemanticFacts.NaturalOrderBinding naturalOrder = null;
     if (primitiveComparison.isPresent()) {
       comparisonLeft = primitiveComparison.get().left();
       comparisonRight = primitiveComparison.get().right();
     } else {
-      var normalized = comparatorComparison.get();
-      comparisonLeft = normalized.left();
-      comparisonRight = normalized.right();
-      comparator = normalized.comparator();
-      if (normalized.operator() == BinaryExpr.Operator.LESS) {
-        Expression reversed = comparisonLeft;
-        comparisonLeft = comparisonRight;
-        comparisonRight = reversed;
+      if (comparatorComparison.isPresent()) {
+        var normalized = comparatorComparison.get();
+        comparisonLeft = normalized.left();
+        comparisonRight = normalized.right();
+        comparator = normalized.comparator();
+        if (normalized.operator() == BinaryExpr.Operator.LESS) {
+          Expression reversed = comparisonLeft;
+          comparisonLeft = comparisonRight;
+          comparisonRight = reversed;
+        }
+      } else {
+        var normalized = naturalOrderComparison.get();
+        comparisonLeft = normalized.receiver();
+        comparisonRight = normalized.argument();
+        naturalOrder = normalized.naturalOrder();
+        if (normalized.operator() == BinaryExpr.Operator.LESS) {
+          Expression reversed = comparisonLeft;
+          comparisonLeft = comparisonRight;
+          comparisonRight = reversed;
+        }
       }
     }
     var left = element(comparisonLeft, facts);
@@ -162,7 +179,8 @@ public final class BubbleSortDetector implements SortPatternDetector {
     var first = left.get();
     var second = right.get();
     if (!(first.binding().isNumericPrimitiveArray()
-            || comparator != null && comparator.supports(first.binding()))
+            || comparator != null && comparator.supports(first.binding())
+            || naturalOrder != null && naturalOrder.supports(first.binding()))
         || !first.binding().canonicalDeclarationId().equals(second.binding().canonicalDeclarationId())
         || !first.index().declarationId().equals(scan.get().declarationId())
         || !second.index().declarationId().equals(scan.get().declarationId())) return Optional.empty();
@@ -245,12 +263,16 @@ public final class BubbleSortDetector implements SortPatternDetector {
         new SortPattern.Operand(scan.get().declarationId(), 0),
         new SortPattern.Operand(scan.get().declarationId(), 1));
     List<String> evidence = new ArrayList<>(List.of(
-        comparator == null
+        comparator == null && naturalOrder == null
             ? "Two forward passes share one numeric primitive array receiver and trusted length bounds"
-            : "Two forward passes share one comparator-bound reference array receiver and trusted length bounds",
+            : comparator != null
+                ? "Two forward passes share one comparator-bound reference array receiver and trusted length bounds"
+                : "Two forward passes share one natural-order reference array receiver and trusted length bounds",
         "A strict comparison controls an adjacent exchange"));
     if (comparator != null) evidence.add("Direct Comparator parameter " + comparator.declarationId()
         + " compares the two adjacent elements");
+    if (naturalOrder != null) evidence.add("Direct natural-order compareTo call "
+        + naturalOrderComparison.orElseThrow().callAstNodeId() + " compares the two adjacent elements");
     if (helper != null) evidence.add("Resolved same-file exchange helper "
         + helper.helperCallableId() + " at " + AstAnalyzer.nodeId(helperCall));
     else evidence.add("Three caller statements prove the temporary exchange");

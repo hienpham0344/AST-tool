@@ -169,12 +169,15 @@ public final class InsertionSortDetector implements SortPatternDetector {
             "scanDecrement", AstAnalyzer.nodeId(movement.decrement()),
             "insertWrite", AstAnalyzer.nodeId(body.get(3))));
     List<String> evidence = new ArrayList<>(List.of(
-        condition.comparator() == null
+        condition.comparator() == null && condition.naturalOrder() == null
             ? "A forward pass retains one key from a single numeric primitive array receiver"
-            : "A forward pass retains one key from a comparator-bound reference array receiver",
+            : "A forward pass retains one key from a reference array receiver",
         "A boundary-first backward scan shifts adjacent values before inserting the key"));
     if (condition.comparator() != null) {
       evidence.add("A direct fully-qualified Comparator parameter compares the scan element and saved key");
+    } else if (condition.naturalOrder() != null) {
+      evidence.add("Direct natural-order compareTo call " + condition.naturalOrder().callAstNodeId()
+          + " compares the scan element and saved key");
     } else if (condition.helperComparison() != null) {
       evidence.add("Resolved same-file strict comparison helper "
           + condition.helperComparison().helperCallableId() + " at " + condition.helperComparison().callSiteId());
@@ -340,7 +343,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
           && comparisonOperand(helper.right(), key.sequence(), scan, 0);
       if (!arrayLeft && !keyLeft) return null;
       return new SemanticCondition(arrayLeft ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
-          AstAnalyzer.nodeId(call), helper, null);
+          AstAnalyzer.nodeId(call), helper, null, null);
     }
     var comparatorComparison = facts.strictComparatorComparison(comparison);
     if (comparatorComparison.isPresent()) {
@@ -356,7 +359,23 @@ public final class InsertionSortDetector implements SortPatternDetector {
           : normalized.operator() == BinaryExpr.Operator.LESS;
       return new SemanticCondition(
           ascending ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
-          normalized.astNodeId(), null, normalized.comparator());
+          normalized.astNodeId(), null, normalized.comparator(), null);
+    }
+    var naturalOrderComparison = facts.strictNaturalOrderComparison(comparison);
+    if (naturalOrderComparison.isPresent()) {
+      var normalized = naturalOrderComparison.get();
+      if (!normalized.naturalOrder().supports(key.sequence())) return null;
+      boolean arrayLeft = arrayAt(normalized.receiver(), key.sequence(), scan, 0, facts)
+          && keyOperand(normalized.argument(), key.variable());
+      boolean keyLeft = keyOperand(normalized.receiver(), key.variable())
+          && arrayAt(normalized.argument(), key.sequence(), scan, 0, facts);
+      if (!arrayLeft && !keyLeft) return null;
+      boolean ascending = arrayLeft
+          ? normalized.operator() == BinaryExpr.Operator.GREATER
+          : normalized.operator() == BinaryExpr.Operator.LESS;
+      return new SemanticCondition(
+          ascending ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
+          normalized.astNodeId(), null, null, normalized);
     }
     if (!key.sequence().isNumericPrimitiveArray()) return null;
     if (!(comparison instanceof BinaryExpr binary)
@@ -369,7 +388,7 @@ public final class InsertionSortDetector implements SortPatternDetector {
     boolean ascending = arrayLeft ? binary.getOperator() == BinaryExpr.Operator.GREATER
         : binary.getOperator() == BinaryExpr.Operator.LESS;
     return new SemanticCondition(ascending ? SortPattern.Direction.ASCENDING : SortPattern.Direction.DESCENDING,
-        AstAnalyzer.nodeId(binary), null, null);
+        AstAnalyzer.nodeId(binary), null, null, null);
   }
 
   private static boolean boundary(Expression expression, SortSemanticFacts.Counter scan) {
@@ -487,7 +506,8 @@ public final class InsertionSortDetector implements SortPatternDetector {
   private record Element(SortSemanticFacts.SequenceBinding binding, SortSemanticFacts.IndexOperand index) {}
   private record SemanticCondition(SortPattern.Direction direction, String comparisonId,
       SameFileHelperSummaries.Comparison helperComparison,
-      SortSemanticFacts.ComparatorBinding comparator) {}
+      SortSemanticFacts.ComparatorBinding comparator,
+      SortSemanticFacts.NormalizedNaturalOrderComparison naturalOrder) {}
   private record Movement(Statement shiftWrite, Statement decrement) {}
 
   private Condition shiftCondition(Expression expression, String scan, String array, String key) {
