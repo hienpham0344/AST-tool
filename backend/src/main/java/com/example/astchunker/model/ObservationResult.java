@@ -8,4 +8,11 @@ public record ObservationResult(
     String runtimeValue,
     String visualType,
     Object visualValue,
-    int lineNumber) {}
+    int lineNumber,
+    @com.fasterxml.jackson.annotation.JsonIgnore Long arrayObjectId) {
+  public ObservationResult(String astNodeId, String variableName, String declaredType,
+      String runtimeValue, String visualType, Object visualValue, int lineNumber) {
+    this(astNodeId, variableName, declaredType, runtimeValue, visualType, visualValue,
+        lineNumber, null);
+  }
+}

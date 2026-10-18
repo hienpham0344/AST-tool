@@ -56,8 +56,12 @@ public class VariableMapper {
           findAstVariable(
               variableName, jdiTypeName, eventLine, astVariables);
       FormattedValue formattedValue;
+      Long arrayObjectId = null;
       try {
-        formattedValue = format(frame.getValue(variable));
+        Value value = frame.getValue(variable);
+        formattedValue = format(value);
+        if (value instanceof ArrayReference arrayReference)
+          arrayObjectId = arrayReference.uniqueID();
       } catch (RuntimeException ex) {
         formattedValue = new FormattedValue("[unavailable]", "unavailable", null);
       }
@@ -69,7 +73,8 @@ public class VariableMapper {
               formattedValue.text(),
               formattedValue.visualType(),
               formattedValue.visualValue(),
-              eventLine));
+              eventLine,
+              arrayObjectId));
     }
     return List.copyOf(results);
   }

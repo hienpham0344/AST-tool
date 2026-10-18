@@ -18,7 +18,7 @@ unknown helper calls, extra writes, and non-`int[]` arrays fall back to general
 runtime observation. Quick Sort additionally recognizes the documented
 [inline Lomuto family](superpowers/plans/2026-10-18-quick-sort-gate.md): an
 inclusive `low`/`high` range, last-element pivot, `for` or equivalent `while`
-scan, proven inline swaps, and both recursive subranges. Other Quick partition
+scan, proven inline swaps, a one-step store advance (`++`, `+= 1`), and both recursive subranges. Other Quick partition
 families and helper calls currently fall back. Merge, Heap, Shell, Counting,
 and Radix Sort are not covered yet.
 
@@ -89,9 +89,12 @@ In DevTools → Network → Fetch/XHR → `steps` → Preview, inspect:
   inversion; `TRUNCATED` and `UNKNOWN` are deliberately not treated as success.
 - For Quick Sort, `steps[i].context.invocationId` identifies one recursive
   call. `visualStates[m].quickFrame` shows the active range, pivot, comparison,
-  pending and confirmed swap, and verified partition. A full-array result is
-  verified at the immediately following caller statement and appears in
-  `quickFrame.fullArrayStatus`.
+  pending and confirmed swap, and verified partition. Only the pivot position
+  is highlighted as fixed after partition. A full-array result is checked at
+  the next observed caller point after the root invocation, including a
+  pass-through wrapper that ends with the Quick call, and appears in
+  `quickFrame.fullArrayStatus`. A captured prefix of a larger array is shown
+  as `TRUNCATED` and cannot receive full-array verification.
 
 The sort label means the source matches a supported structure. A region is
 runtime verified only when its `sortedRegion.status` is `VERIFIED_SORTED` in a

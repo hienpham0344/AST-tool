@@ -779,10 +779,11 @@
             if (comparison && [comparison.firstIndex, comparison.secondIndex].includes(index)) classes.push('compare');
             else if (pending && [pending.fromIndex, pending.toIndex].includes(index)) classes.push('write');
             else if (frame.fullArrayStatus === 'VERIFIED_SORTED' ||
-                frame.partitionStatus === 'VERIFIED_PARTITION' && index >= frame.low && index <= frame.high)
+                frame.partitionStatus === 'VERIFIED_PARTITION' && index === frame.store)
                 classes.push('sorted');
             const markers = [
-                frame.pivotIndex === index && frame.pivotValue !== null ? 'PIVOT' : null,
+                (frame.partitionStatus === 'VERIFIED_PARTITION' ? frame.store : frame.pivotIndex) === index
+                    && frame.pivotValue !== null ? 'PIVOT' : null,
                 frame.scan === index ? 'SCAN' : null,
                 frame.store === index ? 'STORE' : null
             ].filter(Boolean).map(label => `<span>${label}</span>`).join(' ');
@@ -803,6 +804,7 @@
             frame.fullArrayStatus === 'VERIFIED_SORTED' ? `Toàn bộ mảng đã được kiểm tra thứ tự ${directionLabel} từ runtime.` : '',
             frame.fullArrayStatus === 'NOT_SORTED' ? 'Mảng sau lời gọi chưa đúng thứ tự.' : ''
         ].filter(Boolean);
+        if (state.array?.truncated) details.push(`Chỉ hiển thị ${values.length}/${state.array.length} phần tử được chụp; chưa thể kiểm tra toàn mảng.`);
         return `<section class="sort-visualization" aria-label="Quick Sort visualization">
             <div class="sort-title"><strong>Mẫu Quick Sort được nhận diện · ${directionLabel}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
             ${state.array?.status === 'AVAILABLE'

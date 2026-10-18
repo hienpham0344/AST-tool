@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.astchunker.model.AlgorithmHint;
+import com.example.astchunker.model.ObservationResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,5 +56,15 @@ class DebugStepsResponseTest {
         List.of(), Map.of(), 0, 2)).isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> new AlgorithmHint("test", 0.5, "array",
         List.of(), Map.of(), 3, 2)).isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void keepsRuntimeArrayIdentityInternalToDebugMapping() {
+    var result = new ObservationResult("ast-array", "data", "int[]", "[1, 2]",
+        "array", List.of(1, 2), 4, 123L);
+    var json = new ObjectMapper().valueToTree(result);
+    assertThat(result.arrayObjectId()).isEqualTo(123L);
+    assertThat(json.has("arrayObjectId")).isFalse();
+    assertThat(json.path("visualValue")).hasSize(2);
   }
 }

@@ -114,6 +114,12 @@ class QuickSortDetectorTest {
   }
 
   @Test
+  void recognizesEquivalentStoreAdvance() {
+    assertThat(hints(ASCENDING.replace("store++;", "store += 1;")))
+        .singleElement().satisfies(hint -> assertThat(hint.type()).isEqualTo("quick-sort"));
+  }
+
+  @Test
   void rejectsWrongRangePivotSwapOrRecursion() {
     List<String> negatives = List.of(
         ASCENDING.replace("scan < high", "scan < high - 1"),

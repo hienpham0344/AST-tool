@@ -9,6 +9,8 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.BinaryExpr;
+import com.github.javaparser.ast.expr.AssignExpr;
+import com.github.javaparser.ast.expr.IntegerLiteralExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
@@ -138,11 +140,16 @@ public final class QuickSortDetector implements SortPatternDetector {
   }
 
   private static boolean increments(Statement statement, String name) {
-    return statement instanceof ExpressionStmt expression
-        && expression.getExpression() instanceof UnaryExpr unary
-        && SortAstSupport.matches(unary.getExpression(), name)
-        && (unary.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT
-            || unary.getOperator() == UnaryExpr.Operator.PREFIX_INCREMENT);
+    if (!(statement instanceof ExpressionStmt expression)) return false;
+    if (expression.getExpression() instanceof UnaryExpr unary)
+      return SortAstSupport.matches(unary.getExpression(), name)
+          && (unary.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT
+              || unary.getOperator() == UnaryExpr.Operator.PREFIX_INCREMENT);
+    return expression.getExpression() instanceof AssignExpr assign
+        && assign.getOperator() == AssignExpr.Operator.PLUS
+        && SortAstSupport.matches(assign.getTarget(), name)
+        && assign.getValue() instanceof IntegerLiteralExpr literal
+        && literal.asNumber().intValue() == 1;
   }
 
   private static boolean recursive(Statement statement, String method, String array,

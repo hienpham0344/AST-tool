@@ -51,7 +51,7 @@ public class VisualTraceBuilder {
           states.add(state(binding, step, previous, point));
         }
       }
-      states.addAll(quickTraceBuilder.states(step, previous, point, analysis.mainClassName()));
+      states.addAll(quickTraceBuilder.states(step, point, analysis.mainClassName()));
       List<VisualEvent> events = events(previous, step, states);
       ExecutionObservation enriched = step.withVisualization(states, events);
       result.add(enriched);

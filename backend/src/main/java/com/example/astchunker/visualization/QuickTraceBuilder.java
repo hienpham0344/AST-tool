@@ -17,13 +17,12 @@ import com.example.astchunker.model.VisualState.Pointer;
 import com.example.astchunker.model.VisualState.Scalar;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
-import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
-import com.github.javaparser.ast.stmt.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -35,9 +34,25 @@ import java.util.Objects;
 final class QuickTraceBuilder {
   private record Binding(int index, AlgorithmHint hint, MethodDeclaration method,
       String comparisonStatementId, String innerTempName, String finalTempName) {}
+  private record FrameKey(long threadId, Long invocationId) {}
+  private static final class CallCandidate {
+    final NameExpr array;
+    final long sequence;
+    final int callerDepth;
+    final long arrayObjectId;
+    Long rootInvocationId;
+
+    CallCandidate(NameExpr array, long sequence, int callerDepth, long arrayObjectId) {
+      this.array = array;
+      this.sequence = sequence;
+      this.callerDepth = callerDepth;
+      this.arrayObjectId = arrayObjectId;
+    }
+  }
 
   private final List<Binding> bindings;
-  private final Map<Long, Long> mostRecentRootByThread = new HashMap<>();
+  private final Map<FrameKey, ExecutionObservation> previousByFrame = new HashMap<>();
+  private final Map<Integer, Map<FrameKey, CallCandidate>> callsByHint = new HashMap<>();
 
   QuickTraceBuilder(List<AlgorithmHint> hints, Map<String, Node> nodes) {
     List<Binding> found = new ArrayList<>();
@@ -56,25 +71,44 @@ final class QuickTraceBuilder {
     bindings = List.copyOf(found);
   }
 
-  List<VisualState> states(ExecutionObservation step, ExecutionObservation previous, Node point,
+  List<VisualState> states(ExecutionObservation step, Node point,
       String mainClass) {
     if (step.context() == null || point == null) return List.of();
     List<VisualState> result = new ArrayList<>();
     for (Binding binding : bindings) {
       if (!step.context().className().equals(mainClass)) continue;
+      FrameKey key = new FrameKey(step.context().threadId(), step.context().invocationId());
+      Map<FrameKey, CallCandidate> calls = callsByHint.computeIfAbsent(binding.index(),
+          unused -> new HashMap<>());
       if (point.findAncestor(MethodDeclaration.class).orElse(null) == binding.method()
           && step.context().methodName().equals(binding.method().getNameAsString())) {
-        result.add(inMethod(binding, step, previous));
+        ExecutionObservation previous = previousByFrame.put(key, step);
+        result.add(inMethod(binding, step, previous, calls));
       } else {
-        NameExpr arrayArgument = completedCallArray(point, binding.method());
-        if (arrayArgument != null) result.add(completedArray(binding, step, arrayArgument));
+        CallCandidate earlier = calls.get(key);
+        if (earlier != null && earlier.sequence < step.sequence()) {
+          calls.remove(key);
+          if (earlier.rootInvocationId != null)
+            result.add(completedArray(binding, step, earlier.array, earlier.rootInvocationId));
+        }
+        NameExpr arrayArgument = calledArray(point, binding.method());
+        if (arrayArgument != null) {
+          String declarationId = LocalVariableBindings.resolve(arrayArgument).orElse(null);
+          ObservationResult observed = step.variables().stream()
+              .filter(variable -> Objects.equals(variable.astNodeId(), declarationId)
+                  && variable.variableName().equals(arrayArgument.getNameAsString()))
+              .findFirst().orElse(null);
+          if (observed != null && observed.arrayObjectId() != null)
+            calls.put(key, new CallCandidate(arrayArgument, step.sequence(),
+                step.context().stackDepth(), observed.arrayObjectId()));
+        }
       }
     }
     return List.copyOf(result);
   }
 
   private VisualState inMethod(Binding binding, ExecutionObservation step,
-      ExecutionObservation previous) {
+      ExecutionObservation previous, Map<FrameKey, CallCandidate> calls) {
     AlgorithmHint hint = binding.hint();
     Map<String, String> operations = hint.quick().operationAstNodeIds();
     ArrayValue array = array(value(hint, step, "array"), hint.variables().get("array"),
@@ -87,7 +121,14 @@ final class QuickTraceBuilder {
     Object pivot = available(pivotVariable) ? pivotVariable.visualValue() : null;
     if (low != null && high != null && array.length() != null && low == 0
         && high == array.length() - 1 && step.context().invocationId() != null)
-      mostRecentRootByThread.put(step.context().threadId(), step.context().invocationId());
+      calls.forEach((key, candidate) -> {
+        if (key.threadId() == step.context().threadId()
+            && candidate.callerDepth < step.context().stackDepth()
+            && Objects.equals(candidate.arrayObjectId,
+                value(hint, step, "array") == null ? null
+                    : value(hint, step, "array").arrayObjectId()))
+          candidate.rootInvocationId = step.context().invocationId();
+      });
 
     String pointId = step.statementAstNodeId();
     Comparison comparison = null;
@@ -130,12 +171,12 @@ final class QuickTraceBuilder {
         low == null ? null : low.longValue(), high == null ? null : high.longValue() + 1,
         low == null || high == null ? "UNKNOWN" : low > high ? "EMPTY" : "VALID");
     return new VisualState("hint-" + binding.index(), binding.index(), "quick-sort",
-        hint.visualPlan(), array.status().equals("AVAILABLE") ? "READY" : "UNAVAILABLE",
+        hint.visualPlan(), visualStatus(array),
         array, pointers, scalars, range, List.of(), null, frame);
   }
 
   private VisualState completedArray(Binding binding, ExecutionObservation step,
-      NameExpr arrayArgument) {
+      NameExpr arrayArgument, Long rootInvocationId) {
     String declarationId = LocalVariableBindings.resolve(arrayArgument).orElse(null);
     ObservationResult observed = step.variables().stream()
         .filter(variable -> Objects.equals(variable.astNodeId(), declarationId)
@@ -146,11 +187,11 @@ final class QuickTraceBuilder {
         ? "VERIFIED_SORTED" : array.status().equals("AVAILABLE") && !array.truncated()
             ? "NOT_SORTED" : "UNKNOWN";
     QuickFrame frame = new QuickFrame("FULL_ARRAY_OBSERVED",
-        mostRecentRootByThread.get(step.context().threadId()), 0,
+        rootInvocationId, 0,
         array.length() == null ? null : array.length() - 1, null, null, null, null,
         null, null, null, "UNKNOWN", status, "BEFORE_LOCATION");
     return new VisualState("hint-" + binding.index(), binding.index(), "quick-sort",
-        binding.hint().visualPlan(), array.status().equals("AVAILABLE") ? "READY" : "UNAVAILABLE",
+        binding.hint().visualPlan(), visualStatus(array),
         array, Map.of(), Map.of(), new IndexRange("FULL_ARRAY", 0L,
             array.length() == null ? null : array.length().longValue(),
             array.length() == null ? "UNKNOWN" : "VALID"), List.of(), null, frame);
@@ -187,8 +228,7 @@ final class QuickTraceBuilder {
       Integer scan, Integer high) {
     if (previous == null || previous.context() == null || step.context() == null
         || !Objects.equals(previous.context().invocationId(), step.context().invocationId())
-        || previous.context().threadId() != step.context().threadId()
-        || previous.sequence() + 1 != step.sequence()) return null;
+        || previous.context().threadId() != step.context().threadId()) return null;
     Map<String, String> ids = binding.hint().quick().operationAstNodeIds();
     boolean inner = previous.statementAstNodeId().equals(ids.get("innerSwapRightWrite"));
     boolean end = previous.statementAstNodeId().equals(ids.get("finalSwapRightWrite"));
@@ -283,6 +323,11 @@ final class QuickTraceBuilder {
         && index < array.values().size();
   }
 
+  private static String visualStatus(ArrayValue array) {
+    return !array.status().equals("AVAILABLE") ? "UNAVAILABLE"
+        : array.truncated() ? "TRUNCATED" : "READY";
+  }
+
   private static Pointer pointer(AlgorithmHint hint, String role, Integer index,
       ArrayValue array) {
     return new Pointer(hint.variables().get(role), hint.variableDeclarationIds().get(role),
@@ -302,18 +347,46 @@ final class QuickTraceBuilder {
         .orElse("");
   }
 
-  private static NameExpr completedCallArray(Node point, MethodDeclaration quick) {
-    if (!(point instanceof Statement current)
-        || !(current.getParentNode().orElse(null) instanceof BlockStmt block)) return null;
-    int index = block.getStatements().indexOf(current);
-    if (index <= 0 || !(block.getStatement(index - 1) instanceof ExpressionStmt previous)
-        || !(previous.getExpression() instanceof MethodCallExpr call)
-        || !call.getNameAsString().equals(quick.getNameAsString())
-        || call.getArguments().size() != 3
+  private static NameExpr calledArray(Node point, MethodDeclaration quick) {
+    if (!(point instanceof ExpressionStmt statement)
+        || !(statement.getExpression() instanceof MethodCallExpr call)
+        || call.getArguments().isEmpty()
         || !(call.getArgument(0) instanceof NameExpr array)
-        || !call.getArgument(1).toString().equals("0")
-        || !call.getArgument(2).toString().equals(array.getNameAsString() + ".length - 1"))
-      return null;
-    return array;
+        || LocalVariableBindings.resolve(array).isEmpty()) return null;
+    if (directQuickCall(call, quick)) return array;
+    ClassOrInterfaceDeclaration owner = quick.findAncestor(ClassOrInterfaceDeclaration.class)
+        .orElse(null);
+    if (owner == null || !sameClassScope(call, owner)) return null;
+    for (MethodDeclaration wrapper : owner.getMethodsByName(call.getNameAsString())) {
+      if (wrapper == quick || wrapper.getParameters().size() != call.getArguments().size()
+          || wrapper.getParameters().isEmpty()
+          || !wrapper.getParameter(0).getType().asString().equals("int[]")
+          || wrapper.getBody().isEmpty()) continue;
+      String parameter = wrapper.getParameter(0).getNameAsString();
+      boolean passesArray = wrapper.getBody().orElseThrow().findAll(MethodCallExpr.class)
+          .stream().anyMatch(inner -> directQuickCall(inner, quick)
+              && inner.getArgument(0) instanceof NameExpr argument
+              && argument.getNameAsString().equals(parameter)
+              && LocalVariableBindings.resolve(argument).orElse("")
+                  .equals(AstAnalyzer.nodeId(wrapper.getParameter(0))));
+      if (passesArray) return array;
+    }
+    return null;
+  }
+
+  private static boolean directQuickCall(MethodCallExpr call, MethodDeclaration quick) {
+    ClassOrInterfaceDeclaration owner = quick.findAncestor(ClassOrInterfaceDeclaration.class)
+        .orElse(null);
+    return owner != null && sameClassScope(call, owner)
+        && call.getNameAsString().equals(quick.getNameAsString())
+        && call.getArguments().size() == 3;
+  }
+
+  private static boolean sameClassScope(MethodCallExpr call, ClassOrInterfaceDeclaration owner) {
+    if (call.findAncestor(ClassOrInterfaceDeclaration.class).orElse(null) != owner) return false;
+    return call.getScope().isEmpty()
+        || call.getScope().get().isThisExpr()
+        || call.getScope().get().isNameExpr()
+            && call.getScope().get().asNameExpr().getNameAsString().equals(owner.getNameAsString());
   }
 }
