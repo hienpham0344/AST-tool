@@ -23,7 +23,73 @@ public record VisualState(
         SortFrame sortFrame,
     @com.fasterxml.jackson.annotation.JsonInclude(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        QuickFrame quickFrame) {
+        QuickFrame quickFrame,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        MergeFrame mergeFrame,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        HeapFrame heapFrame) {
+  public VisualState(
+      String id,
+      int hintIndex,
+      String algorithm,
+      String visualPlan,
+      String status,
+      ArrayValue array,
+      Map<String, Pointer> pointers,
+      Map<String, Scalar> scalars,
+      IndexRange range,
+      List<String> notes,
+      SortFrame sortFrame,
+      QuickFrame quickFrame,
+      MergeFrame mergeFrame) {
+    this(
+        id,
+        hintIndex,
+        algorithm,
+        visualPlan,
+        status,
+        array,
+        pointers,
+        scalars,
+        range,
+        notes,
+        sortFrame,
+        quickFrame,
+        mergeFrame,
+        null);
+  }
+
+  public VisualState(
+      String id,
+      int hintIndex,
+      String algorithm,
+      String visualPlan,
+      String status,
+      ArrayValue array,
+      Map<String, Pointer> pointers,
+      Map<String, Scalar> scalars,
+      IndexRange range,
+      List<String> notes,
+      SortFrame sortFrame,
+      QuickFrame quickFrame) {
+    this(
+        id,
+        hintIndex,
+        algorithm,
+        visualPlan,
+        status,
+        array,
+        pointers,
+        scalars,
+        range,
+        notes,
+        sortFrame,
+        quickFrame,
+        null);
+  }
+
   public VisualState(
       String id,
       int hintIndex,
@@ -36,9 +102,22 @@ public record VisualState(
       IndexRange range,
       List<String> notes,
       SortFrame sortFrame) {
-    this(id, hintIndex, algorithm, visualPlan, status, array, pointers, scalars, range,
-        notes, sortFrame, null);
+    this(
+        id,
+        hintIndex,
+        algorithm,
+        visualPlan,
+        status,
+        array,
+        pointers,
+        scalars,
+        range,
+        notes,
+        sortFrame,
+        null,
+        null);
   }
+
   public VisualState(
       String id,
       int hintIndex,
@@ -50,8 +129,20 @@ public record VisualState(
       Map<String, Scalar> scalars,
       IndexRange range,
       List<String> notes) {
-    this(id, hintIndex, algorithm, visualPlan, status, array, pointers, scalars, range, notes,
-        null, null);
+    this(
+        id,
+        hintIndex,
+        algorithm,
+        visualPlan,
+        status,
+        array,
+        pointers,
+        scalars,
+        range,
+        notes,
+        null,
+        null,
+        null);
   }
 
   public VisualState {

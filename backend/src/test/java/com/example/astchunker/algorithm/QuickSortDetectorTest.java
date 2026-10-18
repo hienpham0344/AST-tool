@@ -117,6 +117,62 @@ class QuickSortDetectorTest {
   void recognizesEquivalentStoreAdvance() {
     assertThat(hints(ASCENDING.replace("store++;", "store += 1;")))
         .singleElement().satisfies(hint -> assertThat(hint.type()).isEqualTo("quick-sort"));
+    assertThat(hints(ASCENDING.replace("store++;", "store = store + 1;")))
+        .singleElement().satisfies(hint -> assertThat(hint.type()).isEqualTo("quick-sort"));
+  }
+
+  @Test
+  void recognizesReversedComparisonOperandsWithoutChangingDirection() {
+    assertThat(hints(ASCENDING.replace("data[scan] <= pivot", "pivot >= data[scan]")))
+        .singleElement().satisfies(hint ->
+            assertThat(hint.quick().direction()).isEqualTo(Direction.ASCENDING));
+    assertThat(hints(ASCENDING.replace("data[scan] <= pivot", "pivot <= data[scan]")))
+        .singleElement().satisfies(hint ->
+            assertThat(hint.quick().direction()).isEqualTo(Direction.DESCENDING));
+    assertThat(hints(ASCENDING.replace("data[scan] <= pivot", "pivot == data[scan]")))
+        .noneMatch(hint -> hint.type().equals("quick-sort"));
+    assertThat(hints(ASCENDING.replace("data[scan] <= pivot", "pivot >= data[store]")))
+        .noneMatch(hint -> hint.type().equals("quick-sort"));
+  }
+
+  @Test
+  void recognizesGuardedBodyAndSameClassRecursiveCalls() {
+    String guarded = guardedBody(ASCENDING);
+    assertThat(hints(guarded)).singleElement()
+        .satisfies(hint -> assertThat(hint.type()).isEqualTo("quick-sort"));
+    assertThat(hints(ASCENDING.replace("sort(data,", "Sample.sort(data,")))
+        .singleElement().satisfies(hint -> assertThat(hint.type()).isEqualTo("quick-sort"));
+    String instanceMethod = ASCENDING.replace("private static void sort", "private void sort")
+        .replace("sort(data,", "this.sort(data,");
+    assertThat(hints(instanceMethod)).singleElement()
+        .satisfies(hint -> assertThat(hint.type()).isEqualTo("quick-sort"));
+  }
+
+  @Test
+  void rejectsUnsafeGuardOrForeignRecursiveCall() {
+    List<String> negatives = List.of(
+        guardedBody(ASCENDING).replace("low < high", "low <= high"),
+        guardedBody(ASCENDING).replace("\n    }\n  }\n}",
+            "\n    }\n    data[0] = 0;\n  }\n}"),
+        ASCENDING.replace("class Sample {",
+                "class Other { static void sort(int[] data, int low, int high) {} }\n"
+                    + "class Sample { static Other Sample = new Other();")
+            .replace("sort(data,", "Sample.sort(data,"),
+        ASCENDING.replace("class Sample {",
+                "class Other { static void sort(int[] data, int low, int high) {} }\n"
+                    + "interface I { Other Sample = new Other(); }\n"
+                    + "class Sample implements I {")
+            .replace("sort(data,", "Sample.sort(data,"),
+        ASCENDING.replace("sort(data, low, store - 1);", "Other.sort(data, low, store - 1);"));
+    for (String source : negatives)
+      assertThat(hints(source)).noneMatch(hint -> hint.type().equals("quick-sort"));
+  }
+
+  private static String guardedBody(String source) {
+    String rewritten = source.replace("if (low >= high) return;", "if (low < high) {");
+    int methodEnd = rewritten.lastIndexOf("\n  }\n}");
+    assertThat(methodEnd).isPositive();
+    return rewritten.substring(0, methodEnd + 1) + "    }" + rewritten.substring(methodEnd);
   }
 
   @Test

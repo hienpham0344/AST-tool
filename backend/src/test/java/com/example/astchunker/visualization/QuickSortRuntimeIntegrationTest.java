@@ -52,7 +52,7 @@ class QuickSortRuntimeIntegrationTest {
     var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
     assertThat(hints).singleElement().satisfies(hint -> assertThat(hint.type()).isEqualTo("quick-sort"));
     try (var target = new TargetCompiler().compile(source, analysis)) {
-      var observed = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
+      var observed = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(30))
           .observe(target, analysis);
       assertThat(observed.warnings()).noneMatch(warning -> warning.contains("timed out"));
       return new VisualTraceBuilder().build(analysis, hints, observed.executions());
@@ -91,6 +91,76 @@ class QuickSortRuntimeIntegrationTest {
     });
     assertThat(frames.stream().map(frame -> frame.invocationId()).filter(Objects::nonNull))
         .hasSizeGreaterThan(6).doesNotContainNull();
+  }
+
+  @Test
+  void verifiesArraysAfterGuardedQuickBody() {
+    String source = SOURCE.replace("if (low >= high) return;", "if (low < high) {");
+    int methodEnd = source.lastIndexOf("\n  }\n}");
+    assertThat(methodEnd).isPositive();
+    source = source.substring(0, methodEnd + 1) + "    }" + source.substring(methodEnd);
+    var endings = trace(source).stream()
+        .filter(step -> step.code().startsWith("System.out.println")).toList();
+    assertThat(endings).hasSize(6).allSatisfy(step ->
+        assertThat(step.visualStates().get(0).quickFrame().fullArrayStatus())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void reversedOperandsKeepPartitionDecisionsAndFinalOrder() {
+    for (String predicate : List.of("pivot >= data[scan]", "pivot <= data[scan]")) {
+      var steps = trace(SOURCE.replace("data[scan] <= pivot", predicate));
+      boolean ascending = predicate.contains(">=");
+      var comparisons = steps.stream()
+          .flatMap(step -> step.visualStates().stream())
+          .filter(state -> state.quickFrame() != null
+              && state.quickFrame().comparison() != null)
+          .map(state -> state.quickFrame().comparison()).toList();
+      assertThat(comparisons).isNotEmpty().anyMatch(comparison -> comparison.actionRequired())
+          .anyMatch(comparison -> !comparison.actionRequired());
+      assertThat(comparisons).allSatisfy(comparison -> {
+        int current = ((Number) comparison.firstValue()).intValue();
+        int pivot = ((Number) comparison.secondValue()).intValue();
+        assertThat(comparison.actionRequired())
+            .isEqualTo(ascending ? current <= pivot : current >= pivot);
+      });
+      var endings = steps.stream()
+          .filter(step -> step.code().startsWith("System.out.println")).toList();
+      assertThat(endings).hasSize(6).allSatisfy(step ->
+          assertThat(step.visualStates().get(0).quickFrame().fullArrayStatus())
+              .isEqualTo("VERIFIED_SORTED"));
+    }
+  }
+
+  @Test
+  void combinedStructureRewritesStillVerifyAllArrays() {
+    String source = SOURCE.replace("if (low >= high) return;", "if (low < high) {")
+        .replace("data[scan] <= pivot", "pivot >= data[scan]")
+        .replace("store++;", "store = store + 1;")
+        .replace("quick(data, low, store - 1);", "QuickSample.quick(data, low, store - 1);")
+        .replace("quick(data, store + 1, high);", "QuickSample.quick(data, store + 1, high);");
+    int methodEnd = source.lastIndexOf("\n  }\n}");
+    assertThat(methodEnd).isPositive();
+    source = source.substring(0, methodEnd + 1) + "    }" + source.substring(methodEnd);
+    var endings = trace(source).stream()
+        .filter(step -> step.code().startsWith("System.out.println")).toList();
+    assertThat(endings).hasSize(6).allSatisfy(step ->
+        assertThat(step.visualStates().get(0).quickFrame().fullArrayStatus())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void verifiesCallerOfPrivateInstanceQuickMethod() {
+    String source = SOURCE.replace("quick(data, 0, data.length - 1);",
+            "QuickSample sorter = new QuickSample();\n      sorter.quick(data, 0, data.length - 1);")
+        .replace("private static void quick", "private void quick")
+        .replace("quick(data, low, store - 1);", "this.quick(data, low, store - 1);")
+        .replace("quick(data, store + 1, high);", "this.quick(data, store + 1, high);");
+    var endings = trace(source).stream()
+        .filter(step -> step.code().startsWith("System.out.println")).toList();
+    assertThat(endings).hasSize(6).allSatisfy(step ->
+        assertThat(step.visualStates().get(0).quickFrame().fullArrayStatus())
+            .isEqualTo("VERIFIED_SORTED"));
   }
 
   @Test

@@ -135,13 +135,10 @@ final class QuickTraceBuilder {
     if (pointId.equals(binding.comparisonStatementId()) && inArray(array, scan)
         && pivot instanceof Number pivotNumber && array.values().get(scan) instanceof Number current) {
       BinaryExpr operator = (BinaryExpr) findComparisonNode(binding, operations);
-      boolean placeLeft = switch (operator.getOperator()) {
-        case LESS -> current.intValue() < pivotNumber.intValue();
-        case LESS_EQUALS -> current.intValue() <= pivotNumber.intValue();
-        case GREATER -> current.intValue() > pivotNumber.intValue();
-        case GREATER_EQUALS -> current.intValue() >= pivotNumber.intValue();
-        default -> false;
-      };
+      boolean reversed = SortRuntimeComparison.name(operator.getLeft(),
+          hint.variables().get("pivot"));
+      boolean placeLeft = SortRuntimeComparison.evaluate(operator, current.intValue(),
+          pivotNumber.intValue(), reversed);
       comparison = new Comparison(scan, high, current, pivot, placeLeft,
           "AVAILABLE_FROM_SNAPSHOT", "PARTITION_LEFT", placeLeft);
     }
@@ -356,12 +353,13 @@ final class QuickTraceBuilder {
     if (directQuickCall(call, quick)) return array;
     ClassOrInterfaceDeclaration owner = quick.findAncestor(ClassOrInterfaceDeclaration.class)
         .orElse(null);
-    if (owner == null || !sameClassScope(call, owner)) return null;
+    if (owner == null) return null;
     for (MethodDeclaration wrapper : owner.getMethodsByName(call.getNameAsString())) {
       if (wrapper == quick || wrapper.getParameters().size() != call.getArguments().size()
           || wrapper.getParameters().isEmpty()
           || !wrapper.getParameter(0).getType().asString().equals("int[]")
-          || wrapper.getBody().isEmpty()) continue;
+          || wrapper.getBody().isEmpty()
+          || !SortCallSupport.sameClassCall(call, wrapper)) continue;
       String parameter = wrapper.getParameter(0).getNameAsString();
       boolean passesArray = wrapper.getBody().orElseThrow().findAll(MethodCallExpr.class)
           .stream().anyMatch(inner -> directQuickCall(inner, quick)
@@ -377,16 +375,8 @@ final class QuickTraceBuilder {
   private static boolean directQuickCall(MethodCallExpr call, MethodDeclaration quick) {
     ClassOrInterfaceDeclaration owner = quick.findAncestor(ClassOrInterfaceDeclaration.class)
         .orElse(null);
-    return owner != null && sameClassScope(call, owner)
+    return owner != null && SortCallSupport.sameClassCall(call, quick)
         && call.getNameAsString().equals(quick.getNameAsString())
         && call.getArguments().size() == 3;
-  }
-
-  private static boolean sameClassScope(MethodCallExpr call, ClassOrInterfaceDeclaration owner) {
-    if (call.findAncestor(ClassOrInterfaceDeclaration.class).orElse(null) != owner) return false;
-    return call.getScope().isEmpty()
-        || call.getScope().get().isThisExpr()
-        || call.getScope().get().isNameExpr()
-            && call.getScope().get().asNameExpr().getNameAsString().equals(owner.getNameAsString());
   }
 }

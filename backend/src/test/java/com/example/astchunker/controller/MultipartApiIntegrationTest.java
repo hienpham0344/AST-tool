@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -271,6 +273,29 @@ class MultipartApiIntegrationTest {
                 .header("Access-Control-Request-Method", "POST"))
         .andExpect(status().isOk())
         .andExpect(header().string("Access-Control-Allow-Origin", "*"));
+  }
+
+  @Test
+  void addsHeapMetadataAndFramesWithoutChangingLegacyStepFields() throws Exception {
+    String source = Files.readString(Path.of("../examples/sort/HeapSortSample.java"));
+    MockMultipartFile file =
+        new MockMultipartFile(
+            "file",
+            "HeapSortSample.java",
+            "text/x-java-source",
+            source.getBytes(StandardCharsets.UTF_8));
+    mockMvc
+        .perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("heap-sort"))
+        .andExpect(jsonPath("$.algorithmHints[0].heap.schemaVersion").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].heap.direction").value("ASCENDING"))
+        .andExpect(jsonPath("$.algorithmHints[0].heap.buildKind").value("BOTTOM_UP"))
+        .andExpect(
+            jsonPath("$.algorithmHints[0].heap.operationAstNodeIds.rootSwapEndWrite").isNotEmpty())
+        .andExpect(jsonPath("$.steps[0].sequence").isNumber())
+        .andExpect(jsonPath("$.steps[0].snapshotPhase").value("BEFORE_LOCATION"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].heapFrame.phase").isNotEmpty());
   }
 
   private MockMultipartFile javaFile() {

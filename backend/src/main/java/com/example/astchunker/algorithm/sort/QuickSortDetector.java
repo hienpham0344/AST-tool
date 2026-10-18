@@ -9,15 +9,12 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.BinaryExpr;
-import com.github.javaparser.ast.expr.AssignExpr;
-import com.github.javaparser.ast.expr.IntegerLiteralExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ForStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
-import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.stmt.WhileStmt;
 import java.util.LinkedHashMap;
@@ -44,18 +41,14 @@ public final class QuickSortDetector implements SortPatternDetector {
     String array = method.getParameter(0).getNameAsString();
     String low = method.getParameter(1).getNameAsString();
     String high = method.getParameter(2).getNameAsString();
-    List<Statement> body = List.copyOf(method.getBody().orElseThrow().getStatements());
+    var recursiveBody = SortAstSupport.recursiveBody(method, low, high);
+    if (recursiveBody.isEmpty()) return Optional.empty();
+    List<Statement> body = recursiveBody.get().statements();
     int loopPosition = body.indexOf(node);
     if (loopPosition != 3 && loopPosition != 4) return Optional.empty();
     if (body.size() != loopPosition + 6) return Optional.empty();
     if (loopPosition == 4 && !(node instanceof WhileStmt)) return Optional.empty();
-    if (!(body.get(0) instanceof IfStmt guard)
-        || guard.getElseStmt().isPresent()
-        || !(SortAstSupport.single(guard.getThenStmt()) instanceof ReturnStmt stop)
-        || stop.getExpression().isPresent()
-        || !(SortAstSupport.matches(guard.getCondition(), low + " >= " + high)
-            || SortAstSupport.matches(guard.getCondition(), high + " <= " + low)))
-      return Optional.empty();
+    IfStmt guard = recursiveBody.get().guard();
     var pivot = declaration(body.get(1), "int");
     var store = declaration(body.get(2), "int");
     if (pivot.isEmpty() || store.isEmpty()) return Optional.empty();
@@ -75,13 +68,8 @@ public final class QuickSortDetector implements SortPatternDetector {
         || !(SortAstSupport.unwrap(branch.getCondition()) instanceof BinaryExpr comparison))
       return Optional.empty();
     String scan = scanLoop.get().counter();
-    if (!SortAstSupport.matches(comparison.getLeft(), array + "[" + scan + "]")
-        || !SortAstSupport.matches(comparison.getRight(), pivotName)) return Optional.empty();
-    Direction direction = switch (comparison.getOperator()) {
-      case LESS, LESS_EQUALS -> Direction.ASCENDING;
-      case GREATER, GREATER_EQUALS -> Direction.DESCENDING;
-      default -> null;
-    };
+    Direction direction = SortAstSupport.relationDirection(comparison,
+        array + "[" + scan + "]", pivotName).orElse(null);
     if (direction == null) return Optional.empty();
     List<Statement> branchBody = branch.getThenStmt().isBlockStmt()
         ? List.copyOf(branch.getThenStmt().asBlockStmt().getStatements())
@@ -94,8 +82,8 @@ public final class QuickSortDetector implements SortPatternDetector {
     if (innerSwap.isEmpty() || finalSwap.isEmpty()) return Optional.empty();
     Statement leftCall = body.get(loopPosition + 4);
     Statement rightCall = body.get(loopPosition + 5);
-    if (!recursive(leftCall, method.getNameAsString(), array, low, storeName + " - 1")
-        || !recursive(rightCall, method.getNameAsString(), array, storeName + " + 1", high))
+    if (!recursive(leftCall, method, array, low, storeName + " - 1")
+        || !recursive(rightCall, method, array, storeName + " + 1", high))
       return Optional.empty();
     Map<String, String> roles = Map.of("array", array, "low", low, "high", high,
         "pivot", pivotName, "store", storeName, "scan", scan);
@@ -145,20 +133,15 @@ public final class QuickSortDetector implements SortPatternDetector {
       return SortAstSupport.matches(unary.getExpression(), name)
           && (unary.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT
               || unary.getOperator() == UnaryExpr.Operator.PREFIX_INCREMENT);
-    return expression.getExpression() instanceof AssignExpr assign
-        && assign.getOperator() == AssignExpr.Operator.PLUS
-        && SortAstSupport.matches(assign.getTarget(), name)
-        && assign.getValue() instanceof IntegerLiteralExpr literal
-        && literal.asNumber().intValue() == 1;
+    return SortAstSupport.matches(expression.getExpression(), name + " += 1")
+        || SortAstSupport.matches(expression.getExpression(), name + " = " + name + " + 1");
   }
 
-  private static boolean recursive(Statement statement, String method, String array,
+  private static boolean recursive(Statement statement, MethodDeclaration method, String array,
       String first, String second) {
     if (!(statement instanceof ExpressionStmt expression)
         || !(expression.getExpression() instanceof MethodCallExpr call)
-        || !call.getNameAsString().equals(method)
-        || call.getScope().isPresent()
-        || call.getArguments().size() != 3) return false;
+        || !SortAstSupport.sameClassRecursiveCall(call, method)) return false;
     return SortAstSupport.matches(call.getArgument(0), array)
         && SortAstSupport.matches(call.getArgument(1), first)
         && SortAstSupport.matches(call.getArgument(2), second);

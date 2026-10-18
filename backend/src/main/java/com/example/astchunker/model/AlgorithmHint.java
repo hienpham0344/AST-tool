@@ -21,7 +21,74 @@ public record AlgorithmHint(
         SortPattern sort,
     @com.fasterxml.jackson.annotation.JsonInclude(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        QuickPattern quick) {
+        QuickPattern quick,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        MergePattern merge,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        HeapPattern heap) {
+
+  public AlgorithmHint(
+      String type,
+      double confidence,
+      String visualPlan,
+      List<String> evidence,
+      Map<String, String> variables,
+      int startLine,
+      int endLine,
+      String patternAstNodeId,
+      String methodAstNodeId,
+      Map<String, String> variableDeclarationIds,
+      SortPattern sort,
+      QuickPattern quick,
+      MergePattern merge) {
+    this(
+        type,
+        confidence,
+        visualPlan,
+        evidence,
+        variables,
+        startLine,
+        endLine,
+        patternAstNodeId,
+        methodAstNodeId,
+        variableDeclarationIds,
+        sort,
+        quick,
+        merge,
+        null);
+  }
+
+  public AlgorithmHint(
+      String type,
+      double confidence,
+      String visualPlan,
+      List<String> evidence,
+      Map<String, String> variables,
+      int startLine,
+      int endLine,
+      String patternAstNodeId,
+      String methodAstNodeId,
+      Map<String, String> variableDeclarationIds,
+      SortPattern sort,
+      QuickPattern quick) {
+    this(
+        type,
+        confidence,
+        visualPlan,
+        evidence,
+        variables,
+        startLine,
+        endLine,
+        patternAstNodeId,
+        methodAstNodeId,
+        variableDeclarationIds,
+        sort,
+        quick,
+        null,
+        null);
+  }
 
   public AlgorithmHint(
       String type,
@@ -35,8 +102,21 @@ public record AlgorithmHint(
       String methodAstNodeId,
       Map<String, String> variableDeclarationIds,
       SortPattern sort) {
-    this(type, confidence, visualPlan, evidence, variables, startLine, endLine,
-        patternAstNodeId, methodAstNodeId, variableDeclarationIds, sort, null);
+    this(
+        type,
+        confidence,
+        visualPlan,
+        evidence,
+        variables,
+        startLine,
+        endLine,
+        patternAstNodeId,
+        methodAstNodeId,
+        variableDeclarationIds,
+        sort,
+        null,
+        null,
+        null);
   }
 
   public AlgorithmHint(
@@ -61,6 +141,8 @@ public record AlgorithmHint(
         patternAstNodeId,
         methodAstNodeId,
         variableDeclarationIds,
+        null,
+        null,
         null,
         null);
   }
@@ -101,7 +183,10 @@ public record AlgorithmHint(
     evidence = List.copyOf(evidence);
     variables = Map.copyOf(variables);
     variableDeclarationIds = Map.copyOf(variableDeclarationIds);
-    if (sort != null && quick != null)
-      throw new IllegalArgumentException("One hint cannot have two sort metadata families");
+    if ((sort != null ? 1 : 0)
+            + (quick != null ? 1 : 0)
+            + (merge != null ? 1 : 0)
+            + (heap != null ? 1 : 0)
+        > 1) throw new IllegalArgumentException("One hint cannot have two sort metadata families");
   }
 }

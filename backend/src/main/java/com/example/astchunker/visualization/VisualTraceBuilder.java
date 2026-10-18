@@ -41,6 +41,8 @@ public class VisualTraceBuilder {
     analysis.compilationUnit().walk(n -> nodes.put(AstAnalyzer.nodeId(n), n));
     List<Binding> bindings = bindings(analysis, hints, nodes);
     QuickTraceBuilder quickTraceBuilder = new QuickTraceBuilder(hints, nodes);
+    MergeTraceBuilder mergeTraceBuilder = new MergeTraceBuilder(hints, nodes);
+    HeapTraceBuilder heapTraceBuilder = new HeapTraceBuilder(hints, nodes);
     List<ExecutionObservation> result = new ArrayList<>();
     ExecutionObservation previous = null;
     for (ExecutionObservation step : steps) {
@@ -52,6 +54,8 @@ public class VisualTraceBuilder {
         }
       }
       states.addAll(quickTraceBuilder.states(step, point, analysis.mainClassName()));
+      states.addAll(mergeTraceBuilder.states(step, point, analysis.mainClassName()));
+      states.addAll(heapTraceBuilder.states(step, point, analysis.mainClassName()));
       List<VisualEvent> events = events(previous, step, states);
       ExecutionObservation enriched = step.withVisualization(states, events);
       result.add(enriched);
@@ -123,18 +127,19 @@ public class VisualTraceBuilder {
       ExecutionObservation previous,
       Node point,
       String mainClass) {
-    if (point == null || step.context() == null)
-      return false;
+    if (point == null || step.context() == null) return false;
     if (binding.helper() != null && owner(point) == binding.helper().method()) {
-      if (previous == null || previous.context() == null
+      if (previous == null
+          || previous.context() == null
           || step.context().threadId() != previous.context().threadId()
           || !step.context().className().equals(mainClass)
           || !step.context().methodName().equals(binding.helper().method().getNameAsString()))
         return false;
       boolean entering =
           (previous.statementAstNodeId().equals(binding.hint().sort().conditionStatementAstNodeId())
-              || previous.statementAstNodeId().equals(
-                  binding.hint().sort().operationAstNodeIds().get("swapCall")))
+                  || previous
+                      .statementAstNodeId()
+                      .equals(binding.hint().sort().operationAstNodeIds().get("swapCall")))
               && previous.context().stackDepth() + 1 == step.context().stackDepth();
       boolean continuing =
           previous.context().stackDepth() == step.context().stackDepth()
@@ -204,11 +209,7 @@ public class VisualTraceBuilder {
       }
       pointers.put(
           role,
-          new Pointer(
-              roleName(binding, step, role),
-              roleId(binding, step, role),
-              index,
-              status));
+          new Pointer(roleName(binding, step, role), roleId(binding, step, role), index, status));
     }
     Map<String, Scalar> scalars = new LinkedHashMap<>();
     for (String role : List.of("accumulator", "windowSize", "key")) {
@@ -227,11 +228,7 @@ public class VisualTraceBuilder {
       }
       scalars.put(
           role,
-          new Scalar(
-              roleName(binding, step, role),
-              roleId(binding, step, role),
-              value,
-              status));
+          new Scalar(roleName(binding, step, role), roleId(binding, step, role), value, status));
     }
     IndexRange range = range(array, pointers, scalars);
     List<String> notes = new ArrayList<>();
@@ -280,10 +277,7 @@ public class VisualTraceBuilder {
     String name = roleName(binding, step, role);
     List<ObservationResult> matches =
         step.variables().stream()
-            .filter(
-                v ->
-                    id.equals(v.astNodeId())
-                        && name.equals(v.variableName()))
+            .filter(v -> id.equals(v.astNodeId()) && name.equals(v.variableName()))
             .toList();
     return matches.size() == 1 ? matches.get(0) : null;
   }
@@ -512,7 +506,8 @@ public class VisualTraceBuilder {
     return new Helper(method, Map.copyOf(names), Map.copyOf(declarations));
   }
 
-  private record Helper(MethodDeclaration method, Map<String, String> names, Map<String, String> declarations) {}
+  private record Helper(
+      MethodDeclaration method, Map<String, String> names, Map<String, String> declarations) {}
 
   private record Binding(
       int index, AlgorithmHint hint, Node loop, Map<String, String> declarations, Helper helper) {}
