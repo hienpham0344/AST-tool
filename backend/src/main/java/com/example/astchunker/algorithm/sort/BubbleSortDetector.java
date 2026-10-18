@@ -136,19 +136,29 @@ public final class BubbleSortDetector implements SortPatternDetector {
         && expression.getExpression() instanceof VariableDeclarationExpr
         && statements.get(1) instanceof WhileStmt)
       return new BubbleBody(statements.get(1), null);
-    if (statements.size() == 3
+    if ((statements.size() == 3 || statements.size() == 4)
         && statements.get(0) instanceof ExpressionStmt expression
         && expression.getExpression() instanceof VariableDeclarationExpr declaration
         && declaration.getVariables().size() == 1
         && declaration.getVariable(0).getType().asString().equals("boolean")
         && SortAstSupport.matches(declaration.getVariable(0).getInitializer().orElse(null), "false")
-        && (statements.get(1) instanceof ForStmt || statements.get(1) instanceof WhileStmt)
-        && statements.get(2) instanceof IfStmt stop
+        && (statements.get(statements.size() - 2) instanceof ForStmt
+            || statements.get(statements.size() - 2) instanceof WhileStmt)
+        && statements.get(statements.size() - 1) instanceof IfStmt stop
         && stop.getElseStmt().isEmpty()
         && SortAstSupport.matches(
             stop.getCondition(), "!" + declaration.getVariable(0).getNameAsString())
         && SortAstSupport.single(stop.getThenStmt()) instanceof BreakStmt) {
-      return new BubbleBody(statements.get(1), declaration.getVariable(0).getNameAsString());
+      if (statements.size() == 4) {
+        if (!(statements.get(1) instanceof ExpressionStmt counter)
+            || !(counter.getExpression() instanceof VariableDeclarationExpr scan)
+            || scan.getVariables().size() != 1
+            || !scan.getVariable(0).getType().asString().equals("int")
+            || !SortAstSupport.matches(scan.getVariable(0).getInitializer().orElse(null), "0")
+            || !(statements.get(2) instanceof WhileStmt)) return null;
+      }
+      return new BubbleBody(
+          statements.get(statements.size() - 2), declaration.getVariable(0).getNameAsString());
     }
     return null;
   }

@@ -108,9 +108,13 @@ class SortRuntimeIntegrationTest {
   }
 
   private List<ExecutionObservation> runSource(String source) {
+    return runSource(source, 1);
+  }
+
+  private List<ExecutionObservation> runSource(String source, int expectedHints) {
     var analysis = new AstAnalyzer().analyze(source);
     var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
-    assertThat(hints).hasSize(1);
+    assertThat(hints).hasSize(expectedHints);
     try (var target = new TargetCompiler().compile(source, analysis)) {
       var trace =
           new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
@@ -119,6 +123,52 @@ class SortRuntimeIntegrationTest {
       assertThat(trace.executions()).isNotEmpty();
       return new VisualTraceBuilder().build(analysis, hints, trace.executions());
     }
+  }
+
+  @Test
+  void sharedSwapHelperKeepsEachSortTraceWithItsCaller() {
+    String source =
+        """
+        public class SortSample {
+          public static void main(String[] args) {
+            bubble(new int[] {2, 1});
+            selection(new int[] {2, 1});
+          }
+          static void bubble(int[] nums) {
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
+                if (nums[scan] > nums[scan + 1]) swap(nums, scan, scan + 1);
+              }
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+          static void selection(int[] nums) {
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              int selected = pass;
+              for (int scan = pass + 1; scan < nums.length; scan++) {
+                if (nums[scan] < nums[selected]) selected = scan;
+              }
+              swap(nums, pass, selected);
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+          static void swap(int[] values, int left, int right) {
+            int saved = values[left];
+            values[left] = values[right];
+            values[right] = saved;
+          }
+        }
+        """;
+    var helperSteps = runSource(source, 2).stream()
+        .filter(step -> step.context() != null && step.context().methodName().equals("swap"))
+        .toList();
+    assertThat(helperSteps).hasSize(6);
+    assertThat(helperSteps)
+        .allSatisfy(step -> assertThat(step.visualStates()).hasSize(1));
+    assertThat(helperSteps.subList(0, 3))
+        .allSatisfy(step -> assertThat(step.visualStates().get(0).algorithm()).isEqualTo("bubble-sort"));
+    assertThat(helperSteps.subList(3, 6))
+        .allSatisfy(step -> assertThat(step.visualStates().get(0).algorithm()).isEqualTo("selection-sort"));
   }
 
   private Object array(ExecutionObservation step) {

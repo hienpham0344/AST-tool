@@ -7,7 +7,9 @@ Insertion Sort over `int[]` in ascending or descending order. They accept the
 tested `for`/`while` rewrites, counter update spellings, equivalent loop bounds,
 renamed locals, and equivalent comparison order. Bubble also supports an
 early-exit flag; Bubble and Selection accept a direct three-statement swap or
-a simple same-class `swap(int[], int, int)` helper. Insertion accepts either
+a simple same-class `swap(int[], int, int)` helper when Java dispatch cannot
+override it (a static, private, or final method, or a final class). Bubble also
+accepts the tested combination of `while` loops and early exit. Insertion accepts either
 declaration order for its key and scan index.
 
 A valid implementation outside these shapes may not be recognized; no hint
@@ -20,8 +22,11 @@ not covered yet.
 
 The corpus in `backend/src/test/resources/sort-patterns/` contains supported
 canonical, `while`, rewritten-bound, early-exit, helper-swap, and reordered-local
-examples. Close negative cases include incomplete swaps, wrong indices, wrong
-shifts, and an early-exit flag that is never set. Each detector requires the
+examples in both sort directions. Every supported example has a paired wrong-write
+negative and a runtime trace check for observed comparison, pending and confirmed
+mutation, and final sorted array. Other close negatives include incomplete swaps,
+wrong indices, wrong shifts, an overridable helper, and an early-exit flag that is
+never set. Each detector requires the
 matching array reads, comparison, counter progress, and writes; variable names
 or one sorted output alone are insufficient.
 

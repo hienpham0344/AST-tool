@@ -2,6 +2,7 @@ package com.example.astchunker.algorithm.sort;
 
 import com.example.astchunker.ast.AstAnalyzer;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.ThisExpr;
@@ -60,6 +61,12 @@ final class ArrayEffects {
             .toList();
     if (candidates.size() != 1 || candidates.get(0).getBody().isEmpty()) return Optional.empty();
     MethodDeclaration helper = candidates.get(0);
+    // A virtual call can dispatch to a subclass implementation with different effects.
+    if (!helper.isStatic()
+        && !helper.isPrivate()
+        && !helper.isFinal()
+        && !(owner instanceof ClassOrInterfaceDeclaration declaration && declaration.isFinal()))
+      return Optional.empty();
     String helperArray = helper.getParameter(0).getNameAsString();
     String helperLeft = helper.getParameter(1).getNameAsString();
     String helperRight = helper.getParameter(2).getNameAsString();

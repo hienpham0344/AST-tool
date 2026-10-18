@@ -136,7 +136,9 @@ public class VisualTraceBuilder {
               && previous.context().stackDepth() + 1 == step.context().stackDepth();
       boolean continuing =
           previous.context().stackDepth() == step.context().stackDepth()
-              && previous.context().methodName().equals(step.context().methodName());
+              && previous.context().methodName().equals(step.context().methodName())
+              && previous.visualStates().stream()
+                  .anyMatch(state -> state.hintIndex() == binding.index());
       return entering || continuing;
     }
     if (owner(point) != owner(binding.loop())) return false;

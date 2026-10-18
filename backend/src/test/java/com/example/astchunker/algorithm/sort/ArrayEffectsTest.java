@@ -39,7 +39,7 @@ class ArrayEffectsTest {
   void summarizesSimpleSameFileSwapHelper() {
     String source =
         "class Sample { void sort(int[] data, int scan) { swap(data, scan, scan + 1); } "
-            + "void swap(int[] values, int left, int right) { int saved = values[left]; "
+            + "private void swap(int[] values, int left, int right) { int saved = values[left]; "
             + "values[left] = values[right]; values[right] = saved; } }";
     Statement call =
         StaticJavaParser.parse(source).findFirst(com.github.javaparser.ast.expr.MethodCallExpr.class)
