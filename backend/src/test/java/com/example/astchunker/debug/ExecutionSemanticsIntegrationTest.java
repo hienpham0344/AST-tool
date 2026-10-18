@@ -7,6 +7,7 @@ import com.example.astchunker.mapping.VariableMapper;
 import com.example.astchunker.model.ExecutionObservation;
 import java.time.Duration;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class ExecutionSemanticsIntegrationTest {
@@ -114,6 +115,8 @@ class ExecutionSemanticsIntegrationTest {
     var entries = steps.stream().filter(s -> s.lineNumber() == 3).toList();
     assertThat(entries).extracting(s -> value(s, "n")).containsExactly("2", "1", "0");
     assertThat(entries).extracting(s -> s.context().stackDepth()).containsExactly(2, 3, 4);
+    assertThat(entries).extracting(s -> s.context().invocationId())
+        .doesNotContainNull().doesNotHaveDuplicates();
     assertThat(entries)
         .allSatisfy(
             s -> {
@@ -130,6 +133,66 @@ class ExecutionSemanticsIntegrationTest {
         .filteredOn(s -> s.lineNumber() == 5)
         .extracting(s -> value(s, "result"))
         .containsExactly("0", "1");
+  }
+
+  @Test
+  void givesSiblingAndRepeatedRecursiveCallsDistinctInvocationIds() {
+    var steps = run("""
+        public class SiblingCallSample {
+          static int count(int n) {
+            if (n == 0) return 0;
+            int child = count(n - 1);
+            return child + 1;
+          }
+          public static void main(String[] args) {
+            int first = count(1);
+            int second = count(1);
+            System.out.println(first + second);
+          }
+        }
+        """).executions();
+    var entries = steps.stream().filter(step -> step.lineNumber() == 3).toList();
+    assertThat(entries).hasSize(4);
+    assertThat(entries).extracting(step -> step.context().stackDepth())
+        .containsExactly(2, 3, 2, 3);
+    assertThat(entries).extracting(step -> step.context().invocationId())
+        .doesNotContainNull().doesNotHaveDuplicates();
+    var returns = steps.stream().filter(step -> step.lineNumber() == 5).toList();
+    assertThat(returns).hasSize(2);
+    assertThat(returns.get(0).context().invocationId())
+        .isEqualTo(entries.get(0).context().invocationId());
+    assertThat(returns.get(1).context().invocationId())
+        .isEqualTo(entries.get(2).context().invocationId());
+  }
+
+  @Test
+  void keepsInvocationSequencesSeparateAcrossTargetThreads() {
+    var steps = run("""
+        public class ThreadCallSample {
+          static void work(int n) {
+            int marker = n;
+            System.out.println(marker);
+          }
+          public static void main(String[] args) throws Exception {
+            Thread left = new Thread(() -> { work(1); work(2); });
+            Thread right = new Thread(() -> { work(3); work(4); });
+            left.start();
+            right.start();
+            left.join();
+            right.join();
+          }
+        }
+        """).executions();
+    var entries = steps.stream().filter(step -> step.context().methodName().equals("work")
+        && step.code().equals("int marker = n;")).toList();
+    assertThat(entries).hasSize(4);
+    var byThread = entries.stream().collect(Collectors.groupingBy(step -> step.context().threadId()));
+    assertThat(byThread).hasSize(2);
+    assertThat(byThread.values()).allSatisfy(threadSteps -> {
+      assertThat(threadSteps).hasSize(2);
+      assertThat(threadSteps).extracting(step -> step.context().invocationId())
+          .doesNotContainNull().doesNotHaveDuplicates();
+    });
   }
 
   @Test

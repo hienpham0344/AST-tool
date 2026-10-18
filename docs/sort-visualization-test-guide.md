@@ -15,8 +15,12 @@ declaration order for its key and scan index.
 A valid implementation outside these shapes may not be recognized; no hint
 does not prove that the user's algorithm is wrong. Unclear array aliases,
 unknown helper calls, extra writes, and non-`int[]` arrays fall back to general
-runtime observation. Merge, Quick, Heap, Shell, Counting, and Radix Sort are
-not covered yet.
+runtime observation. Quick Sort additionally recognizes the documented
+[inline Lomuto family](superpowers/plans/2026-10-18-quick-sort-gate.md): an
+inclusive `low`/`high` range, last-element pivot, `for` or equivalent `while`
+scan, proven inline swaps, and both recursive subranges. Other Quick partition
+families and helper calls currently fall back. Merge, Heap, Shell, Counting,
+and Radix Sort are not covered yet.
 
 ## Source rewrite corpus
 
@@ -54,6 +58,7 @@ not a single sample literal.
    `examples/sort/InsertionSortSample.java`. The matching
    `BubbleWhileSample.java`, `SelectionWhileSample.java`, and
    `InsertionWhileSample.java` exercise the supported `while` rewrites.
+   `QuickSortSample.java` exercises the supported recursive Lomuto family.
 4. Click **Quan sát biến runtime**. Use Previous/Next, Play, the step slider,
    and speed selector. The step, source highlight, variable table, and indexed
    array view should move together.
@@ -82,6 +87,11 @@ In DevTools → Network → Fetch/XHR → `steps` → Preview, inspect:
 - `.sortFrame.sortedRegion.status`: `VERIFIED_SORTED` means the captured range
   passed an actual runtime order check; `NOT_SORTED` gives the first adjacent
   inversion; `TRUNCATED` and `UNKNOWN` are deliberately not treated as success.
+- For Quick Sort, `steps[i].context.invocationId` identifies one recursive
+  call. `visualStates[m].quickFrame` shows the active range, pivot, comparison,
+  pending and confirmed swap, and verified partition. A full-array result is
+  verified at the immediately following caller statement and appears in
+  `quickFrame.fullArrayStatus`.
 
 The sort label means the source matches a supported structure. A region is
 runtime verified only when its `sortedRegion.status` is `VERIFIED_SORTED` in a

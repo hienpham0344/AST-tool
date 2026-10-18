@@ -40,6 +40,7 @@ public class VisualTraceBuilder {
     Map<String, Node> nodes = new LinkedHashMap<>();
     analysis.compilationUnit().walk(n -> nodes.put(AstAnalyzer.nodeId(n), n));
     List<Binding> bindings = bindings(analysis, hints, nodes);
+    QuickTraceBuilder quickTraceBuilder = new QuickTraceBuilder(hints, nodes);
     List<ExecutionObservation> result = new ArrayList<>();
     ExecutionObservation previous = null;
     for (ExecutionObservation step : steps) {
@@ -50,6 +51,7 @@ public class VisualTraceBuilder {
           states.add(state(binding, step, previous, point));
         }
       }
+      states.addAll(quickTraceBuilder.states(step, previous, point, analysis.mainClassName()));
       List<VisualEvent> events = events(previous, step, states);
       ExecutionObservation enriched = step.withVisualization(states, events);
       result.add(enriched);

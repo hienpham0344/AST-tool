@@ -18,7 +18,26 @@ public record AlgorithmHint(
     Map<String, String> variableDeclarationIds,
     @com.fasterxml.jackson.annotation.JsonInclude(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        SortPattern sort) {
+        SortPattern sort,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        QuickPattern quick) {
+
+  public AlgorithmHint(
+      String type,
+      double confidence,
+      String visualPlan,
+      List<String> evidence,
+      Map<String, String> variables,
+      int startLine,
+      int endLine,
+      String patternAstNodeId,
+      String methodAstNodeId,
+      Map<String, String> variableDeclarationIds,
+      SortPattern sort) {
+    this(type, confidence, visualPlan, evidence, variables, startLine, endLine,
+        patternAstNodeId, methodAstNodeId, variableDeclarationIds, sort, null);
+  }
 
   public AlgorithmHint(
       String type,
@@ -42,6 +61,7 @@ public record AlgorithmHint(
         patternAstNodeId,
         methodAstNodeId,
         variableDeclarationIds,
+        null,
         null);
   }
 
@@ -81,5 +101,7 @@ public record AlgorithmHint(
     evidence = List.copyOf(evidence);
     variables = Map.copyOf(variables);
     variableDeclarationIds = Map.copyOf(variableDeclarationIds);
+    if (sort != null && quick != null)
+      throw new IllegalArgumentException("One hint cannot have two sort metadata families");
   }
 }

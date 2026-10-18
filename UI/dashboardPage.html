@@ -703,22 +703,22 @@
         }
         currentExecutionIndex = 0;
         const hasSortHint = response.algorithmHints?.some(hint =>
-            ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type));
+            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort'].includes(hint.type));
         const sourceHasIndexedLoop = /\b(?:for|while)\b[\s\S]{0,1200}\[[^\]]+\]/.test(lastSourceCode || '');
         const sortNotice = !hasSortHint && sourceHasIndexedLoop
-            ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion Sort phổ biến trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
+            ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion và Quick Sort đã mô tả trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
             : '';
         return `
             <div class="stats"><span class="stat">execution steps: <b>${steps.length}</b></span><span class="stat">warnings: <b>${(response.warnings || []).length}</b></span></div>
             ${sortNotice}
             <div class="execution-toolbar">
                 <button class="ghost" id="previousStepBtn" type="button">Previous</button>
-                ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type))
+                ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort'].includes(hint.type))
                     ? '<button class="ghost" id="playSortBtn" type="button" aria-label="Play execution">▶</button>' : ''}
                 <button class="ghost" id="nextStepBtn" type="button">Next</button>
                 <span class="step-counter" id="stepCounter"></span>
             </div>
-            ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type))
+            ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort'].includes(hint.type))
                 ? `<div class="playback-controls">
                     <label for="executionProgress">Step</label>
                     <input id="executionProgress" type="range" min="0" max="${steps.length - 1}" value="0" aria-label="Execution step">
@@ -753,15 +753,65 @@
         const progressLabel = document.getElementById('executionProgressLabel');
         if (progress) progress.value = String(currentExecutionIndex);
         if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
-        const sortState = (step.visualStates || []).find(state => state.sortFrame);
+        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame);
         const sortEl = document.getElementById('sortVisualization');
-        if (sortEl) sortEl.innerHTML = sortState ? renderSortVisualization(sortState) : '';
+        if (sortEl) sortEl.innerHTML = sortState
+            ? sortState.quickFrame ? renderQuickVisualization(sortState) : renderSortVisualization(sortState)
+            : '';
         const previousBtn = document.getElementById('previousStepBtn');
         const nextBtn = document.getElementById('nextStepBtn');
         if (previousBtn) previousBtn.disabled = currentExecutionIndex === 0;
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
         if (nextBtn?.disabled) stopExecutionPlayback();
         renderSourceViewer(step);
+    }
+
+    function renderQuickVisualization(state) {
+        const frame = state.quickFrame;
+        const values = Array.isArray(state.array?.values) ? state.array.values : [];
+        const direction = lastExecutionData?.algorithmHints?.[state.hintIndex]?.quick?.direction;
+        const directionLabel = direction === 'DESCENDING' ? 'giảm dần' : 'tăng dần';
+        const comparison = frame.comparison;
+        const pending = frame.pendingMutation;
+        const completed = frame.completedMutation;
+        const cells = values.map((value, index) => {
+            const classes = ['sort-cell'];
+            if (comparison && [comparison.firstIndex, comparison.secondIndex].includes(index)) classes.push('compare');
+            else if (pending && [pending.fromIndex, pending.toIndex].includes(index)) classes.push('write');
+            else if (frame.fullArrayStatus === 'VERIFIED_SORTED' ||
+                frame.partitionStatus === 'VERIFIED_PARTITION' && index >= frame.low && index <= frame.high)
+                classes.push('sorted');
+            const markers = [
+                frame.pivotIndex === index && frame.pivotValue !== null ? 'PIVOT' : null,
+                frame.scan === index ? 'SCAN' : null,
+                frame.store === index ? 'STORE' : null
+            ].filter(Boolean).map(label => `<span>${label}</span>`).join(' ');
+            return `<div class="${classes.join(' ')}" role="listitem" aria-label="index ${index}, value ${escapeHtml(primitiveLabel(value))}">
+                <span class="sort-cell-index">${index}</span><span class="sort-markers">${markers}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></div>`;
+        }).join('');
+        const details = [
+            frame.invocationId != null ? `Lần gọi #${frame.invocationId}` : '',
+            frame.low != null && frame.high != null ? `Đoạn đang xử lý [${frame.low}, ${frame.high}]` : '',
+            frame.phase === 'FULL_ARRAY_OBSERVED' ? '' : frame.pivotValue != null
+                ? `Pivot = ${escapeHtml(primitiveLabel(frame.pivotValue))}` : 'Pivot chưa được đọc ở bước này',
+            comparison?.status === 'AVAILABLE_FROM_SNAPSHOT'
+                ? `So sánh phần tử ${comparison.firstIndex} = ${escapeHtml(primitiveLabel(comparison.firstValue))} với pivot ${escapeHtml(primitiveLabel(comparison.secondValue))}; ${comparison.actionRequired ? 'đưa vào phần trái' : 'giữ ở phần phải'}.` : '',
+            pending ? `Sắp ghi: ${escapeHtml(pending.kind.replaceAll('_', ' ').toLowerCase())} (${escapeHtml(pending.status)}).` : '',
+            completed ? `Đã xác nhận ghi: ${escapeHtml(completed.kind.replaceAll('_', ' ').toLowerCase())}.` : '',
+            frame.partitionStatus === 'VERIFIED_PARTITION' ? 'Phân hoạch của lần gọi này đã được kiểm tra từ mảng runtime.' : '',
+            frame.fullArrayStatus === 'VERIFIED_SORTED' ? `Toàn bộ mảng đã được kiểm tra thứ tự ${directionLabel} từ runtime.` : '',
+            frame.fullArrayStatus === 'NOT_SORTED' ? 'Mảng sau lời gọi chưa đúng thứ tự.' : ''
+        ].filter(Boolean);
+        return `<section class="sort-visualization" aria-label="Quick Sort visualization">
+            <div class="sort-title"><strong>Mẫu Quick Sort được nhận diện · ${directionLabel}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
+            ${state.array?.status === 'AVAILABLE'
+                ? `<div class="sort-cells" role="list" aria-label="Array values">${cells || '<span class="sort-detail">Mảng rỗng</span>'}</div>`
+                : '<div class="sort-detail">Không đọc được giá trị mảng.</div>'}
+            ${details.map(detail => `<div class="sort-detail">${detail}</div>`).join('')}
+            <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
+            <div class="sort-legend" aria-label="Array highlight legend"><span><i></i>So sánh</span><span><i class="legend-write"></i>Ghi sắp tới</span><span><i class="legend-sorted"></i>Đã kiểm tra</span><span><i class="legend-pointer"></i>pivot / scan / store</span></div>
+        </section>`;
     }
 
     function renderSortVisualization(state) {
