@@ -9,6 +9,7 @@ import com.example.astchunker.debug.JdiSession;
 import com.example.astchunker.debug.TargetCompiler;
 import com.example.astchunker.mapping.VariableMapper;
 import com.example.astchunker.mapping.IntervalValueProjection;
+import com.example.astchunker.mapping.IntegerListProjection;
 import com.example.astchunker.model.ExecutionObservation;
 import com.example.astchunker.model.VisualEvent;
 import com.example.astchunker.model.VisualState;
@@ -19,6 +20,50 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class VisualTraceIntegrationTest {
+  @Test
+  void sameDirectionIntegerListHasScopedPointerFrames() {
+    String source = """
+        import java.util.*;
+        public class IntegerListPointerSample {
+          static int compact(List<Integer> data) {
+            int slow = 0;
+            for (int scan = 1; scan < data.size(); scan++) {
+              if (!data.get(scan).equals(data.get(slow))) {
+                slow++;
+                data.set(slow, data.get(scan));
+              }
+            }
+            return slow + 1;
+          }
+          public static void main(String[] args) {
+            compact(new ArrayList<>(Arrays.asList(1, 1, 2, 2, 3)));
+          }
+        }
+        """;
+    var analysis = new AstAnalyzer().analyze(source);
+    var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+    assertThat(hints).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("two-pointers");
+      assertThat(hint.twoPointers().movement().name()).isEqualTo("SAME_DIRECTION");
+    });
+    try (var target = new TargetCompiler().compile(source, analysis)) {
+      var run = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
+          .observe(target, analysis, new IntervalValueProjection(java.util.Map.of()),
+              IntegerListProjection.fromHints(hints));
+      var frames = new VisualTraceBuilder().build(analysis, hints, run.executions()).stream()
+          .flatMap(step -> step.visualStates().stream())
+          .map(VisualState::twoPointersFrame)
+          .filter(java.util.Objects::nonNull)
+          .toList();
+      assertThat(frames).isNotEmpty();
+      assertThat(frames).anySatisfy(frame -> {
+        assertThat(frame.movement()).isEqualTo("SAME_DIRECTION");
+        assertThat(frame.inputObjectId()).isNotNull();
+        assertThat(frame.length()).isEqualTo(5);
+      });
+    }
+  }
+
   @Test
   void listActivitySelectionVerifiesSourceOrderAndObservedResult() throws Exception {
     String source = Files.readString(Path.of("examples/greedy/ActivitySelectionListSample.java"));

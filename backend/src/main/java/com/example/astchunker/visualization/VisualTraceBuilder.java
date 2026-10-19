@@ -45,6 +45,7 @@ public class VisualTraceBuilder {
     HeapTraceBuilder heapTraceBuilder = new HeapTraceBuilder(hints, nodes);
     ActivitySelectionTraceBuilder activitySelectionTraceBuilder =
         new ActivitySelectionTraceBuilder(hints, nodes);
+    TwoPointersTraceBuilder twoPointersTraceBuilder = new TwoPointersTraceBuilder(hints, nodes);
     List<ExecutionObservation> result = new ArrayList<>();
     ExecutionObservation previous = null;
     for (ExecutionObservation step : steps) {
@@ -59,6 +60,7 @@ public class VisualTraceBuilder {
       states.addAll(mergeTraceBuilder.states(step, point, analysis.mainClassName()));
       states.addAll(heapTraceBuilder.states(step, point, analysis.mainClassName()));
       states.addAll(activitySelectionTraceBuilder.states(step, point, analysis.mainClassName()));
+      states.addAll(twoPointersTraceBuilder.states(step, point, analysis.mainClassName()));
       List<VisualEvent> events = events(previous, step, states);
       ExecutionObservation enriched = step.withVisualization(states, events);
       result.add(enriched);
@@ -76,6 +78,7 @@ public class VisualTraceBuilder {
     List<Binding> result = new ArrayList<>();
     for (int index = 0; index < hints.size(); index++) {
       AlgorithmHint hint = hints.get(index);
+      if (hint.twoPointers() != null) continue;
       if (!List.of(
               "binary-search",
               "two-pointers",
@@ -311,7 +314,8 @@ public class VisualTraceBuilder {
   }
 
   private ArrayValue array(Binding binding, ExecutionObservation step) {
-    ObservationResult variable = variable(binding, step, "array");
+    String role = binding.hint().twoPointers() == null ? "array" : "data";
+    ObservationResult variable = variable(binding, step, role);
     String status = status(variable);
     List<Object> values = new ArrayList<>();
     Integer length = null;
@@ -348,8 +352,8 @@ public class VisualTraceBuilder {
       truncated = false;
     }
     return new ArrayValue(
-        roleName(binding, step, "array"),
-        roleId(binding, step, "array"),
+        roleName(binding, step, role),
+        roleId(binding, step, role),
         status,
         values,
         length,
