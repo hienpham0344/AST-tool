@@ -2,6 +2,7 @@ package com.example.astchunker.algorithm;
 
 import com.example.astchunker.algorithm.sort.SortPatternRegistry;
 import com.example.astchunker.algorithm.greedy.ActivitySelectionDetector;
+import com.example.astchunker.algorithm.twopointers.TwoPointersDetector;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.github.javaparser.ast.CompilationUnit;
@@ -35,6 +36,7 @@ import org.springframework.stereotype.Component;
 public class AlgorithmPatternAnalyzer {
   private final SortPatternRegistry sortPatterns;
   private final ActivitySelectionDetector activitySelectionDetector;
+  private final TwoPointersDetector twoPointersDetector = new TwoPointersDetector();
 
   public AlgorithmPatternAnalyzer() {
     this(SortPatternRegistry.defaults(), new ActivitySelectionDetector());
@@ -54,6 +56,10 @@ public class AlgorithmPatternAnalyzer {
     List<AlgorithmHint> hints = new ArrayList<>();
     for (Node loop : unit.findAll(Node.class, AlgorithmPatternAnalyzer::isLoop)) {
       if (loop.getRange().isEmpty()) continue;
+      if (loop instanceof DoStmt) {
+        twoPointersDetector.detect(unit, loop).ifPresent(hints::add);
+        continue;
+      }
       Optional<AlgorithmHint> sort = sortPatterns.detect(loop);
       if (sort.isPresent()) {
         hints.add(sort.get());
@@ -67,8 +73,8 @@ public class AlgorithmPatternAnalyzer {
       if (loop instanceof ForEachStmt) continue;
       Optional<AlgorithmHint> hint = binarySearch(loop);
       if (hint.isEmpty()) hint = slidingWindow(loop);
-      if (hint.isEmpty()) hint = twoPointers(loop);
-      hint.flatMap(candidate -> bind(loop, candidate)).ifPresent(hints::add);
+      if (hint.isPresent()) hint.flatMap(candidate -> bind(loop, candidate)).ifPresent(hints::add);
+      else twoPointersDetector.detect(unit, loop).ifPresent(hints::add);
     }
     return List.copyOf(hints);
   }
@@ -147,32 +153,6 @@ public class AlgorithmPatternAnalyzer {
                     AstAnalyzer.nodeId(loop),
                     AstAnalyzer.nodeId(method),
                     ids));
-  }
-
-  private Optional<AlgorithmHint> twoPointers(Node loop) {
-    Optional<BinaryExpr> bounds = orderedBounds(loop);
-    if (bounds.isEmpty()) return Optional.empty();
-    String left = name(bounds.get().getLeft());
-    String right = name(bounds.get().getRight());
-    if (!moves(loop, left, true) || !moves(loop, right, false)) return Optional.empty();
-    for (ArrayAccessExpr access : owned(loop, ArrayAccessExpr.class)) {
-      String array = name(access.getName());
-      if (array != null
-          && isName(access.getIndex(), left)
-          && owned(loop, ArrayAccessExpr.class).stream()
-              .anyMatch(a -> isName(a.getName(), array) && isName(a.getIndex(), right))) {
-        return Optional.of(
-            hint(
-                loop,
-                "two-pointers",
-                0.8,
-                "array-pointers",
-                Map.of("array", array, "left", left, "right", right),
-                "Loop compares two indices into the same array",
-                "Left index advances and right index retreats"));
-      }
-    }
-    return Optional.empty();
   }
 
   private Optional<AlgorithmHint> slidingWindow(Node loop) {
@@ -375,7 +355,8 @@ public class AlgorithmPatternAnalyzer {
   }
 
   private static boolean isLoop(Node node) {
-    return node instanceof WhileStmt || node instanceof ForStmt || node instanceof ForEachStmt;
+    return node instanceof WhileStmt || node instanceof ForStmt || node instanceof ForEachStmt
+        || node instanceof DoStmt;
   }
 
   private static Node nearestLoop(Node node) {

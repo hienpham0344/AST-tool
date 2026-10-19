@@ -213,7 +213,7 @@ class AlgorithmPatternAnalyzerTest {
         class Sample {
           void first(int[] data, int a, int b) { while (a < b) { int x = data[a] + data[b]; a++; } }
           void second(int[] data, int a, int b) { while (a < b) { b--; } }
-          void third(int[] data, int a, int b) { while (a < b) { int x = data[a] + data[b]; a++; b--; } }
+          void third(int[] data) { int a = 0, b = data.length - 1; while (a < b) { int x = data[a] + data[b]; a++; b--; } }
         }
         """);
     assertThat(analyzer.analyze(unit)).hasSize(1).isEqualTo(analyzer.analyze(unit));

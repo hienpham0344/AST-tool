@@ -30,7 +30,31 @@ public record AlgorithmHint(
         HeapPattern heap,
     @com.fasterxml.jackson.annotation.JsonInclude(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        ActivitySelectionPattern activitySelection) {
+        ActivitySelectionPattern activitySelection,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        TwoPointersPattern twoPointers) {
+
+  public AlgorithmHint(
+      String type,
+      double confidence,
+      String visualPlan,
+      List<String> evidence,
+      Map<String, String> variables,
+      int startLine,
+      int endLine,
+      String patternAstNodeId,
+      String methodAstNodeId,
+      Map<String, String> variableDeclarationIds,
+      SortPattern sort,
+      QuickPattern quick,
+      MergePattern merge,
+      HeapPattern heap,
+      ActivitySelectionPattern activitySelection) {
+    this(type, confidence, visualPlan, evidence, variables, startLine, endLine,
+        patternAstNodeId, methodAstNodeId, variableDeclarationIds,
+        sort, quick, merge, heap, activitySelection, null);
+  }
 
   public AlgorithmHint(
       String type,
@@ -216,5 +240,8 @@ public record AlgorithmHint(
         > 1) throw new IllegalArgumentException("One hint cannot have two sort metadata families");
     if (activitySelection != null && (sort != null || quick != null || merge != null || heap != null))
       throw new IllegalArgumentException("One hint cannot mix greedy and sort metadata");
+    if (twoPointers != null && (sort != null || quick != null || merge != null || heap != null
+        || activitySelection != null))
+      throw new IllegalArgumentException("Two-pointer metadata cannot mix with another family");
   }
 }
