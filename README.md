@@ -71,6 +71,11 @@ For Activity Selection, upload `backend/examples/greedy/ActivitySelectionArraySa
 ordering proof from runtime confirmation; see
 [`docs/activity-selection-test-guide.md`](docs/activity-selection-test-guide.md).
 
+For Two Pointers, upload `backend/examples/twopointers/OpposingArraySample.java` or
+`backend/examples/twopointers/SameDirectionListSample.java`. The step view shows source evidence
+and observed pointer movement for `int[]` and supported `List<Integer>` values; see
+[`docs/two-pointers-test-guide.md`](docs/two-pointers-test-guide.md).
+
 ## Run the CLI pipeline
 
 `Main` accepts the path to a Java source file. Maven can run it without adding an extra build

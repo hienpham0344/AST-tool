@@ -319,6 +319,43 @@ class MultipartApiIntegrationTest {
     assertThat(legacy).doesNotContain("activitySelection", "objectId", "arrayObjectId");
   }
 
+  @Test
+  void exposesOpposingArrayTwoPointersWithoutChangingLegacyDebug() throws Exception {
+    MockMultipartFile file = example("OpposingArraySample.java");
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("two-pointers"))
+        .andExpect(jsonPath("$.algorithmHints[0].twoPointers.movement").value("OPPOSING"))
+        .andExpect(jsonPath("$.algorithmHints[0].twoPointers.representation").value("INT_ARRAY"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].twoPointersFrame.movement")
+            .isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].twoPointersFrame.sourceEvidence")
+            .isNotEmpty());
+    String legacy = mockMvc.perform(multipart("/api/debug").file(file))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    assertThat(legacy.trim()).startsWith("[");
+    assertThat(legacy).doesNotContain("twoPointers", "twoPointersFrame", "objectId");
+  }
+
+  @Test
+  void exposesSameDirectionListTwoPointersWithBoundedProjection() throws Exception {
+    MockMultipartFile file = example("SameDirectionListSample.java");
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("two-pointers"))
+        .andExpect(jsonPath("$.algorithmHints[0].twoPointers.movement").value("SAME_DIRECTION"))
+        .andExpect(jsonPath("$.algorithmHints[0].twoPointers.representation")
+            .value("INTEGER_LIST"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].twoPointersFrame.movement")
+            .isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].array.status").isNotEmpty());
+  }
+
+  private MockMultipartFile example(String name) throws Exception {
+    return new MockMultipartFile("file", name, "text/x-java-source",
+        Files.readAllBytes(Path.of("examples/twopointers", name)));
+  }
+
   private MockMultipartFile javaFile() {
     return new MockMultipartFile(
         "file",

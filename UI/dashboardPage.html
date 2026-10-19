@@ -705,7 +705,7 @@
         const hasSortHint = response.algorithmHints?.some(hint =>
             ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort'].includes(hint.type));
         const hasPlaybackHint = response.algorithmHints?.some(hint =>
-            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort', 'activity-selection'].includes(hint.type));
+            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort', 'activity-selection', 'two-pointers'].includes(hint.type));
         const sourceHasIndexedLoop = /\b(?:for|while)\b[\s\S]{0,1200}\[[^\]]+\]/.test(lastSourceCode || '');
         const sortNotice = !hasSortHint && sourceHasIndexedLoop
             ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion, Quick, Merge và Heap Sort đã mô tả trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
@@ -755,10 +755,11 @@
         const progressLabel = document.getElementById('executionProgressLabel');
         if (progress) progress.value = String(currentExecutionIndex);
         if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
-        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame || state.activitySelectionFrame);
+        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame || state.activitySelectionFrame || state.twoPointersFrame);
         const sortEl = document.getElementById('sortVisualization');
         if (sortEl) sortEl.innerHTML = sortState
-            ? sortState.activitySelectionFrame ? renderActivitySelectionVisualization(sortState, step)
+            ? sortState.twoPointersFrame ? renderTwoPointersVisualization(sortState)
+                : sortState.activitySelectionFrame ? renderActivitySelectionVisualization(sortState, step)
                 : sortState.heapFrame ? renderHeapVisualization(sortState)
                 : sortState.mergeFrame ? renderMergeVisualization(sortState)
                 : sortState.quickFrame ? renderQuickVisualization(sortState) : renderSortVisualization(sortState)
@@ -769,6 +770,54 @@
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
         if (nextBtn?.disabled) stopExecutionPlayback();
         renderSourceViewer(step);
+    }
+
+    function renderTwoPointersVisualization(state) {
+        const frame = state.twoPointersFrame || {};
+        const opposing = frame.movement === 'OPPOSING';
+        const firstRole = opposing ? 'left' : 'scan';
+        const secondRole = opposing ? 'right' : 'slow';
+        const first = state.pointers?.[firstRole];
+        const second = state.pointers?.[secondRole];
+        const values = Array.isArray(state.array?.values) ? state.array.values : [];
+        const captured = ['AVAILABLE', 'TRUNCATED'].includes(state.array?.status);
+        const cells = captured ? values.map((value, index) => {
+            const markers = [];
+            if (index === frame.firstIndex) markers.push(firstRole);
+            if (index === frame.secondIndex) markers.push(secondRole);
+            const inside = opposing
+                ? index >= frame.firstIndex && index <= frame.secondIndex
+                : index <= frame.firstIndex;
+            const classes = ['sort-cell'];
+            if (markers.length) classes.push('compare');
+            else if (inside) classes.push('sorted');
+            return `<span class="${classes.join(' ')}" role="listitem">
+                <span class="sort-cell-index">${index}</span>
+                <span class="sort-markers">${markers.map(escapeHtml).join(', ')}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></span>`;
+        }).join('') : '';
+        const effect = {
+            PENDING: 'đang chờ ảnh chụp tiếp theo',
+            OBSERVED: 'đã quan sát thay đổi',
+            VIOLATED: 'di chuyển trái với mẫu',
+            TRUNCATED: 'dữ liệu bị cắt ngắn',
+            UNKNOWN: 'chưa đủ dữ liệu'
+        }[frame.effectStatus] || 'chưa đủ dữ liệu';
+        const evidence = Array.isArray(frame.sourceEvidence) ? frame.sourceEvidence : [];
+        const indexLabel = pointer => pointer?.index ?? '?';
+        const valueLabel = value => value === null || value === undefined ? '?' : primitiveLabel(value);
+        const range = state.range;
+        const rangeLabel = ['VALID', 'EMPTY'].includes(range?.status)
+            ? `${range.start}..${range.endExclusive} (đầu cuối không gồm)` : 'chưa xác định';
+        return `<section class="sort-visualization" aria-label="Two Pointers visualization">
+            <div class="sort-title"><strong>Two Pointers · ${opposing ? 'ngược chiều' : 'cùng chiều'}</strong><span class="sort-phase">${escapeHtml(effect)}</span></div>
+            ${captured ? `<div class="sort-cells" role="list" aria-label="Input values">${cells || '<span class="sort-detail">Dữ liệu rỗng</span>'}</div>`
+                : '<div class="sort-detail">Chưa đọc được dữ liệu đầu vào.</div>'}
+            <div class="sort-detail">${escapeHtml(first?.name || firstRole)}[${escapeHtml(indexLabel(first))}] = ${escapeHtml(valueLabel(frame.firstValue))} · ${escapeHtml(second?.name || secondRole)}[${escapeHtml(indexLabel(second))}] = ${escapeHtml(valueLabel(frame.secondValue))}</div>
+            <div class="sort-detail">${opposing ? 'Khoảng giữa hai con trỏ' : 'Vùng đã quét'}: ${escapeHtml(rangeLabel)}</div>
+            ${evidence.length ? `<div class="sort-detail">Bằng chứng mã nguồn: ${evidence.map(escapeHtml).join('; ')}</div>` : ''}
+            <div class="sort-detail">Ảnh chụp trước khi chạy dòng code đang tô sáng; trạng thái chỉ phản ánh những gì đã quan sát.</div>
+        </section>`;
     }
 
     function renderActivitySelectionVisualization(state, step) {
