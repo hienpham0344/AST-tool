@@ -59,6 +59,17 @@ public class VariableMapper {
       List<AstVariable> astVariables,
       int eventLine,
       IntervalValueProjection intervalProjection) throws AbsentInformationException {
+    return map(frame, observationPoint, astVariables, eventLine, intervalProjection,
+        new IntegerListProjection(Set.of()));
+  }
+
+  public List<ObservationResult> map(
+      StackFrame frame,
+      ObservationPoint observationPoint,
+      List<AstVariable> astVariables,
+      int eventLine,
+      IntervalValueProjection intervalProjection,
+      IntegerListProjection integerListProjection) throws AbsentInformationException {
     List<LocalVariable> visibleVariables = frame.visibleVariables();
     List<ObservationResult> results = new ArrayList<>();
     for (LocalVariable variable : visibleVariables) {
@@ -83,6 +94,8 @@ public class VariableMapper {
           if (fields != null)
             formattedValue = projectIntervalList(objectReference, fields,
                 astVariable.map(AstVariable::declaredType).orElse(""));
+          else if (astVariable.map(ast -> integerListProjection.includes(ast.astNodeId()))
+              .orElse(false)) formattedValue = projectIntegerList(objectReference);
         }
       } catch (RuntimeException ex) {
         formattedValue = new FormattedValue("[unavailable]", "unavailable", null);
@@ -976,6 +989,63 @@ public class VariableMapper {
     visual.put("truncated", false);
     visual.put("status", status);
     return new FormattedValue("[unavailable]", "interval-list", visual);
+  }
+
+  private FormattedValue projectIntegerList(ObjectReference list) {
+    String implementation = list.referenceType().name();
+    if (!isArrayList(implementation) && !isLinkedList(implementation))
+      return integerListUnavailable("UNKNOWN", null);
+    int size = intField(list, "size", -1);
+    if (size < 0) return integerListUnavailable("UNKNOWN", null);
+    int limit = Math.min(size, MAX_ARRAY_ELEMENTS);
+    List<Value> elements = new ArrayList<>();
+    if (isArrayList(implementation)) {
+      Value storage = fieldValue(list, "elementData");
+      if (!(storage instanceof ArrayReference array) || array.length() < limit)
+        return integerListUnavailable("UNKNOWN", size);
+      if (limit > 0) elements.addAll(array.getValues(0, limit));
+    } else {
+      Value first = fieldValue(list, "first");
+      ObjectReference node = first instanceof ObjectReference reference ? reference : null;
+      Set<Long> seen = new HashSet<>();
+      while (node != null && elements.size() < limit && seen.add(node.uniqueID())) {
+        elements.add(fieldValue(node, "item"));
+        Value next = fieldValue(node, "next");
+        node = next instanceof ObjectReference reference ? reference : null;
+      }
+      if (elements.size() < limit) return integerListUnavailable("UNKNOWN", size);
+    }
+    List<Object> values = new ArrayList<>();
+    boolean unknown = false;
+    for (Value element : elements) {
+      if (element == null) {
+        values.add(null);
+        unknown = true;
+      } else if (element instanceof ObjectReference integer
+          && integer.referenceType().name().equals("java.lang.Integer")
+          && fieldValue(integer, "value") instanceof IntegerValue number) {
+        values.add(number.value());
+      } else {
+        values.add(null);
+        unknown = true;
+      }
+    }
+    boolean truncated = limit < size;
+    Map<String, Object> visual = new LinkedHashMap<>();
+    visual.put("values", values);
+    visual.put("length", size);
+    visual.put("truncated", truncated);
+    visual.put("status", truncated ? "TRUNCATED" : unknown ? "UNKNOWN" : "AVAILABLE");
+    return new FormattedValue(values.toString(), "integer-list", visual);
+  }
+
+  private FormattedValue integerListUnavailable(String status, Integer length) {
+    Map<String, Object> visual = new LinkedHashMap<>();
+    visual.put("values", List.of());
+    visual.put("length", length);
+    visual.put("truncated", false);
+    visual.put("status", status);
+    return new FormattedValue("[unavailable]", "integer-list", visual);
   }
 
   private String genericElementType(String declaredType) {

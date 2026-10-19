@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.algorithm.AlgorithmPatternAnalyzer;
 import com.example.astchunker.mapping.IntervalValueProjection;
+import com.example.astchunker.mapping.IntegerListProjection;
 import com.example.astchunker.mapping.VariableMapper;
 import com.example.astchunker.model.AstVariable;
 import java.time.Duration;
@@ -14,6 +15,64 @@ class JdiSessionIntegrationTest {
 
   private final AstAnalyzer analyzer = new AstAnalyzer();
   private final TargetCompiler compiler = new TargetCompiler();
+
+  @Test
+  void projectsOnlyHintedIntegerListsWithoutConflatingInputObjects() {
+    String source = """
+        import java.util.*;
+        public class PointerListRuntimeSample {
+          static class CustomList extends ArrayList<Integer> {
+            @Override public Integer get(int index) { return super.get(index); }
+          }
+          static void inspect(List<Integer> data) {
+            int left = 0, right = data.size() - 1;
+            while (left < right) {
+              int sum = data.get(left) + data.get(right);
+              left++; right--;
+              if (left == 1) break;
+            }
+          }
+          public static void main(String[] args) {
+            inspect(new ArrayList<>(Arrays.asList(1, null, 3)));
+            inspect(new LinkedList<>(Arrays.asList(1, 2, 3)));
+            CustomList custom = new CustomList(); custom.add(4); custom.add(5);
+            inspect(custom);
+            inspect(new ArrayList<>(Collections.nCopies(120, 7)));
+            inspect(new ArrayList<>());
+            inspect(new LinkedList<>(Arrays.asList(-1, -1)));
+          }
+        }
+        """;
+    AstAnalyzer.Analysis analysis = analyzer.analyze(source);
+    var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+    assertThat(hints).singleElement().satisfies(h ->
+        assertThat(h.type()).isEqualTo("two-pointers"));
+    try (TargetCompiler.CompiledTarget target = compiler.compile(source, analysis)) {
+      var run = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(20))
+          .observe(target, analysis, new IntervalValueProjection(java.util.Map.of()),
+              IntegerListProjection.fromHints(hints));
+      var snapshots = run.results().stream()
+          .filter(result -> result.variableName().equals("data")
+              && result.visualType().equals("integer-list"))
+          .toList();
+      assertThat(snapshots).isNotEmpty();
+      assertThat(snapshots.stream().map(result -> result.objectId()).distinct()).hasSize(6);
+      assertThat(snapshots).anySatisfy(result -> {
+        assertThat(result.visualValue().toString()).contains("values=[1, null, 3]");
+        assertThat(result.visualValue().toString()).contains("status=UNKNOWN");
+      });
+      assertThat(snapshots).anySatisfy(result ->
+          assertThat(result.visualValue().toString()).contains("values=[1, 2, 3]"));
+      assertThat(snapshots).anySatisfy(result ->
+          assertThat(result.visualValue().toString()).contains("status=TRUNCATED", "length=120"));
+      assertThat(snapshots).anySatisfy(result ->
+          assertThat(result.visualValue().toString()).contains("status=UNKNOWN", "length=null"));
+      assertThat(snapshots).anySatisfy(result ->
+          assertThat(result.visualValue().toString()).contains("values=[]", "length=0"));
+      assertThat(snapshots).anySatisfy(result ->
+          assertThat(result.visualValue().toString()).contains("values=[-1, -1]"));
+    }
+  }
 
   @Test
   void projectsOnlyProvenIntervalFieldsAndKeepsEqualListsDistinct() {

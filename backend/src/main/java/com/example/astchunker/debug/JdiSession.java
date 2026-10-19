@@ -3,6 +3,7 @@ package com.example.astchunker.debug;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.mapping.VariableMapper;
 import com.example.astchunker.mapping.IntervalValueProjection;
+import com.example.astchunker.mapping.IntegerListProjection;
 import com.example.astchunker.model.ExecutionContext;
 import com.example.astchunker.model.ExecutionObservation;
 import com.example.astchunker.model.ObservationPoint;
@@ -88,6 +89,14 @@ public class JdiSession {
       TargetCompiler.CompiledTarget target,
       AstAnalyzer.Analysis analysis,
       IntervalValueProjection intervalProjection) {
+    return observe(target, analysis, intervalProjection, new IntegerListProjection(Set.of()));
+  }
+
+  public DebugRun observe(
+      TargetCompiler.CompiledTarget target,
+      AstAnalyzer.Analysis analysis,
+      IntervalValueProjection intervalProjection,
+      IntegerListProjection integerListProjection) {
     VirtualMachine virtualMachine = null;
     try {
       virtualMachine = launch(target);
@@ -116,7 +125,7 @@ public class JdiSession {
       // active guarantees that a lazily-loaded target class cannot miss breakpoint installation.
       virtualMachine.resume();
       runEventLoop(virtualMachine, requestManager, analysis, installedTypes, executions, warnings,
-          invocations, intervalProjection);
+          invocations, intervalProjection, integerListProjection);
       return new DebugRun(List.copyOf(executions), List.copyOf(warnings));
     } catch (VMDisconnectedException ex) {
       return new DebugRun(
@@ -168,7 +177,8 @@ public class JdiSession {
       List<ExecutionObservation> executions,
       List<String> warnings,
       InvocationTracker invocations,
-      IntervalValueProjection intervalProjection) {
+      IntervalValueProjection intervalProjection,
+      IntegerListProjection integerListProjection) {
     Instant deadline = Instant.now().plus(timeout);
     boolean targetFinished = false;
 
@@ -199,7 +209,7 @@ public class JdiSession {
             invocations.exit(exitEvent);
           } else if (event instanceof BreakpointEvent breakpointEvent) {
             captureVariables(breakpointEvent, analysis, executions, warnings, invocations,
-                intervalProjection);
+                intervalProjection, integerListProjection);
           } else if (event instanceof VMDeathEvent || event instanceof VMDisconnectEvent) {
             targetFinished = true;
           }
@@ -252,7 +262,8 @@ public class JdiSession {
       List<ExecutionObservation> executions,
       List<String> warnings,
       InvocationTracker invocations,
-      IntervalValueProjection intervalProjection) {
+      IntervalValueProjection intervalProjection,
+      IntegerListProjection integerListProjection) {
     Object property = breakpointEvent.request().getProperty(OBSERVATION_POINT_PROPERTY);
     if (!(property instanceof ObservationPoint observationPoint)) {
       warnings.add("A breakpoint event did not include its source observation metadata.");
@@ -268,7 +279,7 @@ public class JdiSession {
       int lineNumber = location.lineNumber();
       List<ObservationResult> variables =
           variableMapper.map(frame, observationPoint, analysis.variables(), lineNumber,
-              intervalProjection);
+              intervalProjection, integerListProjection);
       ExecutionContext context =
           new ExecutionContext(
               eventThread.uniqueID(),
