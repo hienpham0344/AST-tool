@@ -298,6 +298,27 @@ class MultipartApiIntegrationTest {
         .andExpect(jsonPath("$.steps[*].visualStates[*].heapFrame.phase").isNotEmpty());
   }
 
+  @Test
+  void addsActivitySelectionMetadataAndFramesToStepsOnly() throws Exception {
+    String source = Files.readString(Path.of("examples/greedy/ActivitySelectionArraySample.java"));
+    MockMultipartFile file = new MockMultipartFile(
+        "file", "ActivitySelectionArraySample.java", "text/x-java-source",
+        source.getBytes(StandardCharsets.UTF_8));
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("activity-selection"))
+        .andExpect(jsonPath("$.algorithmHints[0].activitySelection.schemaVersion").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].activitySelection.orderingEvidence")
+            .value("SOURCE_PROVEN"))
+        .andExpect(jsonPath("$.steps[0].sequence").isNumber())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].activitySelectionFrame.decision")
+            .isNotEmpty());
+    String legacy = mockMvc.perform(multipart("/api/debug").file(file))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    assertThat(legacy.trim()).startsWith("[");
+    assertThat(legacy).doesNotContain("activitySelection", "objectId", "arrayObjectId");
+  }
+
   private MockMultipartFile javaFile() {
     return new MockMultipartFile(
         "file",

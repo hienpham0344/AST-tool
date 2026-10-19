@@ -27,7 +27,29 @@ public record AlgorithmHint(
         MergePattern merge,
     @com.fasterxml.jackson.annotation.JsonInclude(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        HeapPattern heap) {
+        HeapPattern heap,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        ActivitySelectionPattern activitySelection) {
+
+  public AlgorithmHint(
+      String type,
+      double confidence,
+      String visualPlan,
+      List<String> evidence,
+      Map<String, String> variables,
+      int startLine,
+      int endLine,
+      String patternAstNodeId,
+      String methodAstNodeId,
+      Map<String, String> variableDeclarationIds,
+      SortPattern sort,
+      QuickPattern quick,
+      MergePattern merge,
+      HeapPattern heap) {
+    this(type, confidence, visualPlan, evidence, variables, startLine, endLine,
+        patternAstNodeId, methodAstNodeId, variableDeclarationIds, sort, quick, merge, heap, null);
+  }
 
   public AlgorithmHint(
       String type,
@@ -57,6 +79,7 @@ public record AlgorithmHint(
         sort,
         quick,
         merge,
+        null,
         null);
   }
 
@@ -87,6 +110,7 @@ public record AlgorithmHint(
         sort,
         quick,
         null,
+        null,
         null);
   }
 
@@ -116,6 +140,7 @@ public record AlgorithmHint(
         sort,
         null,
         null,
+        null,
         null);
   }
 
@@ -141,6 +166,7 @@ public record AlgorithmHint(
         patternAstNodeId,
         methodAstNodeId,
         variableDeclarationIds,
+        null,
         null,
         null,
         null,
@@ -188,5 +214,7 @@ public record AlgorithmHint(
             + (merge != null ? 1 : 0)
             + (heap != null ? 1 : 0)
         > 1) throw new IllegalArgumentException("One hint cannot have two sort metadata families");
+    if (activitySelection != null && (sort != null || quick != null || merge != null || heap != null))
+      throw new IllegalArgumentException("One hint cannot mix greedy and sort metadata");
   }
 }

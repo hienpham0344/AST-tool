@@ -66,6 +66,11 @@ the runtime-variable view. Each sample sorts six arrays in one run; see
 [`docs/sort-visualization-test-guide.md`](docs/sort-visualization-test-guide.md) for the step
 payload and supported pattern limits.
 
+For Activity Selection, upload `backend/examples/greedy/ActivitySelectionArraySample.java` or
+`backend/examples/greedy/ActivitySelectionListSample.java`. The step view separates the source
+ordering proof from runtime confirmation; see
+[`docs/activity-selection-test-guide.md`](docs/activity-selection-test-guide.md).
+
 ## Run the CLI pipeline
 
 `Main` accepts the path to a Java source file. Maven can run it without adding an extra build

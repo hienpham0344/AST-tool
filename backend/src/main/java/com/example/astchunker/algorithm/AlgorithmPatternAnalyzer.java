@@ -1,6 +1,7 @@
 package com.example.astchunker.algorithm;
 
 import com.example.astchunker.algorithm.sort.SortPatternRegistry;
+import com.example.astchunker.algorithm.greedy.ActivitySelectionDetector;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.github.javaparser.ast.CompilationUnit;
@@ -33,13 +34,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class AlgorithmPatternAnalyzer {
   private final SortPatternRegistry sortPatterns;
+  private final ActivitySelectionDetector activitySelectionDetector;
 
   public AlgorithmPatternAnalyzer() {
-    this(SortPatternRegistry.defaults());
+    this(SortPatternRegistry.defaults(), new ActivitySelectionDetector());
   }
 
   public AlgorithmPatternAnalyzer(SortPatternRegistry sortPatterns) {
+    this(sortPatterns, new ActivitySelectionDetector());
+  }
+
+  public AlgorithmPatternAnalyzer(
+      SortPatternRegistry sortPatterns, ActivitySelectionDetector activitySelectionDetector) {
     this.sortPatterns = sortPatterns;
+    this.activitySelectionDetector = activitySelectionDetector;
   }
 
   public List<AlgorithmHint> analyze(CompilationUnit unit) {
@@ -51,6 +59,12 @@ public class AlgorithmPatternAnalyzer {
         hints.add(sort.get());
         continue;
       }
+      Optional<AlgorithmHint> activitySelection = activitySelectionDetector.detect(unit, loop);
+      if (activitySelection.isPresent()) {
+        hints.add(activitySelection.get());
+        continue;
+      }
+      if (loop instanceof ForEachStmt) continue;
       Optional<AlgorithmHint> hint = binarySearch(loop);
       if (hint.isEmpty()) hint = slidingWindow(loop);
       if (hint.isEmpty()) hint = twoPointers(loop);
@@ -361,7 +375,7 @@ public class AlgorithmPatternAnalyzer {
   }
 
   private static boolean isLoop(Node node) {
-    return node instanceof WhileStmt || node instanceof ForStmt;
+    return node instanceof WhileStmt || node instanceof ForStmt || node instanceof ForEachStmt;
   }
 
   private static Node nearestLoop(Node node) {

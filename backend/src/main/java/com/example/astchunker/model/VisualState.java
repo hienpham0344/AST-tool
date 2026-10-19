@@ -29,7 +29,28 @@ public record VisualState(
         MergeFrame mergeFrame,
     @com.fasterxml.jackson.annotation.JsonInclude(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        HeapFrame heapFrame) {
+        HeapFrame heapFrame,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        ActivitySelectionFrame activitySelectionFrame) {
+  public VisualState(
+      String id,
+      int hintIndex,
+      String algorithm,
+      String visualPlan,
+      String status,
+      ArrayValue array,
+      Map<String, Pointer> pointers,
+      Map<String, Scalar> scalars,
+      IndexRange range,
+      List<String> notes,
+      SortFrame sortFrame,
+      QuickFrame quickFrame,
+      MergeFrame mergeFrame,
+      HeapFrame heapFrame) {
+    this(id, hintIndex, algorithm, visualPlan, status, array, pointers, scalars, range, notes,
+        sortFrame, quickFrame, mergeFrame, heapFrame, null);
+  }
   public VisualState(
       String id,
       int hintIndex,

@@ -5,6 +5,7 @@ import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.debug.JdiSession;
 import com.example.astchunker.debug.TargetCompiler;
 import com.example.astchunker.dto.DebugStepsResponse;
+import com.example.astchunker.mapping.IntervalValueProjection;
 import com.example.astchunker.model.ObservationResult;
 import com.example.astchunker.service.UploadedJavaSourceReader;
 import com.example.astchunker.visualization.VisualTraceBuilder;
@@ -59,9 +60,10 @@ public class DebugController {
   public ResponseEntity<DebugStepsResponse> debugSteps(@RequestParam("file") MultipartFile file) {
     String sourceCode = sourceReader.read(file);
     AstAnalyzer.Analysis analysis = astAnalyzer.analyze(sourceCode);
+    var hints = algorithmAnalyzer.analyze(analysis.compilationUnit());
     try (TargetCompiler.CompiledTarget target = targetCompiler.compile(sourceCode, analysis)) {
-      JdiSession.DebugRun run = jdiSession.observe(target, analysis);
-      var hints = algorithmAnalyzer.analyze(analysis.compilationUnit());
+      JdiSession.DebugRun run = jdiSession.observe(
+          target, analysis, IntervalValueProjection.fromHints(hints));
       return ResponseEntity.ok(
           new DebugStepsResponse(
               visualTraceBuilder.build(analysis, hints, run.executions()), run.warnings(), hints));

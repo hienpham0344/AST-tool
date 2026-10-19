@@ -43,6 +43,8 @@ public class VisualTraceBuilder {
     QuickTraceBuilder quickTraceBuilder = new QuickTraceBuilder(hints, nodes);
     MergeTraceBuilder mergeTraceBuilder = new MergeTraceBuilder(hints, nodes);
     HeapTraceBuilder heapTraceBuilder = new HeapTraceBuilder(hints, nodes);
+    ActivitySelectionTraceBuilder activitySelectionTraceBuilder =
+        new ActivitySelectionTraceBuilder(hints, nodes);
     List<ExecutionObservation> result = new ArrayList<>();
     ExecutionObservation previous = null;
     for (ExecutionObservation step : steps) {
@@ -56,6 +58,7 @@ public class VisualTraceBuilder {
       states.addAll(quickTraceBuilder.states(step, point, analysis.mainClassName()));
       states.addAll(mergeTraceBuilder.states(step, point, analysis.mainClassName()));
       states.addAll(heapTraceBuilder.states(step, point, analysis.mainClassName()));
+      states.addAll(activitySelectionTraceBuilder.states(step, point, analysis.mainClassName()));
       List<VisualEvent> events = events(previous, step, states);
       ExecutionObservation enriched = step.withVisualization(states, events);
       result.add(enriched);

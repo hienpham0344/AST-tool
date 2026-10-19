@@ -9,6 +9,7 @@ import com.sun.jdi.CharValue;
 import com.sun.jdi.ClassType;
 import com.sun.jdi.Field;
 import com.sun.jdi.LocalVariable;
+import com.sun.jdi.IntegerValue;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.PrimitiveValue;
 import com.sun.jdi.ReferenceType;
@@ -41,12 +42,23 @@ public class VariableMapper {
   public List<ObservationResult> map(
       StackFrame frame, ObservationPoint observationPoint, List<AstVariable> astVariables)
     throws AbsentInformationException {
-    return map(frame, observationPoint, astVariables, observationPoint.lineNumber());
+    return map(frame, observationPoint, astVariables, observationPoint.lineNumber(),
+        new IntervalValueProjection(Map.of()));
   }
 
   public List<ObservationResult> map(
       StackFrame frame, ObservationPoint observationPoint, List<AstVariable> astVariables,
       int eventLine) throws AbsentInformationException {
+    return map(frame, observationPoint, astVariables, eventLine,
+        new IntervalValueProjection(Map.of()));
+  }
+
+  public List<ObservationResult> map(
+      StackFrame frame,
+      ObservationPoint observationPoint,
+      List<AstVariable> astVariables,
+      int eventLine,
+      IntervalValueProjection intervalProjection) throws AbsentInformationException {
     List<LocalVariable> visibleVariables = frame.visibleVariables();
     List<ObservationResult> results = new ArrayList<>();
     for (LocalVariable variable : visibleVariables) {
@@ -57,11 +69,21 @@ public class VariableMapper {
               variableName, jdiTypeName, eventLine, astVariables);
       FormattedValue formattedValue;
       Long arrayObjectId = null;
+      Long objectId = null;
       try {
         Value value = frame.getValue(variable);
         formattedValue = format(value);
-        if (value instanceof ArrayReference arrayReference)
+        if (value instanceof ArrayReference arrayReference) {
           arrayObjectId = arrayReference.uniqueID();
+          objectId = arrayObjectId;
+        } else if (value instanceof ObjectReference objectReference) {
+          objectId = objectReference.uniqueID();
+          IntervalValueProjection.Fields fields = astVariable
+              .map(ast -> intervalProjection.fieldsFor(ast.astNodeId())).orElse(null);
+          if (fields != null)
+            formattedValue = projectIntervalList(objectReference, fields,
+                astVariable.map(AstVariable::declaredType).orElse(""));
+        }
       } catch (RuntimeException ex) {
         formattedValue = new FormattedValue("[unavailable]", "unavailable", null);
       }
@@ -74,7 +96,8 @@ public class VariableMapper {
               formattedValue.visualType(),
               formattedValue.visualValue(),
               eventLine,
-              arrayObjectId));
+              arrayObjectId,
+              objectId));
     }
     return List.copyOf(results);
   }
@@ -879,6 +902,92 @@ public class VariableMapper {
       }
     }
     return fallback;
+  }
+
+  private FormattedValue projectIntervalList(
+      ObjectReference list, IntervalValueProjection.Fields fields, String declaredType) {
+    String implementation = list.referenceType().name();
+    if (!isArrayList(implementation) && !isLinkedList(implementation))
+      return intervalListUnavailable("UNKNOWN", -1);
+    int size = intField(list, "size", -1);
+    if (size < 0) return intervalListUnavailable("UNKNOWN", -1);
+    int limit = Math.min(size, MAX_ARRAY_ELEMENTS);
+    List<Value> elements = new ArrayList<>();
+    if (isArrayList(implementation)) {
+      Value storage = fieldValue(list, "elementData");
+      if (!(storage instanceof ArrayReference array) || array.length() < limit)
+        return intervalListUnavailable("UNKNOWN", size);
+      if (limit > 0) elements.addAll(array.getValues(0, limit));
+    } else {
+      Value first = fieldValue(list, "first");
+      ObjectReference node = first instanceof ObjectReference reference ? reference : null;
+      Set<Long> seen = new HashSet<>();
+      while (node != null && elements.size() < limit && seen.add(node.uniqueID())) {
+        elements.add(fieldValue(node, "item"));
+        Value next = fieldValue(node, "next");
+        node = next instanceof ObjectReference reference ? reference : null;
+      }
+      if (elements.size() < limit) return intervalListUnavailable("UNKNOWN", size);
+    }
+
+    String expectedType = genericElementType(declaredType);
+    List<Map<String, Object>> projected = new ArrayList<>();
+    boolean unknown = expectedType == null;
+    for (int index = 0; index < elements.size(); index++) {
+      Map<String, Object> pair = new LinkedHashMap<>();
+      pair.put("index", index);
+      Value element = elements.get(index);
+      if (!(element instanceof ObjectReference interval)
+          || expectedType == null
+          || !simpleTypeName(interval.referenceType().name()).equals(expectedType)
+          || !interval.referenceType().name().equals(fields.runtimeType())) {
+        pair.put("status", "UNKNOWN");
+        unknown = true;
+      } else {
+        Field startField = findField(interval, fields.start());
+        Field endField = findField(interval, fields.end());
+        Value start = startField == null ? null : interval.getValue(startField);
+        Value end = endField == null ? null : interval.getValue(endField);
+        if (start instanceof IntegerValue startInt && end instanceof IntegerValue endInt) {
+          pair.put("start", startInt.value());
+          pair.put("end", endInt.value());
+          pair.put("status", "AVAILABLE");
+          pair.put("elementObjectId", interval.uniqueID());
+        } else {
+          pair.put("status", "UNKNOWN");
+          unknown = true;
+        }
+      }
+      projected.add(pair);
+    }
+    boolean truncated = limit < size;
+    Map<String, Object> visual = new LinkedHashMap<>();
+    visual.put("values", projected);
+    visual.put("length", size);
+    visual.put("truncated", truncated);
+    visual.put("status", truncated ? "TRUNCATED" : unknown ? "UNKNOWN" : "AVAILABLE");
+    return new FormattedValue(projected.toString(), "interval-list", visual);
+  }
+
+  private FormattedValue intervalListUnavailable(String status, int size) {
+    Map<String, Object> visual = new LinkedHashMap<>();
+    visual.put("values", List.of());
+    visual.put("length", size < 0 ? null : size);
+    visual.put("truncated", false);
+    visual.put("status", status);
+    return new FormattedValue("[unavailable]", "interval-list", visual);
+  }
+
+  private String genericElementType(String declaredType) {
+    int open = declaredType.indexOf('<');
+    int close = declaredType.lastIndexOf('>');
+    return open < 0 || close <= open ? null
+        : simpleTypeName(declaredType.substring(open + 1, close).trim());
+  }
+
+  private String simpleTypeName(String name) {
+    int separator = Math.max(name.lastIndexOf('.'), name.lastIndexOf('$'));
+    return name.substring(separator + 1);
   }
 
   private Value fieldValue(ObjectReference objectReference, String fieldName) {

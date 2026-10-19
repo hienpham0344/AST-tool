@@ -3,6 +3,8 @@ package com.example.astchunker.debug;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.example.astchunker.ast.AstAnalyzer;
+import com.example.astchunker.algorithm.AlgorithmPatternAnalyzer;
+import com.example.astchunker.mapping.IntervalValueProjection;
 import com.example.astchunker.mapping.VariableMapper;
 import com.example.astchunker.model.AstVariable;
 import java.time.Duration;
@@ -12,6 +14,51 @@ class JdiSessionIntegrationTest {
 
   private final AstAnalyzer analyzer = new AstAnalyzer();
   private final TargetCompiler compiler = new TargetCompiler();
+
+  @Test
+  void projectsOnlyProvenIntervalFieldsAndKeepsEqualListsDistinct() {
+    String source = """
+        import java.util.ArrayList;
+        import java.util.LinkedList;
+        import java.util.List;
+        public class IntervalRuntimeSample {
+          record Slot(int from, int to) {}
+          static int select(List<Slot> values) {
+            int last = Integer.MIN_VALUE, count = 0;
+            for (Slot item : values) {
+              if (item.from() >= last) { count++; last = item.to(); }
+            }
+            return count;
+          }
+          public static void main(String[] args) {
+            List<Slot> first = new ArrayList<>();
+            first.add(new Slot(1, 3));
+            first.add(new Slot(3, 5));
+            List<Slot> second = new LinkedList<>(first);
+            select(first);
+            select(second);
+          }
+        }
+        """;
+    AstAnalyzer.Analysis analysis = analyzer.analyze(source);
+    var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+    assertThat(hints).singleElement().satisfies(h ->
+        assertThat(h.type()).isEqualTo("activity-selection"));
+    try (TargetCompiler.CompiledTarget target = compiler.compile(source, analysis)) {
+      var run = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
+          .observe(target, analysis, IntervalValueProjection.fromHints(hints));
+      var snapshots = run.results().stream()
+          .filter(result -> result.variableName().equals("values")
+              && result.visualType().equals("interval-list"))
+          .toList();
+      assertThat(snapshots).isNotEmpty();
+      assertThat(snapshots).anySatisfy(result -> {
+        assertThat(result.objectId()).isNotNull();
+        assertThat(result.visualValue().toString()).contains("start=1", "end=3", "start=3", "end=5");
+      });
+      assertThat(snapshots.stream().map(result -> result.objectId()).distinct()).hasSize(2);
+    }
+  }
 
   @Test
   void capturesVisibleLocalsFromTheBreakpointEventThread() {

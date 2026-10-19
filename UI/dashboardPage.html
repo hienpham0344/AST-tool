@@ -704,6 +704,8 @@
         currentExecutionIndex = 0;
         const hasSortHint = response.algorithmHints?.some(hint =>
             ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort'].includes(hint.type));
+        const hasPlaybackHint = response.algorithmHints?.some(hint =>
+            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort', 'activity-selection'].includes(hint.type));
         const sourceHasIndexedLoop = /\b(?:for|while)\b[\s\S]{0,1200}\[[^\]]+\]/.test(lastSourceCode || '');
         const sortNotice = !hasSortHint && sourceHasIndexedLoop
             ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion, Quick, Merge và Heap Sort đã mô tả trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
@@ -713,12 +715,12 @@
             ${sortNotice}
             <div class="execution-toolbar">
                 <button class="ghost" id="previousStepBtn" type="button">Previous</button>
-                ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort'].includes(hint.type))
+                ${hasPlaybackHint
                     ? '<button class="ghost" id="playSortBtn" type="button" aria-label="Play execution">▶</button>' : ''}
                 <button class="ghost" id="nextStepBtn" type="button">Next</button>
                 <span class="step-counter" id="stepCounter"></span>
             </div>
-            ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort'].includes(hint.type))
+            ${hasPlaybackHint
                 ? `<div class="playback-controls">
                     <label for="executionProgress">Step</label>
                     <input id="executionProgress" type="range" min="0" max="${steps.length - 1}" value="0" aria-label="Execution step">
@@ -753,10 +755,11 @@
         const progressLabel = document.getElementById('executionProgressLabel');
         if (progress) progress.value = String(currentExecutionIndex);
         if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
-        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame);
+        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame || state.activitySelectionFrame);
         const sortEl = document.getElementById('sortVisualization');
         if (sortEl) sortEl.innerHTML = sortState
-            ? sortState.heapFrame ? renderHeapVisualization(sortState)
+            ? sortState.activitySelectionFrame ? renderActivitySelectionVisualization(sortState, step)
+                : sortState.heapFrame ? renderHeapVisualization(sortState)
                 : sortState.mergeFrame ? renderMergeVisualization(sortState)
                 : sortState.quickFrame ? renderQuickVisualization(sortState) : renderSortVisualization(sortState)
             : '';
@@ -766,6 +769,61 @@
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
         if (nextBtn?.disabled) stopExecutionPlayback();
         renderSourceViewer(step);
+    }
+
+    function renderActivitySelectionVisualization(state, step) {
+        const frame = state.activitySelectionFrame || {};
+        const hint = lastExecutionData?.algorithmHints?.[state.hintIndex];
+        const pattern = hint?.activitySelection || {};
+        const input = (step.variables || []).find(variable =>
+            variable.astNodeId === pattern.declarationIds?.input);
+        const startColumn = Number(pattern.roleValues?.start);
+        const endColumn = Number(pattern.roleValues?.end);
+        const intervals = pattern.representation === 'INTERVAL_LIST'
+            ? (Array.isArray(input?.visualValue?.values) ? input.visualValue.values : [])
+            : (Array.isArray(input?.visualValue) ? input.visualValue : []).map(row =>
+                Array.isArray(row) ? { start: row[startColumn], end: row[endColumn] } : {});
+        const selected = new Set(Array.isArray(frame.selectedIndices) ? frame.selectedIndices : []);
+        const cells = intervals.map((item, index) => {
+            const start = item?.start ?? '?';
+            const end = item?.end ?? '?';
+            const label = `${index}: [${start}, ${end}${frame.overlapPolicy === 'HALF_OPEN' ? ')' : ']'}`;
+            const classes = ['sort-cell'];
+            if (index === frame.candidateIndex) classes.push('compare');
+            if (selected.has(index)) classes.push('sorted');
+            return `<span class="${classes.join(' ')}"><span class="sort-cell-value">${escapeHtml(label)}</span></span>`;
+        }).join('');
+        const decision = frame.decision === 'ACCEPT' ? 'chọn ứng viên'
+            : frame.decision === 'SKIP' ? 'bỏ qua ứng viên' : 'chưa đủ dữ liệu';
+        const effect = frame.effectStatus === 'OBSERVED_AFTER_WRITE' ? 'đã xác nhận sau ghi'
+            : frame.effectStatus === 'PENDING' ? 'đang chờ ảnh chụp sau ghi'
+            : frame.effectStatus === 'TRUNCATED' ? 'ảnh chụp bị cắt ngắn' : 'chưa xác minh';
+        const sourceOrder = frame.orderingEvidence === 'SOURCE_PROVEN'
+            ? 'Mã nguồn chứng minh sắp tăng theo end'
+            : frame.orderingEvidence === 'CONTRADICTED'
+                ? 'Thứ tự sort trong mã không phù hợp'
+                : 'Thứ tự theo end là tiền điều kiện của đầu vào';
+        const runtimeOrder = frame.runtimeOrderingStatus === 'RUNTIME_VERIFIED'
+            ? 'Thứ tự end đã xác minh trong lần chạy này'
+            : frame.runtimeOrderingStatus === 'VIOLATED'
+                ? 'Thứ tự end bị vi phạm' : 'Thứ tự end chưa đủ quan sát';
+        const policy = frame.overlapPolicy === 'CLOSED' ? 'start > lastEnd'
+            : 'start >= lastEnd';
+        const selectedText = (frame.selectedIndices || []).length
+            ? frame.selectedIndices.join(', ') : 'chưa có lựa chọn đã xác nhận';
+        const optimality = frame.optimalityStatus === 'VERIFIED_FOR_RUN'
+            ? '<div class="sort-detail">Tối ưu theo quy tắc Activity Selection trong lần chạy này.</div>'
+            : '';
+        return `<section class="sort-visualization" aria-label="Activity Selection visualization">
+            <div class="sort-title"><strong>Activity Selection</strong><span class="sort-phase">${escapeHtml(effect)}</span></div>
+            <div class="sort-cells" role="list" aria-label="Intervals in scan order">${cells || '<span class="sort-detail">Chưa đọc được danh sách khoảng.</span>'}</div>
+            <div class="sort-detail">Ứng viên ${escapeHtml(frame.candidateIndex ?? '?')} · ${escapeHtml(decision)} · lastEnd=${escapeHtml(frame.lastEnd ?? '?')} · ${escapeHtml(policy)}</div>
+            <div class="sort-detail">Đã chọn (vị trí): ${escapeHtml(selectedText)}</div>
+            <div class="sort-detail">${escapeHtml(sourceOrder)}</div>
+            <div class="sort-detail">${escapeHtml(runtimeOrder)} · không chồng lấn: ${escapeHtml(frame.nonOverlapStatus || 'UNKNOWN')} · đầu ra: ${escapeHtml(frame.outputStatus || 'UNKNOWN')}</div>
+            ${optimality}
+            <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
+        </section>`;
     }
 
     function renderHeapVisualization(state) {
