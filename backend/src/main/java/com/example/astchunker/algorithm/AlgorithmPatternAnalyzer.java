@@ -4,6 +4,7 @@ import com.example.astchunker.algorithm.sort.SortPatternRegistry;
 import com.example.astchunker.algorithm.greedy.ActivitySelectionDetector;
 import com.example.astchunker.algorithm.twopointers.TwoPointersDetector;
 import com.example.astchunker.algorithm.slidingwindow.SlidingWindowDetector;
+import com.example.astchunker.algorithm.linearsearch.LinearSearchDetector;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.github.javaparser.ast.CompilationUnit;
@@ -39,6 +40,7 @@ public class AlgorithmPatternAnalyzer {
   private final ActivitySelectionDetector activitySelectionDetector;
   private final TwoPointersDetector twoPointersDetector = new TwoPointersDetector();
   private final SlidingWindowDetector slidingWindowDetector = new SlidingWindowDetector();
+  private final LinearSearchDetector linearSearchDetector = new LinearSearchDetector();
 
   public AlgorithmPatternAnalyzer() {
     this(SortPatternRegistry.defaults(), new ActivitySelectionDetector());
@@ -79,8 +81,13 @@ public class AlgorithmPatternAnalyzer {
         continue;
       }
       hint = slidingWindowDetector.detect(unit, loop);
+      if (hint.isPresent()) {
+        hints.add(hint.get());
+        continue;
+      }
+      hint = twoPointersDetector.detect(unit, loop);
       if (hint.isPresent()) hints.add(hint.get());
-      else twoPointersDetector.detect(unit, loop).ifPresent(hints::add);
+      else linearSearchDetector.detect(unit, loop).ifPresent(hints::add);
     }
     return List.copyOf(hints);
   }
