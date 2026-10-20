@@ -705,7 +705,7 @@
         const hasSortHint = response.algorithmHints?.some(hint =>
             ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort'].includes(hint.type));
         const hasPlaybackHint = response.algorithmHints?.some(hint =>
-            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort', 'activity-selection', 'two-pointers', 'sliding-window'].includes(hint.type));
+            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort', 'activity-selection', 'two-pointers', 'sliding-window', 'linear-search'].includes(hint.type));
         const sourceHasIndexedLoop = /\b(?:for|while)\b[\s\S]{0,1200}\[[^\]]+\]/.test(lastSourceCode || '');
         const sortNotice = !hasSortHint && sourceHasIndexedLoop
             ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion, Quick, Merge và Heap Sort đã mô tả trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
@@ -755,10 +755,11 @@
         const progressLabel = document.getElementById('executionProgressLabel');
         if (progress) progress.value = String(currentExecutionIndex);
         if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
-        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame || state.activitySelectionFrame || state.twoPointersFrame || state.slidingWindowFrame);
+        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame || state.activitySelectionFrame || state.twoPointersFrame || state.slidingWindowFrame || state.linearSearchFrame);
         const sortEl = document.getElementById('sortVisualization');
         if (sortEl) sortEl.innerHTML = sortState
-            ? sortState.slidingWindowFrame ? renderSlidingWindowVisualization(sortState)
+            ? sortState.linearSearchFrame ? renderLinearSearchVisualization(sortState)
+                : sortState.slidingWindowFrame ? renderSlidingWindowVisualization(sortState)
                 : sortState.twoPointersFrame ? renderTwoPointersVisualization(sortState)
                 : sortState.activitySelectionFrame ? renderActivitySelectionVisualization(sortState, step)
                 : sortState.heapFrame ? renderHeapVisualization(sortState)
@@ -771,6 +772,38 @@
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
         if (nextBtn?.disabled) stopExecutionPlayback();
         renderSourceViewer(step);
+    }
+
+    function renderLinearSearchVisualization(state) {
+        const frame = state.linearSearchFrame || {};
+        const values = Array.isArray(state.array?.values) ? state.array.values : [];
+        const captured = ['AVAILABLE', 'TRUNCATED'].includes(state.array?.status);
+        const cells = captured ? values.map((value, index) => {
+            const classes = ['sort-cell'];
+            if (index === frame.index) classes.push('compare');
+            else if (Number.isInteger(frame.index) && index < frame.index) classes.push('sorted');
+            return `<span class="${classes.join(' ')}" role="listitem">
+                <span class="sort-cell-index">${index}</span>
+                <span class="sort-markers">${index === frame.index ? 'scan' : ''}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></span>`;
+        }).join('') : '';
+        const comparison = {
+            MATCH: 'giá trị hiện tại bằng mục tiêu',
+            DIFFERENT: 'giá trị hiện tại khác mục tiêu',
+            TRUNCATED: 'dữ liệu bị cắt ngắn',
+            UNKNOWN: 'chưa đủ dữ liệu'
+        }[frame.comparisonStatus] || 'chưa đủ dữ liệu';
+        const label = value => value === null || value === undefined ? '?'
+            : primitiveLabel(value);
+        const evidence = Array.isArray(frame.sourceEvidence) ? frame.sourceEvidence : [];
+        return `<section class="sort-visualization" aria-label="Linear Search visualization">
+            <div class="sort-title"><strong>Linear Search</strong><span class="sort-phase">${escapeHtml(comparison)}</span></div>
+            ${captured ? `<div class="sort-cells" role="list" aria-label="Input values">${cells || '<span class="sort-detail">Dữ liệu rỗng</span>'}</div>`
+                : '<div class="sort-detail">Chưa đọc được dữ liệu đầu vào.</div>'}
+            <div class="sort-detail">scan[${escapeHtml(label(frame.index))}] = ${escapeHtml(label(frame.currentValue))} · target = ${escapeHtml(label(frame.targetValue))}</div>
+            ${evidence.length ? `<div class="sort-detail">Bằng chứng mã nguồn: ${evidence.map(escapeHtml).join('; ')}</div>` : ''}
+            <div class="sort-detail">So sánh này là ứng viên từ ảnh chụp trước dòng code; chưa khẳng định nhánh đã chạy.</div>
+        </section>`;
     }
 
     function renderSlidingWindowVisualization(state) {

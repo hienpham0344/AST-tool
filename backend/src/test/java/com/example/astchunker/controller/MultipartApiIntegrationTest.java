@@ -391,6 +391,41 @@ class MultipartApiIntegrationTest {
         Files.readAllBytes(Path.of("examples/slidingwindow", name)));
   }
 
+  @Test
+  void exposesArrayLinearSearchAndKeepsLegacyDebugShape() throws Exception {
+    MockMultipartFile file = linearExample("ArrayIndexSearchSample.java");
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("linear-search"))
+        .andExpect(jsonPath("$.algorithmHints[0].linearSearch.resultKind").value("INDEX"))
+        .andExpect(jsonPath("$.algorithmHints[0].linearSearch.representation")
+            .value("INT_ARRAY"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].linearSearchFrame.comparisonStatus")
+            .value(org.hamcrest.Matchers.hasItem("MATCH")));
+    String legacy = mockMvc.perform(multipart("/api/debug").file(file))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    assertThat(legacy.trim()).startsWith("[");
+    assertThat(legacy).doesNotContain("linearSearch", "linearSearchFrame", "objectId");
+  }
+
+  @Test
+  void exposesListBooleanLinearSearchWithProjection() throws Exception {
+    MockMultipartFile file = linearExample("ListContainsSearchSample.java");
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("linear-search"))
+        .andExpect(jsonPath("$.algorithmHints[0].linearSearch.resultKind").value("BOOLEAN"))
+        .andExpect(jsonPath("$.algorithmHints[0].linearSearch.representation")
+            .value("INTEGER_LIST"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].array.status")
+            .value(org.hamcrest.Matchers.hasItem("AVAILABLE")));
+  }
+
+  private MockMultipartFile linearExample(String name) throws Exception {
+    return new MockMultipartFile("file", name, "text/x-java-source",
+        Files.readAllBytes(Path.of("examples/linearsearch", name)));
+  }
+
   private MockMultipartFile example(String name) throws Exception {
     return new MockMultipartFile("file", name, "text/x-java-source",
         Files.readAllBytes(Path.of("examples/twopointers", name)));

@@ -82,6 +82,11 @@ candidate window, accumulator, source evidence and observed add/remove effects f
 `int[]` and `List<Integer>` sum windows; see
 [`docs/sliding-window-test-guide.md`](docs/sliding-window-test-guide.md).
 
+For Linear Search, upload `backend/examples/linearsearch/ArrayIndexSearchSample.java` or
+`backend/examples/linearsearch/ListContainsSearchSample.java`. The step view shows the current
+candidate comparison for supported indexed searches; see
+[`docs/linear-search-test-guide.md`](docs/linear-search-test-guide.md).
+
 ## Run the CLI pipeline
 
 `Main` accepts the path to a Java source file. Maven can run it without adding an extra build
