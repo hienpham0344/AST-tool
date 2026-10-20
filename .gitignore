@@ -6,6 +6,7 @@ AGENTS.md
 *.log
 *.tmp
 *.temp
+.superpowers/
 Thumbs.db
 .DS_Store
 README_JUDGE_GUIDE.md

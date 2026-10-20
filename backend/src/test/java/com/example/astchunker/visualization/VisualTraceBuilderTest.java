@@ -37,7 +37,16 @@ class VisualTraceBuilderTest {
       }
       """);
   private final List<AlgorithmHint> hints =
-      new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+      new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit()).stream()
+          .map(h -> new AlgorithmHint(h.type(), h.confidence(), h.visualPlan(), h.evidence(),
+              java.util.Map.of("array", h.variables().get("data"), "left", h.variables().get("left"),
+                  "right", h.variables().get("right")),
+              h.startLine(), h.endLine(), h.patternAstNodeId(),
+              h.methodAstNodeId(), java.util.Map.of("array", h.variableDeclarationIds().get("data"),
+                  "left", h.variableDeclarationIds().get("left"),
+                  "right", h.variableDeclarationIds().get("right")), h.sort(), h.quick(),
+              h.merge(), h.heap(), h.activitySelection()))
+          .toList();
   private final VisualTraceBuilder builder = new VisualTraceBuilder();
 
   private ObservationResult variable(String name, String type, Object value) {
@@ -251,10 +260,12 @@ class VisualTraceBuilderTest {
     var other =
         new AstAnalyzer()
             .analyze(
-                "class Sample { void f(int[] a, int l, int r) { while(l<r) { int x=a[l]+a[r]; l++; r--; } while(l<r) { int x=a[l]+a[r]; l++; r--; } } }");
+                "class Sample { void f(int[] a, int x, int y) { int l=0,r=a.length-1; while(l<r) { int z=a[l]+a[r]; l++; r--; } while(l<r) { int z=a[l]+a[r]; l++; r--; } } }");
     var otherHints = new AlgorithmPatternAnalyzer().analyze(other.compilationUnit());
     assertThat(otherHints).hasSize(2);
-    var point = other.observationPoints().get(0);
+    var point = other.observationPoints().stream()
+        .filter(p -> p.code().contains("int z=a[l]+a[r]"))
+        .findFirst().orElseThrow();
     var otherStep =
         new ExecutionObservation(
             1,

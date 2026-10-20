@@ -8,14 +8,190 @@ import com.example.astchunker.debug.BreakpointMapper;
 import com.example.astchunker.debug.JdiSession;
 import com.example.astchunker.debug.TargetCompiler;
 import com.example.astchunker.mapping.VariableMapper;
+import com.example.astchunker.mapping.IntervalValueProjection;
+import com.example.astchunker.mapping.IntegerListProjection;
 import com.example.astchunker.model.ExecutionObservation;
 import com.example.astchunker.model.VisualEvent;
 import com.example.astchunker.model.VisualState;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class VisualTraceIntegrationTest {
+  @Test
+  void sameDirectionIntegerListHasScopedPointerFrames() {
+    String source = """
+        import java.util.*;
+        public class IntegerListPointerSample {
+          static int compact(List<Integer> data) {
+            int slow = 0;
+            for (int scan = 1; scan < data.size(); scan++) {
+              if (!data.get(scan).equals(data.get(slow))) {
+                slow++;
+                data.set(slow, data.get(scan));
+              }
+            }
+            return slow + 1;
+          }
+          public static void main(String[] args) {
+            compact(new ArrayList<>(Arrays.asList(1, 1, 2, 2, 3)));
+          }
+        }
+        """;
+    var analysis = new AstAnalyzer().analyze(source);
+    var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+    assertThat(hints).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("two-pointers");
+      assertThat(hint.twoPointers().movement().name()).isEqualTo("SAME_DIRECTION");
+    });
+    try (var target = new TargetCompiler().compile(source, analysis)) {
+      var run = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
+          .observe(target, analysis, new IntervalValueProjection(java.util.Map.of()),
+              IntegerListProjection.fromHints(hints));
+      var frames = new VisualTraceBuilder().build(analysis, hints, run.executions()).stream()
+          .flatMap(step -> step.visualStates().stream())
+          .map(VisualState::twoPointersFrame)
+          .filter(java.util.Objects::nonNull)
+          .toList();
+      assertThat(frames).isNotEmpty();
+      assertThat(frames).anySatisfy(frame -> {
+        assertThat(frame.movement()).isEqualTo("SAME_DIRECTION");
+        assertThat(frame.inputObjectId()).isNotNull();
+        assertThat(frame.length()).isEqualTo(5);
+      });
+    }
+  }
+
+  @Test
+  void listActivitySelectionVerifiesSourceOrderAndObservedResult() throws Exception {
+    String source = Files.readString(Path.of("examples/greedy/ActivitySelectionListSample.java"));
+    var analysis = new AstAnalyzer().analyze(source);
+    var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+    assertThat(hints).singleElement().satisfies(hint -> {
+      assertThat(hint.type()).isEqualTo("activity-selection");
+      assertThat(hint.activitySelection().orderingEvidence().name()).isEqualTo("SOURCE_PROVEN");
+    });
+    try (var target = new TargetCompiler().compile(source, analysis)) {
+      var run = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
+          .observe(target, analysis, IntervalValueProjection.fromHints(hints));
+      var frames = new VisualTraceBuilder().build(analysis, hints, run.executions()).stream()
+          .flatMap(step -> step.visualStates().stream())
+          .map(VisualState::activitySelectionFrame)
+          .filter(java.util.Objects::nonNull)
+          .toList();
+      assertThat(frames).anySatisfy(frame ->
+          {
+            assertThat(frame.optimalityStatus()).isEqualTo("VERIFIED_FOR_RUN");
+            assertThat(frame.selectedIndices()).hasSize(bruteForceMaximum(new int[][] {
+                {5, 7}, {1, 3}, {3, 5}, {2, 4}
+            }));
+          });
+    }
+  }
+
+  private static int bruteForceMaximum(int[][] intervals) {
+    int best = 0;
+    for (int subset = 0; subset < (1 << intervals.length); subset++) {
+      boolean compatible = true;
+      for (int left = 0; left < intervals.length; left++) {
+        for (int right = left + 1; right < intervals.length; right++) {
+          if ((subset & (1 << left)) != 0 && (subset & (1 << right)) != 0
+              && intervals[left][0] < intervals[right][1]
+              && intervals[right][0] < intervals[left][1]) compatible = false;
+        }
+      }
+      if (compatible) best = Math.max(best, Integer.bitCount(subset));
+    }
+    return best;
+  }
+
+  @Test
+  void halfOpenZeroLengthDoesNotReceiveAnOptimalityClaim() {
+    String source = """
+        import java.util.Arrays;
+        public class ZeroLengthActivitySample {
+          static int select(int[][] data) {
+            Arrays.sort(data, (a, b) -> Integer.compare(a[1], b[1]));
+            int last = Integer.MIN_VALUE, count = 0;
+            for (int i = 0; i < data.length; i++) {
+              int[] slot = data[i];
+              if (slot[0] >= last) { count++; last = slot[1]; }
+            }
+            return count;
+          }
+          public static void main(String[] args) {
+            int[][] data = {{0, 3}, {1, 1}};
+            select(data);
+          }
+        }
+        """;
+    var analysis = new AstAnalyzer().analyze(source);
+    var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+    assertThat(hints).singleElement().satisfies(hint ->
+        assertThat(hint.activitySelection().orderingEvidence().name())
+            .isEqualTo("SOURCE_PROVEN"));
+    try (var target = new TargetCompiler().compile(source, analysis)) {
+      var run = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
+          .observe(target, analysis, IntervalValueProjection.fromHints(hints));
+      var frames = new VisualTraceBuilder().build(analysis, hints, run.executions()).stream()
+          .flatMap(step -> step.visualStates().stream())
+          .map(VisualState::activitySelectionFrame)
+          .filter(java.util.Objects::nonNull).toList();
+      assertThat(frames).isNotEmpty();
+      assertThat(frames).noneMatch(frame -> frame.optimalityStatus().equals("VERIFIED_FOR_RUN"));
+    }
+  }
+
+  @Test
+  void activitySelectionConfirmsAWriteOnlyAfterLaterJdiSnapshot() {
+    String source = """
+        import java.util.ArrayList;
+        import java.util.List;
+        public class ActivityRuntimeSample {
+          record Slot(int start, int end) {}
+          static int select(List<Slot> values) {
+            int last = Integer.MIN_VALUE, count = 0;
+            for (Slot current : values) {
+              if (current.start() >= last) {
+                count++;
+                last = current.end();
+              }
+            }
+            return count;
+          }
+          public static void main(String[] args) {
+            List<Slot> values = new ArrayList<>();
+            values.add(new Slot(1, 3));
+            values.add(new Slot(2, 4));
+            values.add(new Slot(3, 5));
+            select(values);
+          }
+        }
+        """;
+    var analysis = new AstAnalyzer().analyze(source);
+    var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+    assertThat(hints).singleElement().satisfies(h ->
+        assertThat(h.type()).isEqualTo("activity-selection"));
+    try (var target = new TargetCompiler().compile(source, analysis)) {
+      var run = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
+          .observe(target, analysis, IntervalValueProjection.fromHints(hints));
+      var frames = new VisualTraceBuilder().build(analysis, hints, run.executions()).stream()
+          .flatMap(step -> step.visualStates().stream())
+          .map(VisualState::activitySelectionFrame)
+          .filter(java.util.Objects::nonNull)
+          .toList();
+      assertThat(frames).isNotEmpty();
+      assertThat(frames).anySatisfy(frame -> {
+        assertThat(frame.decision()).isEqualTo("ACCEPT");
+        assertThat(frame.effectStatus()).isEqualTo("PENDING");
+      });
+      assertThat(frames).anySatisfy(frame ->
+          assertThat(frame.effectStatus()).isEqualTo("OBSERVED_AFTER_WRITE"));
+    }
+  }
+
   private List<ExecutionObservation> run(String body) {
     String source =
         "public class Sample { public static void main(String[] args) {\n" + body + "\n} }";

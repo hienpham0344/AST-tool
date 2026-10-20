@@ -16,6 +16,8 @@ import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.EventQueue;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.EventRequestManager;
+import com.sun.jdi.request.MethodEntryRequest;
+import com.sun.jdi.request.MethodExitRequest;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
@@ -35,6 +37,8 @@ class JdiSessionDisconnectTest {
     Connector.Argument optionsArgument = mock(Connector.Argument.class);
     EventRequestManager requestManager = mock(EventRequestManager.class);
     ClassPrepareRequest classPrepareRequest = mock(ClassPrepareRequest.class);
+    MethodEntryRequest methodEntryRequest = mock(MethodEntryRequest.class);
+    MethodExitRequest methodExitRequest = mock(MethodExitRequest.class);
     EventQueue eventQueue = mock(EventQueue.class);
 
     when(connector.defaultArguments()).thenReturn(Map.of("main", mainArgument, "options", optionsArgument));
@@ -42,6 +46,8 @@ class JdiSessionDisconnectTest {
         .thenReturn(virtualMachine);
     when(virtualMachine.eventRequestManager()).thenReturn(requestManager);
     when(requestManager.createClassPrepareRequest()).thenReturn(classPrepareRequest);
+    when(requestManager.createMethodEntryRequest()).thenReturn(methodEntryRequest);
+    when(requestManager.createMethodExitRequest()).thenReturn(methodExitRequest);
     when(virtualMachine.classesByName(analysis.mainClassName())).thenReturn(List.of());
     when(virtualMachine.eventQueue()).thenReturn(eventQueue);
     when(eventQueue.remove(anyLong())).thenThrow(new VMDisconnectedException());

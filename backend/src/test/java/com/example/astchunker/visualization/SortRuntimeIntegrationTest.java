@@ -108,9 +108,13 @@ class SortRuntimeIntegrationTest {
   }
 
   private List<ExecutionObservation> runSource(String source) {
+    return runSource(source, 1);
+  }
+
+  private List<ExecutionObservation> runSource(String source, int expectedHints) {
     var analysis = new AstAnalyzer().analyze(source);
     var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
-    assertThat(hints).hasSize(1);
+    assertThat(hints).hasSize(expectedHints);
     try (var target = new TargetCompiler().compile(source, analysis)) {
       var trace =
           new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
@@ -119,6 +123,52 @@ class SortRuntimeIntegrationTest {
       assertThat(trace.executions()).isNotEmpty();
       return new VisualTraceBuilder().build(analysis, hints, trace.executions());
     }
+  }
+
+  @Test
+  void sharedSwapHelperKeepsEachSortTraceWithItsCaller() {
+    String source =
+        """
+        public class SortSample {
+          public static void main(String[] args) {
+            bubble(new int[] {2, 1});
+            selection(new int[] {2, 1});
+          }
+          static void bubble(int[] nums) {
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
+                if (nums[scan] > nums[scan + 1]) swap(nums, scan, scan + 1);
+              }
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+          static void selection(int[] nums) {
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              int selected = pass;
+              for (int scan = pass + 1; scan < nums.length; scan++) {
+                if (nums[scan] < nums[selected]) selected = scan;
+              }
+              swap(nums, pass, selected);
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+          static void swap(int[] values, int left, int right) {
+            int saved = values[left];
+            values[left] = values[right];
+            values[right] = saved;
+          }
+        }
+        """;
+    var helperSteps = runSource(source, 2).stream()
+        .filter(step -> step.context() != null && step.context().methodName().equals("swap"))
+        .toList();
+    assertThat(helperSteps).hasSize(6);
+    assertThat(helperSteps)
+        .allSatisfy(step -> assertThat(step.visualStates()).hasSize(1));
+    assertThat(helperSteps.subList(0, 3))
+        .allSatisfy(step -> assertThat(step.visualStates().get(0).algorithm()).isEqualTo("bubble-sort"));
+    assertThat(helperSteps.subList(3, 6))
+        .allSatisfy(step -> assertThat(step.visualStates().get(0).algorithm()).isEqualTo("selection-sort"));
   }
 
   private Object array(ExecutionObservation step) {
@@ -175,6 +225,235 @@ class SortRuntimeIntegrationTest {
     assertThat(array(end)).isEqualTo(List.of(3, 2, 1));
     assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
         .isEqualTo("VERIFIED_SORTED");
+  }
+
+  @Test
+  void whileBubbleKeepsObservedSwapAndVerifiedEnding() {
+    String whileBubble =
+        """
+        int pass = 0;
+        while (pass < nums.length - 1) {
+          int scan = 0;
+          while (scan < nums.length - 1 - pass) {
+            if (nums[scan] > nums[scan + 1]) {
+              int saved = nums[scan];
+              nums[scan] = nums[scan + 1];
+              nums[scan + 1] = saved;
+            }
+            scan++;
+          }
+          pass++;
+        }
+        """;
+    var steps = run("2,1", whileBubble);
+    assertThat(steps.stream().filter(s -> s.code().equals("nums[scan + 1] = saved;")).toList())
+        .anySatisfy(
+            step ->
+                assertThat(step.visualStates().get(0).sortFrame().pendingMutation().status())
+                    .isEqualTo("PENDING_BEFORE_LOCATION"));
+    var ending = steps.stream().filter(s -> s.code().startsWith("System.out.println")).findFirst().orElseThrow();
+    assertThat(array(ending)).isEqualTo(List.of(1, 2));
+    assertThat(ending.visualStates().get(0).sortFrame().sortedRegion().status())
+        .isEqualTo("VERIFIED_SORTED");
+  }
+
+  @Test
+  void bubbleHelperSwapUsesObservedWritesAcrossMethods() {
+    String source =
+        """
+        public class SortSample {
+          public static void main(String[] args) {
+            int[] nums = {2, 1};
+            sort(nums);
+          }
+          static void sort(int[] nums) {
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
+                if (nums[scan] > nums[scan + 1]) swap(nums, scan, scan + 1);
+              }
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+          static void swap(int[] values, int left, int right) {
+            int saved = values[left];
+            values[left] = values[right];
+            values[right] = saved;
+          }
+        }
+        """;
+    var steps = runSource(source);
+    var helperWrite =
+        steps.stream().filter(s -> s.code().equals("values[right] = saved;")).findFirst().orElseThrow();
+    assertThat(helperWrite.visualStates()).hasSize(1);
+    assertThat(helperWrite.visualStates().get(0).array().values()).containsExactly(1, 1);
+    assertThat(helperWrite.visualStates().get(0).sortFrame().pendingMutation().status())
+        .isEqualTo("PENDING_BEFORE_LOCATION");
+    var ending = steps.stream().filter(s -> s.code().startsWith("System.out.println")).findFirst().orElseThrow();
+    assertThat(array(ending)).isEqualTo(List.of(1, 2));
+    assertThat(ending.visualStates().get(0).sortFrame().sortedRegion().status())
+        .isEqualTo("VERIFIED_SORTED");
+    assertThat(steps.stream().flatMap(step -> step.visualStates().stream()).map(state -> state.sortFrame()))
+        .anySatisfy(frame -> assertThat(frame.completedMutation()).isNotNull());
+  }
+
+  @Test
+  void earlyExitBubbleVerifiesAllSixRuntimeInputs() {
+    String algorithm =
+        """
+        for (int pass = 0; pass < nums.length - 1; pass++) {
+          boolean changed = false;
+          for (int scan = 0; scan < nums.length - 1 - pass; scan++) {
+            if (nums[scan] > nums[scan + 1]) {
+              int saved = nums[scan];
+              nums[scan] = nums[scan + 1];
+              nums[scan + 1] = saved;
+              changed = true;
+            }
+          }
+          if (!changed) break;
+        }
+        """;
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).hasSize(EXPECTED.size());
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void whileSelectionVerifiesAllSixRuntimeInputs() {
+    String algorithm =
+        """
+        int pass = 0;
+        while (pass < nums.length - 1) {
+          int selected = pass;
+          int scan = pass + 1;
+          while (scan < nums.length) {
+            if (nums[scan] < nums[selected]) selected = scan;
+            scan++;
+          }
+          int saved = nums[pass];
+          nums[pass] = nums[selected];
+          nums[selected] = saved;
+          pass++;
+        }
+        """;
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).hasSize(EXPECTED.size());
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void whileInsertionVerifiesAllSixRuntimeInputs() {
+    String algorithm =
+        """
+        int pass = 1;
+        while (pass < nums.length) {
+          int key = nums[pass];
+          int scan = pass - 1;
+          while (scan >= 0 && nums[scan] > key) {
+            nums[scan + 1] = nums[scan];
+            scan--;
+          }
+          nums[scan + 1] = key;
+          pass++;
+        }
+        """;
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).hasSize(EXPECTED.size());
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void selectionHelperSwapConfirmsMutationAfterReturning() {
+    String source =
+        """
+        public class SortSample {
+          public static void main(String[] args) { sort(new int[] {2, 1}); }
+          static void sort(int[] nums) {
+            for (int pass = 0; pass < nums.length - 1; pass++) {
+              int selected = pass;
+              for (int scan = pass + 1; scan < nums.length; scan++) {
+                if (nums[scan] < nums[selected]) selected = scan;
+              }
+              swap(nums, pass, selected);
+            }
+            System.out.println(java.util.Arrays.toString(nums));
+          }
+          static void swap(int[] values, int left, int right) {
+            int saved = values[left];
+            values[left] = values[right];
+            values[right] = saved;
+          }
+        }
+        """;
+    var steps = runSource(source);
+    var pending = steps.stream().filter(s -> s.code().equals("values[right] = saved;"))
+        .findFirst().orElseThrow();
+    assertThat(pending.visualStates()).hasSize(1);
+    assertThat(pending.visualStates().get(0).sortFrame().pendingMutation().status())
+        .isEqualTo("PENDING_BEFORE_LOCATION");
+    var ending = steps.stream().filter(s -> s.code().startsWith("System.out.println"))
+        .findFirst().orElseThrow();
+    assertThat(array(ending)).isEqualTo(List.of(1, 2));
+    assertThat(ending.visualStates().get(0).sortFrame().completedMutation().status())
+        .isEqualTo("OBSERVED_AFTER_WRITE");
+  }
+
+  @Test
+  void reorderedInsertionLocalsKeepRuntimeTrace() {
+    String algorithm =
+        """
+        for (int pass = 1; pass < nums.length; pass++) {
+          int scan = pass - 1;
+          int key = nums[pass];
+          while (scan >= 0 && nums[scan] > key) {
+            nums[scan + 1] = nums[scan];
+            scan--;
+          }
+          nums[scan + 1] = key;
+        }
+        """;
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void rewrittenBubbleBoundAndComparisonVerifyAllInputs() {
+    String algorithm = BUBBLE
+        .replace("j < nums.length - 1 - i", "j + 1 < nums.length - i")
+        .replace("nums[j] > nums[j + 1]", "nums[j + 1] < nums[j]");
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
+  }
+
+  @Test
+  void reversedSelectionComparisonVerifiesAllInputs() {
+    String algorithm = SELECTION.replace("nums[j] < nums[min]", "nums[min] > nums[j]");
+    var endings = runAllCases(algorithm).stream()
+        .filter(s -> s.code().startsWith("System.out.println")).toList();
+    assertThat(endings).extracting(this::array).containsExactlyElementsOf(EXPECTED);
+    assertThat(endings)
+        .allSatisfy(end -> assertThat(end.visualStates().get(0).sortFrame().sortedRegion().status())
+            .isEqualTo("VERIFIED_SORTED"));
   }
 
   @Test

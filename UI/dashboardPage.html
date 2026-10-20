@@ -703,22 +703,24 @@
         }
         currentExecutionIndex = 0;
         const hasSortHint = response.algorithmHints?.some(hint =>
-            ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type));
+            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort'].includes(hint.type));
+        const hasPlaybackHint = response.algorithmHints?.some(hint =>
+            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort', 'activity-selection', 'two-pointers'].includes(hint.type));
         const sourceHasIndexedLoop = /\b(?:for|while)\b[\s\S]{0,1200}\[[^\]]+\]/.test(lastSourceCode || '');
         const sortNotice = !hasSortHint && sourceHasIndexedLoop
-            ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion Sort phổ biến trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
+            ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion, Quick, Merge và Heap Sort đã mô tả trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
             : '';
         return `
             <div class="stats"><span class="stat">execution steps: <b>${steps.length}</b></span><span class="stat">warnings: <b>${(response.warnings || []).length}</b></span></div>
             ${sortNotice}
             <div class="execution-toolbar">
                 <button class="ghost" id="previousStepBtn" type="button">Previous</button>
-                ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type))
+                ${hasPlaybackHint
                     ? '<button class="ghost" id="playSortBtn" type="button" aria-label="Play execution">▶</button>' : ''}
                 <button class="ghost" id="nextStepBtn" type="button">Next</button>
                 <span class="step-counter" id="stepCounter"></span>
             </div>
-            ${response.algorithmHints?.some(hint => ['bubble-sort', 'selection-sort', 'insertion-sort'].includes(hint.type))
+            ${hasPlaybackHint
                 ? `<div class="playback-controls">
                     <label for="executionProgress">Step</label>
                     <input id="executionProgress" type="range" min="0" max="${steps.length - 1}" value="0" aria-label="Execution step">
@@ -753,15 +755,295 @@
         const progressLabel = document.getElementById('executionProgressLabel');
         if (progress) progress.value = String(currentExecutionIndex);
         if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
-        const sortState = (step.visualStates || []).find(state => state.sortFrame);
+        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame || state.activitySelectionFrame || state.twoPointersFrame);
         const sortEl = document.getElementById('sortVisualization');
-        if (sortEl) sortEl.innerHTML = sortState ? renderSortVisualization(sortState) : '';
+        if (sortEl) sortEl.innerHTML = sortState
+            ? sortState.twoPointersFrame ? renderTwoPointersVisualization(sortState)
+                : sortState.activitySelectionFrame ? renderActivitySelectionVisualization(sortState, step)
+                : sortState.heapFrame ? renderHeapVisualization(sortState)
+                : sortState.mergeFrame ? renderMergeVisualization(sortState)
+                : sortState.quickFrame ? renderQuickVisualization(sortState) : renderSortVisualization(sortState)
+            : '';
         const previousBtn = document.getElementById('previousStepBtn');
         const nextBtn = document.getElementById('nextStepBtn');
         if (previousBtn) previousBtn.disabled = currentExecutionIndex === 0;
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
         if (nextBtn?.disabled) stopExecutionPlayback();
         renderSourceViewer(step);
+    }
+
+    function renderTwoPointersVisualization(state) {
+        const frame = state.twoPointersFrame || {};
+        const opposing = frame.movement === 'OPPOSING';
+        const firstRole = opposing ? 'left' : 'scan';
+        const secondRole = opposing ? 'right' : 'slow';
+        const first = state.pointers?.[firstRole];
+        const second = state.pointers?.[secondRole];
+        const values = Array.isArray(state.array?.values) ? state.array.values : [];
+        const captured = ['AVAILABLE', 'TRUNCATED'].includes(state.array?.status);
+        const cells = captured ? values.map((value, index) => {
+            const markers = [];
+            if (index === frame.firstIndex) markers.push(firstRole);
+            if (index === frame.secondIndex) markers.push(secondRole);
+            const inside = opposing
+                ? index >= frame.firstIndex && index <= frame.secondIndex
+                : index <= frame.firstIndex;
+            const classes = ['sort-cell'];
+            if (markers.length) classes.push('compare');
+            else if (inside) classes.push('sorted');
+            return `<span class="${classes.join(' ')}" role="listitem">
+                <span class="sort-cell-index">${index}</span>
+                <span class="sort-markers">${markers.map(escapeHtml).join(', ')}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></span>`;
+        }).join('') : '';
+        const effect = {
+            PENDING: 'đang chờ ảnh chụp tiếp theo',
+            OBSERVED: 'đã quan sát thay đổi',
+            VIOLATED: 'di chuyển trái với mẫu',
+            TRUNCATED: 'dữ liệu bị cắt ngắn',
+            UNKNOWN: 'chưa đủ dữ liệu'
+        }[frame.effectStatus] || 'chưa đủ dữ liệu';
+        const evidence = Array.isArray(frame.sourceEvidence) ? frame.sourceEvidence : [];
+        const indexLabel = pointer => pointer?.index ?? '?';
+        const valueLabel = value => value === null || value === undefined ? '?' : primitiveLabel(value);
+        const range = state.range;
+        const rangeLabel = ['VALID', 'EMPTY'].includes(range?.status)
+            ? `${range.start}..${range.endExclusive} (đầu cuối không gồm)` : 'chưa xác định';
+        return `<section class="sort-visualization" aria-label="Two Pointers visualization">
+            <div class="sort-title"><strong>Two Pointers · ${opposing ? 'ngược chiều' : 'cùng chiều'}</strong><span class="sort-phase">${escapeHtml(effect)}</span></div>
+            ${captured ? `<div class="sort-cells" role="list" aria-label="Input values">${cells || '<span class="sort-detail">Dữ liệu rỗng</span>'}</div>`
+                : '<div class="sort-detail">Chưa đọc được dữ liệu đầu vào.</div>'}
+            <div class="sort-detail">${escapeHtml(first?.name || firstRole)}[${escapeHtml(indexLabel(first))}] = ${escapeHtml(valueLabel(frame.firstValue))} · ${escapeHtml(second?.name || secondRole)}[${escapeHtml(indexLabel(second))}] = ${escapeHtml(valueLabel(frame.secondValue))}</div>
+            <div class="sort-detail">${opposing ? 'Khoảng giữa hai con trỏ' : 'Vùng đã quét'}: ${escapeHtml(rangeLabel)}</div>
+            ${evidence.length ? `<div class="sort-detail">Bằng chứng mã nguồn: ${evidence.map(escapeHtml).join('; ')}</div>` : ''}
+            <div class="sort-detail">Ảnh chụp trước khi chạy dòng code đang tô sáng; trạng thái chỉ phản ánh những gì đã quan sát.</div>
+        </section>`;
+    }
+
+    function renderActivitySelectionVisualization(state, step) {
+        const frame = state.activitySelectionFrame || {};
+        const hint = lastExecutionData?.algorithmHints?.[state.hintIndex];
+        const pattern = hint?.activitySelection || {};
+        const input = (step.variables || []).find(variable =>
+            variable.astNodeId === pattern.declarationIds?.input);
+        const startColumn = Number(pattern.roleValues?.start);
+        const endColumn = Number(pattern.roleValues?.end);
+        const intervals = pattern.representation === 'INTERVAL_LIST'
+            ? (Array.isArray(input?.visualValue?.values) ? input.visualValue.values : [])
+            : (Array.isArray(input?.visualValue) ? input.visualValue : []).map(row =>
+                Array.isArray(row) ? { start: row[startColumn], end: row[endColumn] } : {});
+        const selected = new Set(Array.isArray(frame.selectedIndices) ? frame.selectedIndices : []);
+        const cells = intervals.map((item, index) => {
+            const start = item?.start ?? '?';
+            const end = item?.end ?? '?';
+            const label = `${index}: [${start}, ${end}${frame.overlapPolicy === 'HALF_OPEN' ? ')' : ']'}`;
+            const classes = ['sort-cell'];
+            if (index === frame.candidateIndex) classes.push('compare');
+            if (selected.has(index)) classes.push('sorted');
+            return `<span class="${classes.join(' ')}"><span class="sort-cell-value">${escapeHtml(label)}</span></span>`;
+        }).join('');
+        const decision = frame.decision === 'ACCEPT' ? 'chọn ứng viên'
+            : frame.decision === 'SKIP' ? 'bỏ qua ứng viên' : 'chưa đủ dữ liệu';
+        const effect = frame.effectStatus === 'OBSERVED_AFTER_WRITE' ? 'đã xác nhận sau ghi'
+            : frame.effectStatus === 'PENDING' ? 'đang chờ ảnh chụp sau ghi'
+            : frame.effectStatus === 'TRUNCATED' ? 'ảnh chụp bị cắt ngắn' : 'chưa xác minh';
+        const sourceOrder = frame.orderingEvidence === 'SOURCE_PROVEN'
+            ? 'Mã nguồn chứng minh sắp tăng theo end'
+            : frame.orderingEvidence === 'CONTRADICTED'
+                ? 'Thứ tự sort trong mã không phù hợp'
+                : 'Thứ tự theo end là tiền điều kiện của đầu vào';
+        const runtimeOrder = frame.runtimeOrderingStatus === 'RUNTIME_VERIFIED'
+            ? 'Thứ tự end đã xác minh trong lần chạy này'
+            : frame.runtimeOrderingStatus === 'VIOLATED'
+                ? 'Thứ tự end bị vi phạm' : 'Thứ tự end chưa đủ quan sát';
+        const policy = frame.overlapPolicy === 'CLOSED' ? 'start > lastEnd'
+            : 'start >= lastEnd';
+        const selectedText = (frame.selectedIndices || []).length
+            ? frame.selectedIndices.join(', ') : 'chưa có lựa chọn đã xác nhận';
+        const optimality = frame.optimalityStatus === 'VERIFIED_FOR_RUN'
+            ? '<div class="sort-detail">Tối ưu theo quy tắc Activity Selection trong lần chạy này.</div>'
+            : '';
+        return `<section class="sort-visualization" aria-label="Activity Selection visualization">
+            <div class="sort-title"><strong>Activity Selection</strong><span class="sort-phase">${escapeHtml(effect)}</span></div>
+            <div class="sort-cells" role="list" aria-label="Intervals in scan order">${cells || '<span class="sort-detail">Chưa đọc được danh sách khoảng.</span>'}</div>
+            <div class="sort-detail">Ứng viên ${escapeHtml(frame.candidateIndex ?? '?')} · ${escapeHtml(decision)} · lastEnd=${escapeHtml(frame.lastEnd ?? '?')} · ${escapeHtml(policy)}</div>
+            <div class="sort-detail">Đã chọn (vị trí): ${escapeHtml(selectedText)}</div>
+            <div class="sort-detail">${escapeHtml(sourceOrder)}</div>
+            <div class="sort-detail">${escapeHtml(runtimeOrder)} · không chồng lấn: ${escapeHtml(frame.nonOverlapStatus || 'UNKNOWN')} · đầu ra: ${escapeHtml(frame.outputStatus || 'UNKNOWN')}</div>
+            ${optimality}
+            <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
+        </section>`;
+    }
+
+    function renderHeapVisualization(state) {
+        const frame = state.heapFrame;
+        const values = Array.isArray(state.array?.values) ? state.array.values : [];
+        const hint = lastExecutionData?.algorithmHints?.[state.hintIndex];
+        const directionLabel = hint?.heap?.direction === 'DESCENDING' ? 'giảm dần' : 'tăng dần';
+        const buildLabel = hint?.heap?.buildKind === 'TOP_DOWN' ? 'chèn dần' : 'từ dưới lên';
+        const comparison = frame.comparison;
+        const pending = frame.pendingMutation;
+        const completed = frame.completedMutation;
+        const cells = values.map((value, index) => {
+            const classes = ['sort-cell'];
+            if (comparison && [comparison.firstIndex, comparison.secondIndex].includes(index)) classes.push('compare');
+            else if (pending && [pending.fromIndex, pending.toIndex].includes(index)) classes.push('write');
+            else if (frame.fullArrayStatus === 'VERIFIED_SORTED' ||
+                frame.suffixStatus === 'VERIFIED_SORTED' && frame.verifiedSuffixStart != null && index >= frame.verifiedSuffixStart)
+                classes.push('sorted');
+            const labels = [
+                frame.node === index ? 'NODE' : null,
+                frame.left === index ? 'LEFT' : null,
+                frame.right === index ? 'RIGHT' : null,
+                frame.chosen === index ? 'CHOSEN' : null,
+                frame.heapEnd != null && frame.heapEnd - 1 === index ? 'HEAP END' : null
+            ].filter(Boolean);
+            return `<div class="${classes.join(' ')}" role="listitem" aria-label="index ${index}, value ${escapeHtml(primitiveLabel(value))}">
+                <span class="sort-cell-index">${index}</span>
+                <span class="sort-markers">${labels.map(label => `<span>${label}</span>`).join(' ')}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></div>`;
+        }).join('');
+        const details = [
+            frame.invocationId != null ? `Lần gọi #${frame.invocationId}` : '',
+            frame.heapEnd != null ? `Vùng heap [0, ${frame.heapEnd}).${frame.verifiedSuffixStart != null ? ` Hậu tố đã xác nhận bắt đầu tại ${frame.verifiedSuffixStart}.` : ''}` : 'Chưa đọc được biên vùng heap.',
+            comparison?.status === 'AVAILABLE_FROM_SNAPSHOT'
+                ? `So sánh [${comparison.firstIndex}] = ${escapeHtml(primitiveLabel(comparison.firstValue))} với [${comparison.secondIndex}] = ${escapeHtml(primitiveLabel(comparison.secondValue))}; kết quả: ${escapeHtml(comparison.proposedAction)}.` : '',
+            pending ? `Phép đổi chỗ đang chờ quan sát đủ hai lần ghi (${escapeHtml(pending.kind)}).` : '',
+            completed ? `Đã quan sát đủ hai lần ghi của phép đổi chỗ (${escapeHtml(completed.kind)}).` : '',
+            frame.heapStatus === 'VERIFIED_HEAP' ? 'Tính chất heap của vùng hiện tại đã được kiểm tra từ giá trị runtime.' : '',
+            frame.heapStatus === 'NOT_HEAP' ? 'Vùng hiện tại chưa thỏa tính chất heap ở ảnh chụp này.' : '',
+            frame.suffixStatus === 'VERIFIED_SORTED' && frame.fullArrayStatus !== 'VERIFIED_SORTED'
+                ? `Hậu tố đã được kiểm tra thứ tự ${directionLabel} từ runtime.` : '',
+            frame.fullArrayStatus === 'VERIFIED_SORTED' ? `Toàn bộ mảng đã được kiểm tra thứ tự ${directionLabel} từ runtime.` : '',
+            frame.fullArrayStatus === 'NOT_SORTED' ? 'Mảng sau lời gọi chưa đúng thứ tự.' : ''
+        ].filter(Boolean);
+        if (state.array?.truncated) details.push(`Chỉ chụp ${values.length}/${state.array.length} phần tử; chưa thể kiểm tra toàn mảng.`);
+        return `<section class="sort-visualization" aria-label="Heap Sort visualization">
+            <div class="sort-title"><strong>Mẫu Heap Sort được nhận diện · ${directionLabel} · dựng heap ${buildLabel}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
+            ${state.array?.status === 'AVAILABLE'
+                ? `<div class="sort-cells" role="list" aria-label="Array values">${cells || '<span class="sort-detail">Mảng rỗng</span>'}</div>`
+                : '<div class="sort-detail">Không đọc được giá trị mảng.</div>'}
+            ${details.map(detail => `<div class="sort-detail">${detail}</div>`).join('')}
+            <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
+            <div class="sort-legend" aria-label="Array highlight legend"><span><i></i>So sánh</span><span><i class="legend-write"></i>Ghi sắp tới</span><span><i class="legend-sorted"></i>Đã kiểm tra</span><span><i class="legend-pointer"></i>Vị trí heap</span></div>
+        </section>`;
+    }
+
+    function renderQuickVisualization(state) {
+        const frame = state.quickFrame;
+        const values = Array.isArray(state.array?.values) ? state.array.values : [];
+        const direction = lastExecutionData?.algorithmHints?.[state.hintIndex]?.quick?.direction;
+        const directionLabel = direction === 'DESCENDING' ? 'giảm dần' : 'tăng dần';
+        const comparison = frame.comparison;
+        const pending = frame.pendingMutation;
+        const completed = frame.completedMutation;
+        const cells = values.map((value, index) => {
+            const classes = ['sort-cell'];
+            if (comparison && [comparison.firstIndex, comparison.secondIndex].includes(index)) classes.push('compare');
+            else if (pending && [pending.fromIndex, pending.toIndex].includes(index)) classes.push('write');
+            else if (frame.fullArrayStatus === 'VERIFIED_SORTED' ||
+                frame.partitionStatus === 'VERIFIED_PARTITION' && index === frame.store)
+                classes.push('sorted');
+            const markers = [
+                (frame.partitionStatus === 'VERIFIED_PARTITION' ? frame.store : frame.pivotIndex) === index
+                    && frame.pivotValue !== null ? 'PIVOT' : null,
+                frame.scan === index ? 'SCAN' : null,
+                frame.store === index ? 'STORE' : null
+            ].filter(Boolean).map(label => `<span>${label}</span>`).join(' ');
+            return `<div class="${classes.join(' ')}" role="listitem" aria-label="index ${index}, value ${escapeHtml(primitiveLabel(value))}">
+                <span class="sort-cell-index">${index}</span><span class="sort-markers">${markers}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></div>`;
+        }).join('');
+        const details = [
+            frame.invocationId != null ? `Lần gọi #${frame.invocationId}` : '',
+            frame.low != null && frame.high != null ? `Đoạn đang xử lý [${frame.low}, ${frame.high}]` : '',
+            frame.phase === 'FULL_ARRAY_OBSERVED' ? '' : frame.pivotValue != null
+                ? `Pivot = ${escapeHtml(primitiveLabel(frame.pivotValue))}` : 'Pivot chưa được đọc ở bước này',
+            comparison?.status === 'AVAILABLE_FROM_SNAPSHOT'
+                ? `So sánh phần tử ${comparison.firstIndex} = ${escapeHtml(primitiveLabel(comparison.firstValue))} với pivot ${escapeHtml(primitiveLabel(comparison.secondValue))}; ${comparison.actionRequired ? 'đưa vào phần trái' : 'giữ ở phần phải'}.` : '',
+            pending ? `Sắp ghi: ${escapeHtml(pending.kind.replaceAll('_', ' ').toLowerCase())} (${escapeHtml(pending.status)}).` : '',
+            completed ? `Đã xác nhận ghi: ${escapeHtml(completed.kind.replaceAll('_', ' ').toLowerCase())}.` : '',
+            frame.partitionStatus === 'VERIFIED_PARTITION' ? 'Phân hoạch của lần gọi này đã được kiểm tra từ mảng runtime.' : '',
+            frame.fullArrayStatus === 'VERIFIED_SORTED' ? `Toàn bộ mảng đã được kiểm tra thứ tự ${directionLabel} từ runtime.` : '',
+            frame.fullArrayStatus === 'NOT_SORTED' ? 'Mảng sau lời gọi chưa đúng thứ tự.' : ''
+        ].filter(Boolean);
+        if (state.array?.truncated) details.push(`Chỉ hiển thị ${values.length}/${state.array.length} phần tử được chụp; chưa thể kiểm tra toàn mảng.`);
+        return `<section class="sort-visualization" aria-label="Quick Sort visualization">
+            <div class="sort-title"><strong>Mẫu Quick Sort được nhận diện · ${directionLabel}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
+            ${state.array?.status === 'AVAILABLE'
+                ? `<div class="sort-cells" role="list" aria-label="Array values">${cells || '<span class="sort-detail">Mảng rỗng</span>'}</div>`
+                : '<div class="sort-detail">Không đọc được giá trị mảng.</div>'}
+            ${details.map(detail => `<div class="sort-detail">${detail}</div>`).join('')}
+            <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
+            <div class="sort-legend" aria-label="Array highlight legend"><span><i></i>So sánh</span><span><i class="legend-write"></i>Ghi sắp tới</span><span><i class="legend-sorted"></i>Đã kiểm tra</span><span><i class="legend-pointer"></i>pivot / scan / store</span></div>
+        </section>`;
+    }
+
+    function renderMergeVisualization(state) {
+        const frame = state.mergeFrame;
+        const sourceValues = Array.isArray(state.array?.values) ? state.array.values : [];
+        const auxValues = Array.isArray(frame.auxiliary?.values) ? frame.auxiliary.values : [];
+        const direction = lastExecutionData?.algorithmHints?.[state.hintIndex]?.merge?.direction;
+        const directionLabel = direction === 'DESCENDING' ? 'giảm dần' : 'tăng dần';
+        const comparison = frame.comparison;
+        const pending = frame.pendingMutation;
+        const completed = frame.completedMutation;
+        const sourceCells = sourceValues.map((value, index) => {
+            const classes = ['sort-cell'];
+            if (comparison && [comparison.firstIndex, comparison.secondIndex].includes(index)) classes.push('compare');
+            else if (pending?.kind === 'COPY_BACK_PENDING' && pending.toIndex === index) classes.push('write');
+            else if (completed?.kind === 'COPY_BACK_COMPLETED' && completed.toIndex === index) classes.push('write');
+            else if (frame.fullArrayStatus === 'VERIFIED_SORTED' ||
+                frame.mergedRangeStatus === 'VERIFIED_SORTED'
+                    && index >= frame.verifiedLow && index <= frame.verifiedHigh) classes.push('sorted');
+            const markers = [
+                frame.left === index ? 'LEFT' : null,
+                frame.right === index ? 'RIGHT' : null,
+                frame.mid === index ? 'MID' : null,
+                frame.index === index ? 'COPY' : null
+            ].filter(Boolean).map(label => `<span>${label}</span>`).join(' ');
+            return `<div class="${classes.join(' ')}" role="listitem" aria-label="source index ${index}, value ${escapeHtml(primitiveLabel(value))}">
+                <span class="sort-cell-index">${index}</span><span class="sort-markers">${markers}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></div>`;
+        }).join('');
+        const auxCells = auxValues.map((value, index) => {
+            const classes = ['sort-cell'];
+            if (pending?.kind === 'AUX_WRITE_PENDING' && pending.toIndex === index) classes.push('write');
+            else if (completed?.kind === 'AUX_WRITE_COMPLETED' && completed.toIndex === index) classes.push('write');
+            const marker = frame.write === index ? '<span>WRITE</span>' : '';
+            return `<div class="${classes.join(' ')}" role="listitem" aria-label="auxiliary index ${index}, value ${escapeHtml(primitiveLabel(value))}">
+                <span class="sort-cell-index">${index}</span><span class="sort-markers">${marker}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></div>`;
+        }).join('');
+        const details = [
+            frame.invocationId != null ? `Lần gọi #${frame.invocationId}` : '',
+            frame.low != null && frame.high != null ? `Đoạn đang xử lý [${frame.low}, ${frame.high}]` : '',
+            frame.mid != null ? `Điểm chia = ${frame.mid}` : '',
+            comparison?.status === 'AVAILABLE_FROM_SNAPSHOT'
+                ? `So sánh nguồn [${comparison.firstIndex}] = ${escapeHtml(primitiveLabel(comparison.firstValue))} và [${comparison.secondIndex}] = ${escapeHtml(primitiveLabel(comparison.secondValue))}; ${comparison.action === 'TAKE_LEFT' ? 'lấy bên trái' : 'lấy bên phải'}.` : '',
+            pending ? `Sắp ghi ${pending.kind === 'COPY_BACK_PENDING' ? 'vào mảng nguồn' : 'vào mảng phụ'} tại vị trí ${pending.toIndex}: ${escapeHtml(primitiveLabel(pending.value))}.` : '',
+            completed ? `Đã xác nhận ghi ${completed.kind === 'COPY_BACK_COMPLETED' ? 'vào mảng nguồn' : 'vào mảng phụ'} tại vị trí ${completed.toIndex}.` : '',
+            frame.mergedRangeStatus === 'VERIFIED_SORTED' && frame.verifiedLow != null
+                ? `Đoạn [${frame.verifiedLow}, ${frame.verifiedHigh}] đã được kiểm tra thứ tự ${directionLabel} từ runtime.` : '',
+            frame.fullArrayStatus === 'VERIFIED_SORTED' ? `Toàn bộ mảng đã được kiểm tra thứ tự ${directionLabel} từ runtime.` : '',
+            frame.fullArrayStatus === 'NOT_SORTED' ? 'Mảng sau lời gọi chưa đúng thứ tự.' : ''
+        ].filter(Boolean);
+        if (state.array?.truncated) details.push(`Chỉ hiển thị ${sourceValues.length}/${state.array.length} phần tử nguồn; chưa thể kiểm tra toàn mảng.`);
+        if (frame.auxiliary?.truncated) details.push(`Mảng phụ chỉ được chụp ${auxValues.length}/${frame.auxiliary.length} phần tử.`);
+        return `<section class="sort-visualization" aria-label="Merge Sort visualization">
+            <div class="sort-title"><strong>Mẫu Merge Sort được nhận diện · ${directionLabel}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
+            <div class="sort-detail">Mảng nguồn</div>
+            ${state.array?.status === 'AVAILABLE'
+                ? `<div class="sort-cells" role="list" aria-label="Source array values">${sourceCells || '<span class="sort-detail">Mảng rỗng</span>'}</div>`
+                : '<div class="sort-detail">Không đọc được mảng nguồn.</div>'}
+            <div class="sort-detail">Mảng phụ</div>
+            ${frame.auxiliary?.status === 'AVAILABLE'
+                ? `<div class="sort-cells" role="list" aria-label="Auxiliary array values">${auxCells || '<span class="sort-detail">Mảng phụ rỗng</span>'}</div>`
+                : '<div class="sort-detail">Mảng phụ chưa được tạo hoặc không đọc được ở bước này.</div>'}
+            ${details.map(detail => `<div class="sort-detail">${detail}</div>`).join('')}
+            <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
+            <div class="sort-legend" aria-label="Array highlight legend"><span><i></i>So sánh</span><span><i class="legend-write"></i>Ghi</span><span><i class="legend-sorted"></i>Đã kiểm tra</span><span><i class="legend-pointer"></i>vị trí đọc/ghi</span></div>
+        </section>`;
     }
 
     function renderSortVisualization(state) {
@@ -842,17 +1124,23 @@
                         : region?.status === 'EMPTY'
                             ? `Đoạn [${region.start}, ${region.endExclusive}) chưa có phần tử.` : '';
         const runtimeVariables = [
-            ...Object.entries(state.pointers || {}).map(([role, pointer]) => `${role}=${pointer.index ?? pointer.status}`),
-            ...Object.entries(state.scalars || {}).map(([role, scalar]) => `${role}=${primitiveLabel(scalar.value)}`)
+            ...Object.entries(state.pointers || {})
+                .filter(([, pointer]) => pointer.status !== 'MISSING')
+                .map(([role, pointer]) => `${role}=${pointer.index ?? pointer.status}`),
+            ...Object.entries(state.scalars || {})
+                .filter(([, scalar]) => scalar.status !== 'MISSING')
+                .map(([role, scalar]) => `${role}=${primitiveLabel(scalar.value)}`)
         ].join(' · ');
+        const activityDetails = [comparisonText, mutationText, completedText].filter(Boolean);
         return `<section class="sort-visualization" aria-label="${escapeHtml(algorithmLabel)} visualization">
-            <div class="sort-title"><strong>${escapeHtml(algorithmLabel)} · ${escapeHtml(directionLabel)}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
+            <div class="sort-title"><strong>Mẫu ${escapeHtml(algorithmLabel)} được nhận diện · ${escapeHtml(directionLabel)}</strong><span class="sort-phase">${escapeHtml(frame.phase)}</span></div>
             ${state.array?.status === 'AVAILABLE'
                 ? `<div class="sort-cells" role="list" aria-label="Array values">${cells || '<span class="sort-detail">Mảng rỗng</span>'}</div>`
                 : '<div class="sort-detail">Không đọc được giá trị mảng.</div>'}
             ${runtimeVariables ? `<div class="sort-detail">${escapeHtml(runtimeVariables)}</div>` : ''}
-            <div class="sort-detail">${comparisonText || mutationText || completedText || 'Trạng thái runtime tại bước hiện tại.'}</div>
-            ${mutationText && comparisonText ? `<div class="sort-detail">${mutationText}</div>` : ''}
+            ${activityDetails.length
+                ? activityDetails.map(detail => `<div class="sort-detail">${detail}</div>`).join('')
+                : '<div class="sort-detail">Trạng thái runtime tại bước hiện tại.</div>'}
             ${sortedText ? `<div class="sort-detail">${sortedText}</div>` : ''}
             <div class="sort-detail">Giá trị được chụp trước khi chạy dòng code đang tô sáng.</div>
             <div class="sort-legend" aria-label="Array highlight legend"><span><i></i>So sánh</span><span><i class="legend-write"></i>Ghi sắp tới</span><span><i class="legend-sorted"></i>Đoạn đã kiểm tra</span><span><i class="legend-pointer"></i>pass / scan</span><span><i class="legend-invalid"></i>Sai thứ tự</span></div>

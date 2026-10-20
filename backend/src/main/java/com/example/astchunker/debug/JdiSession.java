@@ -2,6 +2,8 @@ package com.example.astchunker.debug;
 
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.mapping.VariableMapper;
+import com.example.astchunker.mapping.IntervalValueProjection;
+import com.example.astchunker.mapping.IntegerListProjection;
 import com.example.astchunker.model.ExecutionContext;
 import com.example.astchunker.model.ExecutionObservation;
 import com.example.astchunker.model.ObservationPoint;
@@ -23,17 +25,24 @@ import com.sun.jdi.event.BreakpointEvent;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.event.Event;
 import com.sun.jdi.event.EventSet;
+import com.sun.jdi.event.MethodEntryEvent;
+import com.sun.jdi.event.MethodExitEvent;
 import com.sun.jdi.event.VMDeathEvent;
 import com.sun.jdi.event.VMDisconnectEvent;
 import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.EventRequest;
 import com.sun.jdi.request.EventRequestManager;
+import com.sun.jdi.request.MethodEntryRequest;
+import com.sun.jdi.request.MethodExitRequest;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +82,21 @@ public class JdiSession {
   }
 
   public DebugRun observe(TargetCompiler.CompiledTarget target, AstAnalyzer.Analysis analysis) {
+    return observe(target, analysis, new IntervalValueProjection(Map.of()));
+  }
+
+  public DebugRun observe(
+      TargetCompiler.CompiledTarget target,
+      AstAnalyzer.Analysis analysis,
+      IntervalValueProjection intervalProjection) {
+    return observe(target, analysis, intervalProjection, new IntegerListProjection(Set.of()));
+  }
+
+  public DebugRun observe(
+      TargetCompiler.CompiledTarget target,
+      AstAnalyzer.Analysis analysis,
+      IntervalValueProjection intervalProjection,
+      IntegerListProjection integerListProjection) {
     VirtualMachine virtualMachine = null;
     try {
       virtualMachine = launch(target);
@@ -81,17 +105,27 @@ public class JdiSession {
       classPrepareRequest.addClassFilter(target.mainClassName());
       classPrepareRequest.setSuspendPolicy(EventRequest.SUSPEND_ALL);
       classPrepareRequest.enable();
+      MethodEntryRequest methodEntryRequest = requestManager.createMethodEntryRequest();
+      methodEntryRequest.addClassFilter(target.mainClassName());
+      methodEntryRequest.setSuspendPolicy(EventRequest.SUSPEND_EVENT_THREAD);
+      methodEntryRequest.enable();
+      MethodExitRequest methodExitRequest = requestManager.createMethodExitRequest();
+      methodExitRequest.addClassFilter(target.mainClassName());
+      methodExitRequest.setSuspendPolicy(EventRequest.SUSPEND_EVENT_THREAD);
+      methodExitRequest.enable();
 
       List<ExecutionObservation> executions = new ArrayList<>();
       List<String> warnings = new ArrayList<>();
       Set<ReferenceType> installedTypes = new HashSet<>();
+      InvocationTracker invocations = new InvocationTracker();
       installAlreadyPreparedTargetType(
           virtualMachine, requestManager, analysis, installedTypes, warnings);
 
       // CommandLineLaunch returns a suspended VM. Resuming only after the ClassPrepareRequest is
       // active guarantees that a lazily-loaded target class cannot miss breakpoint installation.
       virtualMachine.resume();
-      runEventLoop(virtualMachine, requestManager, analysis, installedTypes, executions, warnings);
+      runEventLoop(virtualMachine, requestManager, analysis, installedTypes, executions, warnings,
+          invocations, intervalProjection, integerListProjection);
       return new DebugRun(List.copyOf(executions), List.copyOf(warnings));
     } catch (VMDisconnectedException ex) {
       return new DebugRun(
@@ -141,7 +175,10 @@ public class JdiSession {
       AstAnalyzer.Analysis analysis,
       Set<ReferenceType> installedTypes,
       List<ExecutionObservation> executions,
-      List<String> warnings) {
+      List<String> warnings,
+      InvocationTracker invocations,
+      IntervalValueProjection intervalProjection,
+      IntegerListProjection integerListProjection) {
     Instant deadline = Instant.now().plus(timeout);
     boolean targetFinished = false;
 
@@ -166,8 +203,13 @@ public class JdiSession {
                 analysis,
                 installedTypes,
                 warnings);
+          } else if (event instanceof MethodEntryEvent entryEvent) {
+            invocations.enter(entryEvent);
+          } else if (event instanceof MethodExitEvent exitEvent) {
+            invocations.exit(exitEvent);
           } else if (event instanceof BreakpointEvent breakpointEvent) {
-            captureVariables(breakpointEvent, analysis, executions, warnings);
+            captureVariables(breakpointEvent, analysis, executions, warnings, invocations,
+                intervalProjection, integerListProjection);
           } else if (event instanceof VMDeathEvent || event instanceof VMDisconnectEvent) {
             targetFinished = true;
           }
@@ -218,7 +260,10 @@ public class JdiSession {
       BreakpointEvent breakpointEvent,
       AstAnalyzer.Analysis analysis,
       List<ExecutionObservation> executions,
-      List<String> warnings) {
+      List<String> warnings,
+      InvocationTracker invocations,
+      IntervalValueProjection intervalProjection,
+      IntegerListProjection integerListProjection) {
     Object property = breakpointEvent.request().getProperty(OBSERVATION_POINT_PROPERTY);
     if (!(property instanceof ObservationPoint observationPoint)) {
       warnings.add("A breakpoint event did not include its source observation metadata.");
@@ -233,7 +278,8 @@ public class JdiSession {
       var location = breakpointEvent.location();
       int lineNumber = location.lineNumber();
       List<ObservationResult> variables =
-          variableMapper.map(frame, observationPoint, analysis.variables(), lineNumber);
+          variableMapper.map(frame, observationPoint, analysis.variables(), lineNumber,
+              intervalProjection, integerListProjection);
       ExecutionContext context =
           new ExecutionContext(
               eventThread.uniqueID(),
@@ -242,7 +288,9 @@ public class JdiSession {
               location.method().name(),
               location.method().signature(),
               eventThread.frameCount(),
-              location.codeIndex());
+              location.codeIndex(),
+              invocations.current(eventThread, location.method().name(),
+                  location.method().signature()));
       executions.add(
           new ExecutionObservation(
               executions.size() + 1L,
@@ -266,6 +314,57 @@ public class JdiSession {
               + observationPoint.lineNumber()
               + " on its event thread: "
               + ex.getMessage());
+    }
+  }
+
+  /** IDs are scoped by thread and allocated at method entry, including repeated sibling calls. */
+  private static final class InvocationTracker {
+    private record Active(String method, String signature, int depth, long id) {}
+
+    private final Map<Long, Deque<Active>> active = new HashMap<>();
+    private final Map<Long, Long> nextId = new HashMap<>();
+
+    void enter(MethodEntryEvent event) {
+      ThreadReference thread = event.thread();
+      try {
+        long threadId = thread.uniqueID();
+        long id = nextId.merge(threadId, 1L, Long::sum);
+        active.computeIfAbsent(threadId, unused -> new ArrayDeque<>())
+            .addLast(new Active(event.method().name(), event.method().signature(),
+                thread.frameCount(), id));
+      } catch (IncompatibleThreadStateException ignored) {
+        // A subsequent breakpoint can still allocate a stable fallback ID.
+      }
+    }
+
+    void exit(MethodExitEvent event) {
+      Deque<Active> stack = active.get(event.thread().uniqueID());
+      if (stack == null) return;
+      var iterator = stack.descendingIterator();
+      while (iterator.hasNext()) {
+        Active candidate = iterator.next();
+        if (candidate.method().equals(event.method().name())
+            && candidate.signature().equals(event.method().signature())) {
+          iterator.remove();
+          return;
+        }
+      }
+    }
+
+    Long current(ThreadReference thread, String method, String signature)
+        throws IncompatibleThreadStateException {
+      long threadId = thread.uniqueID();
+      int depth = thread.frameCount();
+      Deque<Active> stack = active.computeIfAbsent(threadId, unused -> new ArrayDeque<>());
+      var iterator = stack.descendingIterator();
+      while (iterator.hasNext()) {
+        Active candidate = iterator.next();
+        if (candidate.depth() == depth && candidate.method().equals(method)
+            && candidate.signature().equals(signature)) return candidate.id();
+      }
+      long id = nextId.merge(threadId, 1L, Long::sum);
+      stack.addLast(new Active(method, signature, depth, id));
+      return id;
     }
   }
 

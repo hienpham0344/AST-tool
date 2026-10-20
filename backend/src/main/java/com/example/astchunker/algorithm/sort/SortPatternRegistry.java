@@ -19,7 +19,12 @@ public final class SortPatternRegistry {
   public static SortPatternRegistry defaults() {
     return new SortPatternRegistry(
         List.of(
-            new BubbleSortDetector(), new SelectionSortDetector(), new InsertionSortDetector()));
+            new BubbleSortDetector(),
+            new SelectionSortDetector(),
+            new InsertionSortDetector(),
+            new QuickSortDetector(),
+            new MergeSortDetector(),
+            new HeapSortDetector()));
   }
 
   public Optional<AlgorithmHint> detect(Node loop) {

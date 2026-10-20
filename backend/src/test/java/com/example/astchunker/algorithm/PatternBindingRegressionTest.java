@@ -44,11 +44,11 @@ class PatternBindingRegressionTest {
   }
 
   @Test
-  void recordsEquivalentSyntaxStillOutsideTheCurrentRuleCoverage() {
+  void recognizesReversedGuardWithTheSameSourceBinding() {
     String source = "int l=0,r=a.length-1; while(l<r){int x=a[l]+a[r];l++;r--;}";
     assertThat(detect(source)).hasSize(1);
-    // Expression normalization is task 4; do not claim that these are supported yet.
-    assertThat(detect(source.replace("l<r", "r>l"))).isEmpty();
+    assertThat(detect(source.replace("l<r", "r>l")))
+        .extracting(AlgorithmHint::type).containsExactly("two-pointers");
   }
 
   @Test
@@ -56,7 +56,7 @@ class PatternBindingRegressionTest {
     var parser = new AstAnalyzer();
     var analysis =
         parser.analyze(
-            "class S { void f(int[] a,int l,int r){while(l<r){int x=a[l]+a[r];l++;r--;}} }");
+            "class S { void f(int[] a){int l=0,r=a.length-1;while(l<r){int x=a[l]+a[r];l++;r--;}} }");
     var hint = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit()).get(0);
     assertThat(hint.patternAstNodeId()).startsWith("ast-WhileStmt-");
     assertThat(hint.methodAstNodeId()).startsWith("ast-MethodDeclaration-");

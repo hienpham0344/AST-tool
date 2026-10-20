@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -271,6 +273,87 @@ class MultipartApiIntegrationTest {
                 .header("Access-Control-Request-Method", "POST"))
         .andExpect(status().isOk())
         .andExpect(header().string("Access-Control-Allow-Origin", "*"));
+  }
+
+  @Test
+  void addsHeapMetadataAndFramesWithoutChangingLegacyStepFields() throws Exception {
+    String source = Files.readString(Path.of("../examples/sort/HeapSortSample.java"));
+    MockMultipartFile file =
+        new MockMultipartFile(
+            "file",
+            "HeapSortSample.java",
+            "text/x-java-source",
+            source.getBytes(StandardCharsets.UTF_8));
+    mockMvc
+        .perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("heap-sort"))
+        .andExpect(jsonPath("$.algorithmHints[0].heap.schemaVersion").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].heap.direction").value("ASCENDING"))
+        .andExpect(jsonPath("$.algorithmHints[0].heap.buildKind").value("BOTTOM_UP"))
+        .andExpect(
+            jsonPath("$.algorithmHints[0].heap.operationAstNodeIds.rootSwapEndWrite").isNotEmpty())
+        .andExpect(jsonPath("$.steps[0].sequence").isNumber())
+        .andExpect(jsonPath("$.steps[0].snapshotPhase").value("BEFORE_LOCATION"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].heapFrame.phase").isNotEmpty());
+  }
+
+  @Test
+  void addsActivitySelectionMetadataAndFramesToStepsOnly() throws Exception {
+    String source = Files.readString(Path.of("examples/greedy/ActivitySelectionArraySample.java"));
+    MockMultipartFile file = new MockMultipartFile(
+        "file", "ActivitySelectionArraySample.java", "text/x-java-source",
+        source.getBytes(StandardCharsets.UTF_8));
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("activity-selection"))
+        .andExpect(jsonPath("$.algorithmHints[0].activitySelection.schemaVersion").value(1))
+        .andExpect(jsonPath("$.algorithmHints[0].activitySelection.orderingEvidence")
+            .value("SOURCE_PROVEN"))
+        .andExpect(jsonPath("$.steps[0].sequence").isNumber())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].activitySelectionFrame.decision")
+            .isNotEmpty());
+    String legacy = mockMvc.perform(multipart("/api/debug").file(file))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    assertThat(legacy.trim()).startsWith("[");
+    assertThat(legacy).doesNotContain("activitySelection", "objectId", "arrayObjectId");
+  }
+
+  @Test
+  void exposesOpposingArrayTwoPointersWithoutChangingLegacyDebug() throws Exception {
+    MockMultipartFile file = example("OpposingArraySample.java");
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("two-pointers"))
+        .andExpect(jsonPath("$.algorithmHints[0].twoPointers.movement").value("OPPOSING"))
+        .andExpect(jsonPath("$.algorithmHints[0].twoPointers.representation").value("INT_ARRAY"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].twoPointersFrame.movement")
+            .isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].twoPointersFrame.sourceEvidence")
+            .isNotEmpty());
+    String legacy = mockMvc.perform(multipart("/api/debug").file(file))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    assertThat(legacy.trim()).startsWith("[");
+    assertThat(legacy).doesNotContain("twoPointers", "twoPointersFrame", "objectId");
+  }
+
+  @Test
+  void exposesSameDirectionListTwoPointersWithBoundedProjection() throws Exception {
+    MockMultipartFile file = example("SameDirectionListSample.java");
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("two-pointers"))
+        .andExpect(jsonPath("$.algorithmHints[0].twoPointers.movement").value("SAME_DIRECTION"))
+        .andExpect(jsonPath("$.algorithmHints[0].twoPointers.representation")
+            .value("INTEGER_LIST"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].twoPointersFrame.movement")
+            .isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].array.status").isNotEmpty());
+  }
+
+  private MockMultipartFile example(String name) throws Exception {
+    return new MockMultipartFile("file", name, "text/x-java-source",
+        Files.readAllBytes(Path.of("examples/twopointers", name)));
   }
 
   private MockMultipartFile javaFile() {
