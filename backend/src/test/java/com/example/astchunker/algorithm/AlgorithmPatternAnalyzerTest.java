@@ -73,6 +73,70 @@ class AlgorithmPatternAnalyzerTest {
   }
 
   @Test
+  void rejectsBinarySearchWhenBoundUpdatesIgnoreComparison() {
+    assertThat(
+            detect(
+                """
+        int lo = 0, hi = data.length - 1;
+        boolean moveLeft = true, moveRight = false;
+        while (lo <= hi) {
+          int mid = (lo + hi) / 2;
+          if (data[mid] == target) return;
+          if (moveLeft) lo = mid + 1;
+          if (moveRight) hi = mid - 1;
+        }
+        """))
+        .isEmpty();
+  }
+
+  @Test
+  void rejectsBinarySearchWhenBoundUpdatesMoveInWrongDirection() {
+    assertThat(
+            detect(
+                """
+        int lo = 0, hi = data.length - 1;
+        while (lo <= hi) {
+          int mid = (lo + hi) / 2;
+          if (data[mid] < target) hi = mid - 1;
+          else lo = mid + 1;
+        }
+        """))
+        .isEmpty();
+  }
+
+  @Test
+  void rejectsBinarySearchWhenAnotherGuardCanReverseTheDecision() {
+    assertThat(
+            detect(
+                """
+        int lo = 0, hi = data.length - 1;
+        boolean ready = false;
+        while (lo <= hi) {
+          int mid = (lo + hi) / 2;
+          if (data[mid] < target && ready) lo = mid + 1;
+          else hi = mid - 1;
+        }
+        """))
+        .isEmpty();
+  }
+
+  @Test
+  void detectsBinarySearchWithReversedComparisonOperands() {
+    assertThat(
+            detect(
+                """
+        int lo = 0, hi = data.length - 1;
+        while (lo <= hi) {
+          int mid = (lo + hi) / 2;
+          if (target > data[mid]) lo = mid + 1;
+          else hi = mid - 1;
+        }
+        """))
+        .extracting(AlgorithmHint::type)
+        .containsExactly("binary-search");
+  }
+
+  @Test
   void detectsOpposingPointersWithDifferentUpdateSyntax() {
     assertThat(
             detect(

@@ -3,7 +3,7 @@
 This project accepts one Java source file, builds an AST with JavaParser, launches the program
 under JDI, and returns the visible local variables at executable source statements.
 
-The runtime payload always has this shape:
+One variable item in the legacy `/api/debug` payload has this shape:
 
 ```json
 {
@@ -54,9 +54,12 @@ curl.exe -F "file=@backend/examples/ScopedVariablesSample.java" http://localhost
   `endLine` fields.
 - `POST /api/debug` runs the program synchronously and returns `ObservationResult[]` after the
   target exits.
+- `POST /api/debug/steps` returns algorithm hints, ordered execution steps, per-step visual
+  states/events, and warnings. The independent frontend integration contract is
+  [`docs/frontend-runtime-json-contract.md`](docs/frontend-runtime-json-contract.md).
 
-Open `UI/dashboardPage.html`, select a `.java` file, and use the three UI actions to exercise the
-same endpoints visually.
+`UI/dashboardPage.html` is a bundled local demo for these endpoints. A frontend
+developed in another project should use the runtime JSON contract linked above.
 
 For sorting examples, upload one of `examples/sort/BubbleSortSample.java`,
 `examples/sort/SelectionSortSample.java`, `examples/sort/InsertionSortSample.java`,

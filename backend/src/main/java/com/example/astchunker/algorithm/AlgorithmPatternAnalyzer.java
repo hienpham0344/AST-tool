@@ -105,16 +105,6 @@ public class AlgorithmPatternAnalyzer {
       for (ArrayAccessExpr access : owned(loop, ArrayAccessExpr.class)) {
         String array = name(access.getName());
         if (array == null || !isName(access.getIndex(), mid)) continue;
-        boolean compared =
-            owned(loop, IfStmt.class).stream()
-                .anyMatch(
-                    branch ->
-                        branch.getCondition().findAll(BinaryExpr.class).stream()
-                            .anyMatch(
-                                comparison ->
-                                    isComparison(comparison)
-                                        && comparison.findAll(ArrayAccessExpr.class).stream()
-                                            .anyMatch(a -> a.equals(access))));
         boolean advance =
             owned(loop, AssignExpr.class).stream()
                 .anyMatch(
@@ -122,7 +112,7 @@ public class AlgorithmPatternAnalyzer {
                         a.getOperator() == AssignExpr.Operator.ASSIGN
                             && isName(a.getTarget(), left)
                             && offset(a.getValue(), mid, BinaryExpr.Operator.PLUS, 1)
-                            && conditional(a, loop));
+                            && comparisonControls(a, loop, access, true));
         boolean retreat =
             owned(loop, AssignExpr.class).stream()
                 .anyMatch(
@@ -131,8 +121,8 @@ public class AlgorithmPatternAnalyzer {
                             && isName(a.getTarget(), right)
                             && (isName(a.getValue(), mid)
                                 || offset(a.getValue(), mid, BinaryExpr.Operator.MINUS, 1))
-                            && conditional(a, loop));
-        if (compared && advance && retreat) {
+                            && comparisonControls(a, loop, access, false));
+        if (advance && retreat) {
           return Optional.of(
               hint(
                   loop,
@@ -256,11 +246,37 @@ public class AlgorithmPatternAnalyzer {
         && integer.getValue().equals(Integer.toString(value));
   }
 
-  private static boolean isComparison(BinaryExpr binary) {
-    return switch (binary.getOperator()) {
-      case EQUALS, NOT_EQUALS, LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> true;
-      default -> false;
-    };
+  private static boolean comparisonControls(
+      AssignExpr assignment, Node loop, ArrayAccessExpr access, boolean advance) {
+    for (Node parent = assignment.getParentNode().orElse(null);
+        parent != null && parent != loop;
+        parent = parent.getParentNode().orElse(null)) {
+      if (!(parent instanceof IfStmt branch)) continue;
+      boolean thenBranch = containsIdentity(branch.getThenStmt(), assignment);
+      if (!thenBranch
+          && branch.getElseStmt().filter(elseStmt -> containsIdentity(elseStmt, assignment)).isEmpty())
+        continue;
+      if (!(unwrap(branch.getCondition()) instanceof BinaryExpr comparison)) return false;
+      boolean accessOnLeft = unwrap(comparison.getLeft()).equals(access);
+      boolean accessOnRight = unwrap(comparison.getRight()).equals(access);
+      if (!accessOnLeft && !accessOnRight) return false;
+      boolean accessLower =
+          accessOnLeft
+              ? comparison.getOperator() == BinaryExpr.Operator.LESS
+                  || comparison.getOperator() == BinaryExpr.Operator.LESS_EQUALS
+              : comparison.getOperator() == BinaryExpr.Operator.GREATER
+                  || comparison.getOperator() == BinaryExpr.Operator.GREATER_EQUALS;
+      boolean accessHigher =
+          accessOnLeft
+              ? comparison.getOperator() == BinaryExpr.Operator.GREATER
+                  || comparison.getOperator() == BinaryExpr.Operator.GREATER_EQUALS
+              : comparison.getOperator() == BinaryExpr.Operator.LESS
+                  || comparison.getOperator() == BinaryExpr.Operator.LESS_EQUALS;
+      return thenBranch
+          ? (advance ? accessLower : accessHigher)
+          : (advance ? accessHigher : accessLower);
+    }
+    return false;
   }
 
   private static String name(Expression expression) {
@@ -320,15 +336,6 @@ public class AlgorithmPatternAnalyzer {
   private static boolean containsIdentity(Node root, Node node) {
     for (Node current = node; current != null; current = current.getParentNode().orElse(null)) {
       if (current == root) return true;
-    }
-    return false;
-  }
-
-  private static boolean conditional(Node node, Node loop) {
-    for (Node current = node.getParentNode().orElse(null);
-        current != null && current != loop;
-        current = current.getParentNode().orElse(null)) {
-      if (current instanceof IfStmt) return true;
     }
     return false;
   }
