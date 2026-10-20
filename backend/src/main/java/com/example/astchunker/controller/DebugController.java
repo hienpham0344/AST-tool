@@ -6,6 +6,7 @@ import com.example.astchunker.debug.JdiSession;
 import com.example.astchunker.debug.TargetCompiler;
 import com.example.astchunker.dto.DebugStepsResponse;
 import com.example.astchunker.mapping.IntervalValueProjection;
+import com.example.astchunker.mapping.BfsProjection;
 import com.example.astchunker.mapping.IntegerListProjection;
 import com.example.astchunker.model.ObservationResult;
 import com.example.astchunker.service.UploadedJavaSourceReader;
@@ -65,7 +66,7 @@ public class DebugController {
     try (TargetCompiler.CompiledTarget target = targetCompiler.compile(sourceCode, analysis)) {
       JdiSession.DebugRun run = jdiSession.observe(
           target, analysis, IntervalValueProjection.fromHints(hints),
-          IntegerListProjection.fromHints(hints));
+          IntegerListProjection.fromHints(hints), BfsProjection.fromHints(hints));
       return ResponseEntity.ok(
           new DebugStepsResponse(
               visualTraceBuilder.build(analysis, hints, run.executions()), run.warnings(), hints));

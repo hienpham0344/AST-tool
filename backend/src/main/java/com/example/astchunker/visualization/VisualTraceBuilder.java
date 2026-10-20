@@ -49,6 +49,7 @@ public class VisualTraceBuilder {
     SlidingWindowTraceBuilder slidingWindowTraceBuilder =
         new SlidingWindowTraceBuilder(hints, nodes);
     LinearSearchTraceBuilder linearSearchTraceBuilder = new LinearSearchTraceBuilder(hints, nodes);
+    BfsTraceBuilder bfsTraceBuilder = new BfsTraceBuilder(hints, nodes);
     List<ExecutionObservation> result = new ArrayList<>();
     ExecutionObservation previous = null;
     for (ExecutionObservation step : steps) {
@@ -66,7 +67,9 @@ public class VisualTraceBuilder {
       states.addAll(twoPointersTraceBuilder.states(step, point, analysis.mainClassName()));
       states.addAll(slidingWindowTraceBuilder.states(step, point, analysis.mainClassName()));
       states.addAll(linearSearchTraceBuilder.states(step, point, analysis.mainClassName()));
-      List<VisualEvent> events = events(previous, step, states);
+      states.addAll(bfsTraceBuilder.states(step, point, analysis.mainClassName()));
+      List<VisualEvent> events = new ArrayList<>(events(previous, step, states));
+      events.addAll(bfsTraceBuilder.events(previous, step, states));
       ExecutionObservation enriched = step.withVisualization(states, events);
       result.add(enriched);
       previous = enriched;

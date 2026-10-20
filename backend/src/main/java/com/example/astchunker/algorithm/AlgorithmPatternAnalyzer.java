@@ -56,10 +56,17 @@ public class AlgorithmPatternAnalyzer {
     this.activitySelectionDetector = activitySelectionDetector;
   }
 
+  private final com.example.astchunker.algorithm.bfs.BfsDetector bfsDetector =
+      new com.example.astchunker.algorithm.bfs.BfsDetector();
+
   public List<AlgorithmHint> analyze(CompilationUnit unit) {
     List<AlgorithmHint> hints = new ArrayList<>();
     for (Node loop : unit.findAll(Node.class, AlgorithmPatternAnalyzer::isLoop)) {
       if (loop.getRange().isEmpty()) continue;
+      if (hints.stream().anyMatch(h -> h.bfs() != null && loop.getRange().get().begin.line >= h.startLine()
+          && loop.getRange().get().end.line <= h.endLine())) continue;
+      Optional<AlgorithmHint> bfs = bfsDetector.detect(unit, loop);
+      if (bfs.isPresent()) { hints.add(bfs.get()); continue; }
       if (loop instanceof DoStmt) {
         twoPointersDetector.detect(unit, loop).ifPresent(hints::add);
         continue;

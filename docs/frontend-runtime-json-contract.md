@@ -83,6 +83,7 @@ Mỗi hint có `type`, `confidence`, `visualPlan`, `evidence[]`, `variables`,
 | `merge-sort` | `merge` | `mergeFrame` |
 | `heap-sort` | `heap` | `heapFrame` |
 | `activity-selection` | `activitySelection` | `activitySelectionFrame` |
+| `bfs` | `bfs` | `bfsFrame` |
 | `two-pointers` | `twoPointers` | `twoPointersFrame` |
 | `sliding-window` | `slidingWindow` | `slidingWindowFrame` |
 | `linear-search` | `linearSearch` | `linearSearchFrame` |
@@ -256,3 +257,43 @@ Mẫu Java để tích hợp nằm ở `backend/examples/sort/`,
 `backend/examples/greedy/`, `backend/examples/twopointers/`,
 `backend/examples/slidingwindow/` và `backend/examples/linearsearch/`.
 Test hợp đồng JSON: `MultipartApiIntegrationTest`.
+
+
+## BFS: đồ thị, hàng đợi FIFO và visited
+
+Xem [guide BFS](bfs-test-guide.md) và hai fixture trong `backend/examples/graph/`.
+Hint `type = "bfs"`, `visualPlan = "graph-bfs"`; metadata `bfs` có
+`schemaVersion = 1`, `representation = "ADJACENCY_MATRIX" | "ADJACENCY_LIST"`,
+`declarationIds`, `operationAstNodeIds`, `evidence`, `sourceLiteral` (nullable).
+Các role là `graph`, `queue`, `visited`, `current`, `neighbor`, `source`;
+`source` vắng trong map khi dùng literal.
+
+`bfsFrame` chứa:
+
+| Trường | Ý nghĩa |
+| --- | --- |
+| `invocationId`, `graphObjectId`, `queueObjectId`, `visitedObjectId` | Nhận dạng để giữ tính liên tục trong một trace. |
+| `representation`, `source`, `currentVertex` | Biểu diễn và đỉnh nguồn/đang xét; scalar có thể null. |
+| `graph` | `{vertexCount, edges: [{from, to}], status, truncated}`; giữ hướng và cạnh trùng quan sát được. |
+| `queue` | Mảng đỉnh theo thứ tự đầu đến đuôi FIFO. |
+| `visitedVertices` | Các chỉ số có visited=true, theo thứ tự chỉ số; không phải thứ tự duyệt. |
+| `examiningEdge` | `{from, to}` ứng viên đang kiểm tra trong guard/nhánh, hoặc null; chưa chứng minh cạnh tồn tại/nhánh được chọn. |
+| `graphStatus`, `queueStatus`, `visitedStatus` | `AVAILABLE`, `UNKNOWN`, `TRUNCATED` cho từng projection. |
+| `snapshotPhase`, `notes` | `BEFORE_LOCATION` và giới hạn diễn giải. |
+
+State `status` là `READY`, `PARTIAL` hoặc `TRUNCATED`; `array`/`range` có thể
+null với BFS. Dùng `bfsFrame` để dựng graph và queue, không ép sang renderer mảng.
+Queue/visited có thể là mảng rỗng vì chưa đọc được: luôn kiểm tra status.
+Mỗi variable projection dùng `visualType = bfs-graph | bfs-queue | bfs-visited`;
+queue/visited payload là `{values, length, status, truncated}`.
+
+Sự kiện `ENQUEUE`/`DEQUEUE` có `target = "queue"`, before/after là toàn bộ FIFO;
+`VISIT` có `target = "visited"`, before/after là các chỉ số đã thăm. Chỉ sinh khi
+hai snapshot đầy đủ cho thấy một thay đổi không đơn nghĩa, cùng thread,
+invocation và identities. Không khẳng định câu lệnh tại breakpoint hiện tại
+đã thực thi, không tự suy ra hoàn tất hoặc đường đi ngắn nhất.
+
+Giới hạn: 100 đỉnh, 100 phần tử queue, 1000 cạnh và ngân sách đọc 1000 giá trị
+lồng nhau; đồ thị lớn hoặc collection không hỗ trợ trả trạng thái thiếu/cắt cụt.
+BFS này chưa hỗ trợ lưới 2D hoặc đỉnh object/string; detector chỉ nhận các mẫu
+FIFO và đánh dấu trước enqueue đã chứng minh (xem guide).

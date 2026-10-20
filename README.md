@@ -69,6 +69,10 @@ the runtime-variable view. Each sample sorts six arrays in one run; see
 [`docs/sort-visualization-test-guide.md`](docs/sort-visualization-test-guide.md) for the step
 payload and supported pattern limits.
 
+For BFS, upload `backend/examples/graph/BfsMatrixSample.java` or
+`backend/examples/graph/BfsListSample.java`. The runtime frame exposes the graph,
+FIFO queue and visited vertices; see [`docs/bfs-test-guide.md`](docs/bfs-test-guide.md).
+
 For Activity Selection, upload `backend/examples/greedy/ActivitySelectionArraySample.java` or
 `backend/examples/greedy/ActivitySelectionListSample.java`. The step view separates the source
 ordering proof from runtime confirmation; see

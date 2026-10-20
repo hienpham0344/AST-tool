@@ -70,6 +70,18 @@ public class VariableMapper {
       int eventLine,
       IntervalValueProjection intervalProjection,
       IntegerListProjection integerListProjection) throws AbsentInformationException {
+    return map(frame, observationPoint, astVariables, eventLine, intervalProjection,
+        integerListProjection, new BfsProjection(Map.of()));
+  }
+
+  public List<ObservationResult> map(
+      StackFrame frame,
+      ObservationPoint observationPoint,
+      List<AstVariable> astVariables,
+      int eventLine,
+      IntervalValueProjection intervalProjection,
+      IntegerListProjection integerListProjection,
+      BfsProjection bfsProjection) throws AbsentInformationException {
     List<LocalVariable> visibleVariables = frame.visibleVariables();
     List<ObservationResult> results = new ArrayList<>();
     for (LocalVariable variable : visibleVariables) {
@@ -81,9 +93,11 @@ public class VariableMapper {
       FormattedValue formattedValue;
       Long arrayObjectId = null;
       Long objectId = null;
+      BfsProjection.Fields bfs = astVariable
+          .map(ast -> bfsProjection.fieldsFor(ast.astNodeId())).orElse(null);
       try {
         Value value = frame.getValue(variable);
-        formattedValue = format(value);
+        formattedValue = bfs == null ? format(value) : formatBfs(value, bfs);
         if (value instanceof ArrayReference arrayReference) {
           arrayObjectId = arrayReference.uniqueID();
           objectId = arrayObjectId;
@@ -91,14 +105,15 @@ public class VariableMapper {
           objectId = objectReference.uniqueID();
           IntervalValueProjection.Fields fields = astVariable
               .map(ast -> intervalProjection.fieldsFor(ast.astNodeId())).orElse(null);
-          if (fields != null)
+          if (bfs == null && fields != null)
             formattedValue = projectIntervalList(objectReference, fields,
                 astVariable.map(AstVariable::declaredType).orElse(""));
-          else if (astVariable.map(ast -> integerListProjection.includes(ast.astNodeId()))
+          else if (bfs == null && astVariable.map(ast -> integerListProjection.includes(ast.astNodeId()))
               .orElse(false)) formattedValue = projectIntegerList(objectReference);
         }
       } catch (RuntimeException ex) {
-        formattedValue = new FormattedValue("[unavailable]", "unavailable", null);
+        formattedValue = bfs == null
+            ? new FormattedValue("[unavailable]", "unavailable", null) : formatBfs(null, bfs);
       }
       results.add(
           new ObservationResult(
@@ -113,6 +128,12 @@ public class VariableMapper {
               objectId));
     }
     return List.copyOf(results);
+  }
+
+  private FormattedValue formatBfs(Value value, BfsProjection.Fields fields) {
+    String visualType = "bfs-" + fields.role();
+    return new FormattedValue("[" + visualType + "]", visualType,
+        new BfsValueProjector().project(value, fields.role(), fields.representation()));
   }
 
   private String readVariableName(LocalVariable variable) {

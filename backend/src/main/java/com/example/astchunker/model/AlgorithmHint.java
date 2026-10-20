@@ -39,7 +39,22 @@ public record AlgorithmHint(
         SlidingWindowPattern slidingWindow,
     @com.fasterxml.jackson.annotation.JsonInclude(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        LinearSearchPattern linearSearch) {
+        LinearSearchPattern linearSearch,
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        BfsPattern bfs) {
+
+  public AlgorithmHint(String type, double confidence, String visualPlan,
+                       List<String> evidence, Map<String, String> variables,
+                       int startLine, int endLine, String patternAstNodeId,
+                       String methodAstNodeId, Map<String, String> variableDeclarationIds,
+                       SortPattern sort, QuickPattern quick, MergePattern merge,
+                       HeapPattern heap, ActivitySelectionPattern activitySelection,
+                       TwoPointersPattern twoPointers, SlidingWindowPattern slidingWindow,
+                       LinearSearchPattern linearSearch) {
+    this(type, confidence, visualPlan, evidence, variables, startLine, endLine,
+        patternAstNodeId, methodAstNodeId, variableDeclarationIds, sort, quick, merge,
+        heap, activitySelection, twoPointers, slidingWindow, linearSearch, null);
+  }
 
   public AlgorithmHint(String type, double confidence, String visualPlan,
                        List<String> evidence, Map<String, String> variables,
