@@ -260,7 +260,7 @@ class VisualTraceBuilderTest {
     var other =
         new AstAnalyzer()
             .analyze(
-                "class Sample { void f(int[] a, int x, int y) { int l=0,r=a.length-1; while(l<r) { int z=a[l]+a[r]; l++; r--; } while(l<r) { int z=a[l]+a[r]; l++; r--; } } }");
+                "class Sample { void f(int[] a, int x, int y) { int l=0,r=a.length-1; while(l<r) { int z=a[l]+a[r]; l++; r--; } int p=0,q=a.length-1; while(p<q) { int z=a[p]+a[q]; p++; q--; } } }");
     var otherHints = new AlgorithmPatternAnalyzer().analyze(other.compilationUnit());
     assertThat(otherHints).hasSize(2);
     var point = other.observationPoints().stream()

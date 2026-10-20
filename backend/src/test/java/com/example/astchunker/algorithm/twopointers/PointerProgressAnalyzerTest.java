@@ -36,16 +36,17 @@ class PointerProgressAnalyzerTest {
   }
 
   @Test
-  void provesSameDirectionConditionalCompaction() {
-    var proof = proof("""
+  void rejectsWriteCursorThatCanMoveAheadOfScan() {
+    CompilationUnit unit = parser.parseCompilationUnit("""
         class Sample { void run(int[] data) {
           int slow = 0;
           for (int scan = 0; scan < data.length; scan++) {
             if (data[scan] != 0) data[slow++] = data[scan];
           }
         } }
-        """, ForStmt.class);
-    assertThat(proof.movement()).isEqualTo(TwoPointersPattern.Movement.SAME_DIRECTION);
+        """);
+    Node loop = unit.findFirst(ForStmt.class).orElseThrow();
+    assertThat(roles.candidates(unit, loop)).isEmpty();
   }
 
   @Test

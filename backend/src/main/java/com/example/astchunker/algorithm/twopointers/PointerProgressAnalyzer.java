@@ -117,7 +117,11 @@ public final class PointerProgressAnalyzer {
           && LocalVariableBindings.resolve(name).filter(id::equals).isPresent()) return true;
     }
     for (UnaryExpr update : callable.findAll(UnaryExpr.class)) {
-      if (update.getExpression() instanceof NameExpr name
+      if ((update.getOperator() == UnaryExpr.Operator.PREFIX_INCREMENT
+              || update.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT
+              || update.getOperator() == UnaryExpr.Operator.PREFIX_DECREMENT
+              || update.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT)
+          && update.getExpression() instanceof NameExpr name
           && update.getBegin().isPresent()
           && update.getBegin().get().isBefore(loop.getBegin().get())
           && LocalVariableBindings.resolve(name).filter(id::equals).isPresent()) return true;

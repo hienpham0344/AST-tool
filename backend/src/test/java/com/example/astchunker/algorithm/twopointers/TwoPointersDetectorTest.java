@@ -142,6 +142,22 @@ class TwoPointersDetectorTest {
   }
 
   @Test
+  void unaryReadBeforeLoopDoesNotCountAsPointerMutation() {
+    CompilationUnit unit = parser.parseCompilationUnit("""
+        class Sample { void run(int[] values) {
+          int left = 0, right = values.length - 1;
+          int ignored = -left;
+          while (left < right) {
+            int sum = values[left] + values[right];
+            left++; right--;
+          }
+        } }
+        """);
+    assertThat(new AlgorithmPatternAnalyzer().analyze(unit))
+        .extracting(h -> h.type()).containsExactly("two-pointers");
+  }
+
+  @Test
   void recognizesSameDirectionDeduplicationFromSecondElement() {
     CompilationUnit unit = parser.parseCompilationUnit("""
         class Sample { void run(int[] values) {
@@ -158,6 +174,24 @@ class TwoPointersDetectorTest {
     assertThat(hint.twoPointers().movement())
         .isEqualTo(TwoPointersPattern.Movement.SAME_DIRECTION);
     assertThat(hint.variables()).containsEntry("scan", "scan").containsEntry("slow", "slow");
+  }
+
+  @Test
+  void recognizesSameDirectionScanStartingAtZeroWhenInitialUpdateIsImpossible() {
+    CompilationUnit unit = parser.parseCompilationUnit("""
+        class Sample { void run(int[] values) {
+          int slow = 0;
+          for (int scan = 0; scan < values.length; scan++) {
+            if (values[scan] != values[slow]) {
+              slow++;
+              values[slow] = values[scan];
+            }
+          }
+        } }
+        """);
+    assertThat(new AlgorithmPatternAnalyzer().analyze(unit))
+        .extracting(h -> h.twoPointers().movement())
+        .containsExactly(TwoPointersPattern.Movement.SAME_DIRECTION);
   }
 
   @Test
