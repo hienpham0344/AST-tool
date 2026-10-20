@@ -705,7 +705,7 @@
         const hasSortHint = response.algorithmHints?.some(hint =>
             ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort'].includes(hint.type));
         const hasPlaybackHint = response.algorithmHints?.some(hint =>
-            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort', 'activity-selection', 'two-pointers'].includes(hint.type));
+            ['bubble-sort', 'selection-sort', 'insertion-sort', 'quick-sort', 'merge-sort', 'heap-sort', 'activity-selection', 'two-pointers', 'sliding-window'].includes(hint.type));
         const sourceHasIndexedLoop = /\b(?:for|while)\b[\s\S]{0,1200}\[[^\]]+\]/.test(lastSourceCode || '');
         const sortNotice = !hasSortHint && sourceHasIndexedLoop
             ? '<div class="sort-detection-note">Chưa nhận diện được mẫu sort đang hỗ trợ. Điều này không có nghĩa code sai: visualizer hiện nhận diện các cấu trúc Bubble, Selection, Insertion, Quick, Merge và Heap Sort đã mô tả trên int[]. Code viết theo cấu trúc khác vẫn có thể chạy đúng.</div>'
@@ -755,10 +755,11 @@
         const progressLabel = document.getElementById('executionProgressLabel');
         if (progress) progress.value = String(currentExecutionIndex);
         if (progressLabel) progressLabel.textContent = `${currentExecutionIndex + 1} / ${lastExecutionData.steps.length}`;
-        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame || state.activitySelectionFrame || state.twoPointersFrame);
+        const sortState = (step.visualStates || []).find(state => state.sortFrame || state.quickFrame || state.mergeFrame || state.heapFrame || state.activitySelectionFrame || state.twoPointersFrame || state.slidingWindowFrame);
         const sortEl = document.getElementById('sortVisualization');
         if (sortEl) sortEl.innerHTML = sortState
-            ? sortState.twoPointersFrame ? renderTwoPointersVisualization(sortState)
+            ? sortState.slidingWindowFrame ? renderSlidingWindowVisualization(sortState)
+                : sortState.twoPointersFrame ? renderTwoPointersVisualization(sortState)
                 : sortState.activitySelectionFrame ? renderActivitySelectionVisualization(sortState, step)
                 : sortState.heapFrame ? renderHeapVisualization(sortState)
                 : sortState.mergeFrame ? renderMergeVisualization(sortState)
@@ -770,6 +771,50 @@
         if (nextBtn) nextBtn.disabled = currentExecutionIndex === lastExecutionData.steps.length - 1;
         if (nextBtn?.disabled) stopExecutionPlayback();
         renderSourceViewer(step);
+    }
+
+    function renderSlidingWindowVisualization(state) {
+        const frame = state.slidingWindowFrame || {};
+        const fixed = frame.kind === 'FIXED_SIZE';
+        const values = Array.isArray(state.array?.values) ? state.array.values : [];
+        const captured = ['AVAILABLE', 'TRUNCATED'].includes(state.array?.status);
+        const cells = captured ? values.map((value, index) => {
+            const classes = ['sort-cell'];
+            if (index === frame.rightIndex || index === frame.leftIndex) classes.push('compare');
+            else if (Number.isInteger(frame.start) && Number.isInteger(frame.endExclusive)
+                && index >= frame.start && index < frame.endExclusive) classes.push('sorted');
+            const markers = [];
+            if (index === frame.rightIndex) markers.push('right');
+            if (index === frame.leftIndex) markers.push('left');
+            return `<span class="${classes.join(' ')}" role="listitem">
+                <span class="sort-cell-index">${index}</span>
+                <span class="sort-markers">${markers.join(', ')}</span>
+                <span class="sort-cell-value">${escapeHtml(primitiveLabel(value))}</span></span>`;
+        }).join('') : '';
+        const effect = {
+            PENDING: 'đang chờ ảnh chụp tiếp theo',
+            OBSERVED: 'đã quan sát thay đổi',
+            VIOLATED: 'thay đổi trái với mẫu',
+            TRUNCATED: 'dữ liệu bị cắt ngắn',
+            UNKNOWN: 'chưa đủ dữ liệu'
+        }[frame.effectStatus] || 'chưa đủ dữ liệu';
+        const label = value => value === null || value === undefined ? '?'
+            : primitiveLabel(value);
+        const range = ['VALID', 'EMPTY'].includes(state.range?.status)
+            ? `${frame.start}..${frame.endExclusive} (đầu cuối không gồm)` : 'chưa xác định';
+        const evidence = Array.isArray(frame.sourceEvidence) ? frame.sourceEvidence : [];
+        return `<section class="sort-visualization" aria-label="Sliding Window visualization">
+            <div class="sort-title"><strong>Sliding Window · ${fixed ? 'kích thước cố định' : 'kích thước biến đổi'}</strong><span class="sort-phase">${escapeHtml(effect)}</span></div>
+            ${captured ? `<div class="sort-cells" role="list" aria-label="Input values">${cells || '<span class="sort-detail">Dữ liệu rỗng</span>'}</div>`
+                : '<div class="sort-detail">Chưa đọc được dữ liệu đầu vào.</div>'}
+            <div class="sort-detail">right[${escapeHtml(label(frame.rightIndex))}] · ${fixed
+                ? `windowSize = ${escapeHtml(label(frame.windowSize))}`
+                : `left[${escapeHtml(label(frame.leftIndex))}]`}</div>
+            <div class="sort-detail">Khoảng ứng viên: ${escapeHtml(range)} · accumulator = ${escapeHtml(label(frame.accumulator))}</div>
+            <div class="sort-detail">Phần tử thêm: ${escapeHtml(label(frame.enteringValue))} · phần tử bỏ: ${escapeHtml(label(frame.leavingValue))}</div>
+            ${evidence.length ? `<div class="sort-detail">Bằng chứng mã nguồn: ${evidence.map(escapeHtml).join('; ')}</div>` : ''}
+            <div class="sort-detail">Ảnh chụp trước khi chạy dòng code đang tô sáng; trạng thái chỉ phản ánh những gì đã quan sát.</div>
+        </section>`;
     }
 
     function renderTwoPointersVisualization(state) {

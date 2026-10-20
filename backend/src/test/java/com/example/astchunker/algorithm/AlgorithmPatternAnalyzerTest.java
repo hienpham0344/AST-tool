@@ -105,7 +105,7 @@ class AlgorithmPatternAnalyzerTest {
         int begin = 0, total = 0;
         for (int end = 0; end < data.length; end++) {
           total += data[end];
-          while (total >= target) {
+          while (total >= target && begin <= end) {
             total -= data[begin];
             begin++;
           }
@@ -129,6 +129,7 @@ class AlgorithmPatternAnalyzerTest {
             detect(
                 """
         int total = 0;
+        if (k <= 0) return;
         for (int end = 0; end < data.length; end++) {
           total += data[end];
           if (end >= k) total -= data[end - k];
@@ -149,6 +150,7 @@ class AlgorithmPatternAnalyzerTest {
             detect(
                 """
         int total = 0, begin = 0;
+        if (k <= 0) return;
         for (int end = 0; end < data.length; end++) {
           total += data[end];
           if (end - begin + 1 > k) { total -= data[begin]; begin++; }

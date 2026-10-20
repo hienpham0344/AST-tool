@@ -351,6 +351,46 @@ class MultipartApiIntegrationTest {
         .andExpect(jsonPath("$.steps[*].visualStates[*].array.status").isNotEmpty());
   }
 
+  @Test
+  void exposesFixedArraySlidingWindowWithoutChangingLegacyDebug() throws Exception {
+    MockMultipartFile file = slidingExample("FixedWindowArraySample.java");
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("sliding-window"))
+        .andExpect(jsonPath("$.algorithmHints[0].slidingWindow.kind").value("FIXED_SIZE"))
+        .andExpect(jsonPath("$.algorithmHints[0].slidingWindow.representation")
+            .value("INT_ARRAY"))
+        .andExpect(jsonPath("$.algorithmHints[0].slidingWindow.operationAstNodeIds.add")
+            .isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].slidingWindowFrame.kind")
+            .isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].slidingWindowFrame.snapshotPhase")
+            .isNotEmpty());
+    String legacy = mockMvc.perform(multipart("/api/debug").file(file))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    assertThat(legacy.trim()).startsWith("[");
+    assertThat(legacy).doesNotContain("slidingWindow", "slidingWindowFrame", "objectId");
+  }
+
+  @Test
+  void exposesVariableListSlidingWindowWithBoundedProjection() throws Exception {
+    MockMultipartFile file = slidingExample("VariableWindowListSample.java");
+    mockMvc.perform(multipart("/api/debug/steps").file(file))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.algorithmHints[0].type").value("sliding-window"))
+        .andExpect(jsonPath("$.algorithmHints[0].slidingWindow.kind").value("VARIABLE_SIZE"))
+        .andExpect(jsonPath("$.algorithmHints[0].slidingWindow.representation")
+            .value("INTEGER_LIST"))
+        .andExpect(jsonPath("$.steps[*].visualStates[*].slidingWindowFrame.effectStatus")
+            .isNotEmpty())
+        .andExpect(jsonPath("$.steps[*].visualStates[*].array.status").isNotEmpty());
+  }
+
+  private MockMultipartFile slidingExample(String name) throws Exception {
+    return new MockMultipartFile("file", name, "text/x-java-source",
+        Files.readAllBytes(Path.of("examples/slidingwindow", name)));
+  }
+
   private MockMultipartFile example(String name) throws Exception {
     return new MockMultipartFile("file", name, "text/x-java-source",
         Files.readAllBytes(Path.of("examples/twopointers", name)));

@@ -33,6 +33,7 @@ class PatternBindingRegressionTest {
     assertThat(
             detect(
                 """
+        if (k <= 0) return;
         int sum = 0;
         for (int r = 0; r < a.length; r++) {
           { sum += a[r]; }

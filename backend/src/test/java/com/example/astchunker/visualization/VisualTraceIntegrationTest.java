@@ -21,6 +21,45 @@ import org.junit.jupiter.api.Test;
 
 class VisualTraceIntegrationTest {
   @Test
+  void variableIntegerListWindowHasProjectedRuntimeFrames() {
+    String source = """
+        public class ListWindowSample {
+          static void run(java.util.List<Integer> values, int limit) {
+            int left = 0, total = 0;
+            for (int scan = 0; scan < values.size(); scan++) {
+              total += values.get(scan);
+              while (total >= limit && left <= scan) {
+                total -= values.get(left);
+                left++;
+              }
+            }
+          }
+          public static void main(String[] args) {
+            run(new java.util.ArrayList<>(java.util.Arrays.asList(1, 2, 3)), 3);
+          }
+        }
+        """;
+    var analysis = new AstAnalyzer().analyze(source);
+    var hints = new AlgorithmPatternAnalyzer().analyze(analysis.compilationUnit());
+    assertThat(hints).singleElement().satisfies(hint ->
+        assertThat(hint.slidingWindow().kind()).isEqualTo("VARIABLE_SIZE"));
+    try (var target = new TargetCompiler().compile(source, analysis)) {
+      var run = new JdiSession(new BreakpointMapper(), new VariableMapper(), Duration.ofSeconds(10))
+          .observe(target, analysis, new IntervalValueProjection(java.util.Map.of()),
+              IntegerListProjection.fromHints(hints));
+      var states = new VisualTraceBuilder().build(analysis, hints, run.executions()).stream()
+          .flatMap(step -> step.visualStates().stream())
+          .filter(state -> state.slidingWindowFrame() != null).toList();
+      assertThat(states).isNotEmpty();
+      assertThat(states).anySatisfy(state -> {
+        assertThat(state.array().status()).isEqualTo("AVAILABLE");
+        assertThat(state.array().values()).containsExactly(1, 2, 3);
+        assertThat(state.slidingWindowFrame().inputObjectId()).isNotNull();
+      });
+    }
+  }
+
+  @Test
   void sameDirectionIntegerListHasScopedPointerFrames() {
     String source = """
         import java.util.*;
@@ -316,7 +355,7 @@ class VisualTraceIntegrationTest {
         int begin = 0, total = 0, target = 3;
         for (int end = 0; end < nums.length; end++) {
           total += nums[end];
-          while (total >= target) {
+          while (total >= target && begin <= end) {
             total -= nums[begin];
             begin++;
           }

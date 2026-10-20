@@ -76,6 +76,12 @@ For Two Pointers, upload `backend/examples/twopointers/OpposingArraySample.java`
 and observed pointer movement for `int[]` and supported `List<Integer>` values; see
 [`docs/two-pointers-test-guide.md`](docs/two-pointers-test-guide.md).
 
+For Sliding Window, upload `backend/examples/slidingwindow/FixedWindowArraySample.java` or
+`backend/examples/slidingwindow/VariableWindowListSample.java`. The step view shows the
+candidate window, accumulator, source evidence and observed add/remove effects for supported
+`int[]` and `List<Integer>` sum windows; see
+[`docs/sliding-window-test-guide.md`](docs/sliding-window-test-guide.md).
+
 ## Run the CLI pipeline
 
 `Main` accepts the path to a Java source file. Maven can run it without adding an extra build

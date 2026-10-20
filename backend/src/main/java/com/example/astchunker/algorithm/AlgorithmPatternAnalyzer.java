@@ -3,6 +3,7 @@ package com.example.astchunker.algorithm;
 import com.example.astchunker.algorithm.sort.SortPatternRegistry;
 import com.example.astchunker.algorithm.greedy.ActivitySelectionDetector;
 import com.example.astchunker.algorithm.twopointers.TwoPointersDetector;
+import com.example.astchunker.algorithm.slidingwindow.SlidingWindowDetector;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.model.AlgorithmHint;
 import com.github.javaparser.ast.CompilationUnit;
@@ -37,6 +38,7 @@ public class AlgorithmPatternAnalyzer {
   private final SortPatternRegistry sortPatterns;
   private final ActivitySelectionDetector activitySelectionDetector;
   private final TwoPointersDetector twoPointersDetector = new TwoPointersDetector();
+  private final SlidingWindowDetector slidingWindowDetector = new SlidingWindowDetector();
 
   public AlgorithmPatternAnalyzer() {
     this(SortPatternRegistry.defaults(), new ActivitySelectionDetector());
@@ -72,8 +74,12 @@ public class AlgorithmPatternAnalyzer {
       }
       if (loop instanceof ForEachStmt) continue;
       Optional<AlgorithmHint> hint = binarySearch(loop);
-      if (hint.isEmpty()) hint = slidingWindow(loop);
-      if (hint.isPresent()) hint.flatMap(candidate -> bind(loop, candidate)).ifPresent(hints::add);
+      if (hint.isPresent()) {
+        hint.flatMap(candidate -> bind(loop, candidate)).ifPresent(hints::add);
+        continue;
+      }
+      hint = slidingWindowDetector.detect(unit, loop);
+      if (hint.isPresent()) hints.add(hint.get());
       else twoPointersDetector.detect(unit, loop).ifPresent(hints::add);
     }
     return List.copyOf(hints);
@@ -155,73 +161,6 @@ public class AlgorithmPatternAnalyzer {
                     ids));
   }
 
-  private Optional<AlgorithmHint> slidingWindow(Node loop) {
-    // Addition belongs to the outer loop; subtraction may belong to a shrink loop.
-    for (AssignExpr addition : owned(loop, AssignExpr.class)) {
-      String sum = name(addition.getTarget());
-      if (sum == null
-          || addition.getOperator() != AssignExpr.Operator.PLUS
-          || !(unwrap(addition.getValue()) instanceof ArrayAccessExpr incoming)) continue;
-      String array = name(incoming.getName());
-      String right = name(incoming.getIndex());
-      if (array == null
-          || right == null
-          || !moves(loop, right, true)
-          || !arrayBound(loop, right, array)) continue;
-      for (AssignExpr subtraction : loop.findAll(AssignExpr.class)) {
-        if (!withinExecutionScope(subtraction, loop)
-            || !isName(subtraction.getTarget(), sum)
-            || subtraction.getOperator() != AssignExpr.Operator.MINUS
-            || !(unwrap(subtraction.getValue()) instanceof ArrayAccessExpr outgoing)
-            || !isName(outgoing.getName(), array)) continue;
-        String left = name(outgoing.getIndex());
-        if (left != null && !left.equals(right)) {
-          Node owner = nearestLoop(subtraction);
-          boolean shrink =
-              owner == loop
-                  ? conditional(subtraction, loop) && moves(loop, left, true)
-                  : owner instanceof WhileStmt
-                      && nearestLoop(owner) == loop
-                      && mentions(condition(owner), sum)
-                      && moves(owner, left, true);
-          if (shrink) {
-            return Optional.of(
-                hint(
-                    loop,
-                    "sliding-window",
-                    0.85,
-                    "array-window",
-                    Map.of("array", array, "left", left, "right", right, "accumulator", sum),
-                    "Right index advances within the array bound",
-                    "Accumulator adds the entering element and removes the leaving element",
-                    "Left index advances during conditional shrinking"));
-          }
-        }
-        Expression index = unwrap(outgoing.getIndex());
-        if (nearestLoop(subtraction) == loop
-            && conditional(subtraction, loop)
-            && index instanceof BinaryExpr difference
-            && difference.getOperator() == BinaryExpr.Operator.MINUS
-            && isName(difference.getLeft(), right)
-            && name(difference.getRight()) != null
-            && !mentions(difference.getRight(), right)) {
-          String size = name(difference.getRight());
-          if (writes(loop, size)) continue;
-          return Optional.of(
-              hint(
-                  loop,
-                  "sliding-window",
-                  0.8,
-                  "array-window",
-                  Map.of("array", array, "right", right, "windowSize", size, "accumulator", sum),
-                  "Right index advances within the array bound",
-                  "Accumulator adds array[right] and conditionally removes array[right - windowSize]"));
-        }
-      }
-    }
-    return Optional.empty();
-  }
-
   private static boolean midpoint(Expression expression, String left, String right) {
     Expression value = unwrap(expression);
     if (!(value instanceof BinaryExpr binary)) return false;
@@ -297,18 +236,6 @@ public class AlgorithmPatternAnalyzer {
                                     1))));
   }
 
-  private static boolean writes(Node loop, String variable) {
-    return loop.findAll(AssignExpr.class).stream().anyMatch(a -> isName(a.getTarget(), variable))
-        || loop.findAll(UnaryExpr.class).stream()
-            .anyMatch(
-                u ->
-                    isName(u.getExpression(), variable)
-                        && (u.getOperator() == UnaryExpr.Operator.POSTFIX_INCREMENT
-                            || u.getOperator() == UnaryExpr.Operator.PREFIX_INCREMENT
-                            || u.getOperator() == UnaryExpr.Operator.POSTFIX_DECREMENT
-                            || u.getOperator() == UnaryExpr.Operator.PREFIX_DECREMENT));
-  }
-
   private static boolean offset(
       Expression expression, String variable, BinaryExpr.Operator operator, int amount) {
     return unwrap(expression) instanceof BinaryExpr binary
@@ -327,12 +254,6 @@ public class AlgorithmPatternAnalyzer {
       case EQUALS, NOT_EQUALS, LESS, LESS_EQUALS, GREATER, GREATER_EQUALS -> true;
       default -> false;
     };
-  }
-
-  private static boolean mentions(Expression expression, String variable) {
-    return expression != null
-        && expression.findAll(NameExpr.class).stream()
-            .anyMatch(n -> n.getNameAsString().equals(variable));
   }
 
   private static String name(Expression expression) {

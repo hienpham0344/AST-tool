@@ -13,8 +13,11 @@ public record IntegerListProjection(Set<String> dataDeclarationIds) {
     Set<String> ids = new HashSet<>();
     for (AlgorithmHint hint : hints) {
       var pattern = hint.twoPointers();
-      if (pattern == null || !"INTEGER_LIST".equals(pattern.representation())) continue;
-      String id = pattern.declarationIds().get("data");
+      String id = pattern != null && "INTEGER_LIST".equals(pattern.representation())
+          ? pattern.declarationIds().get("data")
+          : hint.slidingWindow() != null
+              && "INTEGER_LIST".equals(hint.slidingWindow().representation())
+              ? hint.slidingWindow().declarationIds().get("data") : null;
       if (id != null) ids.add(id);
     }
     return new IntegerListProjection(ids);
