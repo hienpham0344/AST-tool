@@ -38,7 +38,20 @@ public record VisualState(
         TwoPointersFrame twoPointersFrame,
     @com.fasterxml.jackson.annotation.JsonInclude(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        SlidingWindowFrame slidingWindowFrame) {
+        SlidingWindowFrame slidingWindowFrame,
+    @com.fasterxml.jackson.annotation.JsonInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        LinearSearchFrame linearSearchFrame) {
+  public VisualState(String id, int hintIndex, String algorithm, String visualPlan,
+                     String status, ArrayValue array, Map<String, Pointer> pointers,
+                     Map<String, Scalar> scalars, IndexRange range, List<String> notes,
+                     SortFrame sortFrame, QuickFrame quickFrame, MergeFrame mergeFrame,
+                     HeapFrame heapFrame, ActivitySelectionFrame activitySelectionFrame,
+                     TwoPointersFrame twoPointersFrame, SlidingWindowFrame slidingWindowFrame) {
+    this(id, hintIndex, algorithm, visualPlan, status, array, pointers, scalars,
+        range, notes, sortFrame, quickFrame, mergeFrame, heapFrame,
+        activitySelectionFrame, twoPointersFrame, slidingWindowFrame, null);
+  }
   public VisualState(String id, int hintIndex, String algorithm, String visualPlan,
                      String status, ArrayValue array, Map<String, Pointer> pointers,
                      Map<String, Scalar> scalars, IndexRange range, List<String> notes,

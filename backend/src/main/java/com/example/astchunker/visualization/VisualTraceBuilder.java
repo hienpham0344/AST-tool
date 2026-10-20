@@ -48,6 +48,7 @@ public class VisualTraceBuilder {
     TwoPointersTraceBuilder twoPointersTraceBuilder = new TwoPointersTraceBuilder(hints, nodes);
     SlidingWindowTraceBuilder slidingWindowTraceBuilder =
         new SlidingWindowTraceBuilder(hints, nodes);
+    LinearSearchTraceBuilder linearSearchTraceBuilder = new LinearSearchTraceBuilder(hints, nodes);
     List<ExecutionObservation> result = new ArrayList<>();
     ExecutionObservation previous = null;
     for (ExecutionObservation step : steps) {
@@ -64,6 +65,7 @@ public class VisualTraceBuilder {
       states.addAll(activitySelectionTraceBuilder.states(step, point, analysis.mainClassName()));
       states.addAll(twoPointersTraceBuilder.states(step, point, analysis.mainClassName()));
       states.addAll(slidingWindowTraceBuilder.states(step, point, analysis.mainClassName()));
+      states.addAll(linearSearchTraceBuilder.states(step, point, analysis.mainClassName()));
       List<VisualEvent> events = events(previous, step, states);
       ExecutionObservation enriched = step.withVisualization(states, events);
       result.add(enriched);
@@ -81,7 +83,8 @@ public class VisualTraceBuilder {
     List<Binding> result = new ArrayList<>();
     for (int index = 0; index < hints.size(); index++) {
       AlgorithmHint hint = hints.get(index);
-      if (hint.twoPointers() != null || hint.slidingWindow() != null) continue;
+      if (hint.twoPointers() != null || hint.slidingWindow() != null
+          || hint.linearSearch() != null) continue;
       if (!List.of(
               "binary-search",
               "two-pointers",

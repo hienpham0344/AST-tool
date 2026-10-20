@@ -17,7 +17,10 @@ public record IntegerListProjection(Set<String> dataDeclarationIds) {
           ? pattern.declarationIds().get("data")
           : hint.slidingWindow() != null
               && "INTEGER_LIST".equals(hint.slidingWindow().representation())
-              ? hint.slidingWindow().declarationIds().get("data") : null;
+              ? hint.slidingWindow().declarationIds().get("data")
+              : hint.linearSearch() != null
+                  && "INTEGER_LIST".equals(hint.linearSearch().representation())
+                  ? hint.linearSearch().declarationIds().get("data") : null;
       if (id != null) ids.add(id);
     }
     return new IntegerListProjection(ids);
