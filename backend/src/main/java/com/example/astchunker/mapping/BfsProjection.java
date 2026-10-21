@@ -23,18 +23,39 @@ public record BfsProjection(Map<String, Fields> roles) {
     Map<String, Fields> roles = new HashMap<>();
     Set<String> conflicts = new HashSet<>();
     for (AlgorithmHint hint : hints) {
-      if (hint.bfs() == null) continue;
-      for (String role : List.of("graph", "queue", "visited")) {
-        String id = hint.bfs().declarationIds().get(role);
-        if (id == null || conflicts.contains(id)) continue;
-        Fields fields = new Fields(role, role.equals("graph") ? hint.bfs().representation() : "");
-        Fields previous = roles.putIfAbsent(id, fields);
-        if (previous != null && !previous.equals(fields)) {
-          roles.remove(id);
-          conflicts.add(id);
-        }
-      }
+      if (hint.bfs() != null)
+        select(
+            roles,
+            conflicts,
+            hint.bfs().declarationIds(),
+            hint.bfs().representation(),
+            List.of("graph", "queue", "visited"));
+      if (hint.dfs() != null)
+        select(
+            roles,
+            conflicts,
+            hint.dfs().declarationIds(),
+            hint.dfs().representation(),
+            List.of("graph", "visited"));
     }
     return new BfsProjection(roles);
+  }
+
+  private static void select(
+      Map<String, Fields> roles,
+      Set<String> conflicts,
+      Map<String, String> declarations,
+      String representation,
+      List<String> selected) {
+    for (String role : selected) {
+      String id = declarations.get(role);
+      if (id == null || conflicts.contains(id)) continue;
+      Fields fields = new Fields(role, role.equals("graph") ? representation : "");
+      Fields previous = roles.putIfAbsent(id, fields);
+      if (previous != null && !previous.equals(fields)) {
+        roles.remove(id);
+        conflicts.add(id);
+      }
+    }
   }
 }

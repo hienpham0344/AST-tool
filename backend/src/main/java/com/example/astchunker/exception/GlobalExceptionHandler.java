@@ -1,7 +1,8 @@
 package com.example.astchunker.exception;
 
-import com.example.astchunker.dto.AstParseResponse;
 import com.example.astchunker.debug.DebugException;
+import com.example.astchunker.debug.operation.OperationCoverageException;
+import com.example.astchunker.dto.AstParseResponse;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -42,9 +43,17 @@ public class GlobalExceptionHandler {
         .body(Map.of("message", "Du lieu gui len khong hop le", "problems", errors));
   }
 
+  @ExceptionHandler(OperationCoverageException.class)
+  public ResponseEntity<Map<String, Object>> handleOperationCoverage(
+      OperationCoverageException ex) {
+    return ResponseEntity.unprocessableEntity()
+        .body(Map.of("message", ex.getMessage(), "problems", ex.problems()));
+  }
+
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException ex) {
-    return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage(), "problems", List.of()));
+    return ResponseEntity.badRequest()
+        .body(Map.of("message", ex.getMessage(), "problems", List.of()));
   }
 
   @ExceptionHandler(DebugException.class)

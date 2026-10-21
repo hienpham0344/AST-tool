@@ -1,0 +1,2486 @@
+{
+  "steps": [
+    {
+      "sequence": 1,
+      "statementAstNodeId": "ast-ExpressionStmt-3-5-3-31",
+      "lineNumber": 3,
+      "startLine": 3,
+      "endLine": 3,
+      "startColumn": 5,
+      "endColumn": 31,
+      "statementKind": "ExpressionStmt",
+      "code": "int[] data = {2, -1, 3, 0};",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 3
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 0,
+        "invocationId": 1
+      },
+      "visualStates": [],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 2,
+      "statementAstNodeId": "ast-ExpressionStmt-4-5-4-44",
+      "lineNumber": 4,
+      "startLine": 4,
+      "endLine": 4,
+      "startColumn": 5,
+      "endColumn": 44,
+      "statementKind": "ExpressionStmt",
+      "code": "int[] prefix = new int[data.length + 1];",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 4
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 4
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 20,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "PARTIAL",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": null,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "UNKNOWN",
+              "values": [],
+              "length": null,
+              "truncated": false
+            },
+            "currentIndex": null,
+            "sourceIndex": null,
+            "previousPrefixIndex": null,
+            "targetIndex": null,
+            "sourceValue": null,
+            "previousPrefixValue": null,
+            "targetValue": null,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "PENDING",
+            "confirmedPrefixEndExclusive": null,
+            "confirmedCells": [],
+            "progressStatus": "UNKNOWN",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [
+        {
+          "stateId": "hint-0",
+          "type": "STATE_ENTERED",
+          "target": "state",
+          "fromSequence": null,
+          "toSequence": 2,
+          "before": null,
+          "after": null
+        }
+      ],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 3,
+      "statementAstNodeId": "ast-ForStmt-5-5-8-5",
+      "lineNumber": 5,
+      "startLine": 5,
+      "endLine": 8,
+      "startColumn": 5,
+      "endColumn": 5,
+      "statementKind": "ForStmt",
+      "code": "for (int cursor = 0; cursor < data.length; cursor++) {\n      int ordinary = cursor + 10;\n      prefix[cursor + 1] = prefix[cursor] + data[cursor];\n    }",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 5
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 5
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 0, 0, 0, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "lineNumber": 5
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 27,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "PARTIAL",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": null,
+            "sourceIndex": null,
+            "previousPrefixIndex": null,
+            "targetIndex": null,
+            "sourceValue": null,
+            "previousPrefixValue": null,
+            "targetValue": null,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "UNKNOWN",
+            "confirmedPrefixEndExclusive": null,
+            "confirmedCells": [],
+            "progressStatus": "UNKNOWN",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 4,
+      "statementAstNodeId": "ast-ExpressionStmt-6-7-6-33",
+      "lineNumber": 6,
+      "startLine": 6,
+      "endLine": 6,
+      "startColumn": 7,
+      "endColumn": 33,
+      "statementKind": "ExpressionStmt",
+      "code": "int ordinary = cursor + 10;",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 0, 0, 0, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-5-14-5-23",
+          "variableName": "cursor",
+          "declaredType": "int",
+          "runtimeValue": "0",
+          "visualType": "primitive",
+          "visualValue": 0,
+          "lineNumber": 6
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 35,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": 0,
+            "sourceIndex": 0,
+            "previousPrefixIndex": 0,
+            "targetIndex": 1,
+            "sourceValue": 2,
+            "previousPrefixValue": 0,
+            "targetValue": 0,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 1,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 5,
+      "statementAstNodeId": "ast-ExpressionStmt-7-7-7-57",
+      "lineNumber": 7,
+      "startLine": 7,
+      "endLine": 7,
+      "startColumn": 7,
+      "endColumn": 57,
+      "statementKind": "ExpressionStmt",
+      "code": "prefix[cursor + 1] = prefix[cursor] + data[cursor];",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 0, 0, 0, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-5-14-5-23",
+          "variableName": "cursor",
+          "declaredType": "int",
+          "runtimeValue": "0",
+          "visualType": "primitive",
+          "visualValue": 0,
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-6-11-6-32",
+          "variableName": "ordinary",
+          "declaredType": "int",
+          "runtimeValue": "10",
+          "visualType": "primitive",
+          "visualValue": 10,
+          "lineNumber": 7
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 41,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": 0,
+            "sourceIndex": 0,
+            "previousPrefixIndex": 0,
+            "targetIndex": 1,
+            "sourceValue": 2,
+            "previousPrefixValue": 0,
+            "targetValue": 0,
+            "recurrenceStatus": "PENDING",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 1,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 6,
+      "statementAstNodeId": "ast-ExpressionStmt-6-7-6-33",
+      "lineNumber": 6,
+      "startLine": 6,
+      "endLine": 6,
+      "startColumn": 7,
+      "endColumn": 33,
+      "statementKind": "ExpressionStmt",
+      "code": "int ordinary = cursor + 10;",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 0, 0, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            0,
+            0,
+            0
+          ],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-5-14-5-23",
+          "variableName": "cursor",
+          "declaredType": "int",
+          "runtimeValue": "1",
+          "visualType": "primitive",
+          "visualValue": 1,
+          "lineNumber": 6
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 35,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                0,
+                0,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": 1,
+            "sourceIndex": 1,
+            "previousPrefixIndex": 1,
+            "targetIndex": 2,
+            "sourceValue": -1,
+            "previousPrefixValue": 2,
+            "targetValue": 0,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 2,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [
+        {
+          "stateId": "hint-0",
+          "type": "STATE_RESET",
+          "target": "state",
+          "fromSequence": null,
+          "toSequence": 6,
+          "before": null,
+          "after": null
+        }
+      ],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 7,
+      "statementAstNodeId": "ast-ExpressionStmt-7-7-7-57",
+      "lineNumber": 7,
+      "startLine": 7,
+      "endLine": 7,
+      "startColumn": 7,
+      "endColumn": 57,
+      "statementKind": "ExpressionStmt",
+      "code": "prefix[cursor + 1] = prefix[cursor] + data[cursor];",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 0, 0, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            0,
+            0,
+            0
+          ],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-5-14-5-23",
+          "variableName": "cursor",
+          "declaredType": "int",
+          "runtimeValue": "1",
+          "visualType": "primitive",
+          "visualValue": 1,
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-6-11-6-32",
+          "variableName": "ordinary",
+          "declaredType": "int",
+          "runtimeValue": "11",
+          "visualType": "primitive",
+          "visualValue": 11,
+          "lineNumber": 7
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 41,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                0,
+                0,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": 1,
+            "sourceIndex": 1,
+            "previousPrefixIndex": 1,
+            "targetIndex": 2,
+            "sourceValue": -1,
+            "previousPrefixValue": 2,
+            "targetValue": 0,
+            "recurrenceStatus": "PENDING",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 2,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 8,
+      "statementAstNodeId": "ast-ExpressionStmt-6-7-6-33",
+      "lineNumber": 6,
+      "startLine": 6,
+      "endLine": 6,
+      "startColumn": 7,
+      "endColumn": 33,
+      "statementKind": "ExpressionStmt",
+      "code": "int ordinary = cursor + 10;",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 1, 0, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            1,
+            0,
+            0
+          ],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-5-14-5-23",
+          "variableName": "cursor",
+          "declaredType": "int",
+          "runtimeValue": "2",
+          "visualType": "primitive",
+          "visualValue": 2,
+          "lineNumber": 6
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 35,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                1,
+                0,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": 2,
+            "sourceIndex": 2,
+            "previousPrefixIndex": 2,
+            "targetIndex": 3,
+            "sourceValue": 3,
+            "previousPrefixValue": 1,
+            "targetValue": 0,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 3,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 2,
+                "value": 1,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [
+        {
+          "stateId": "hint-0",
+          "type": "STATE_RESET",
+          "target": "state",
+          "fromSequence": null,
+          "toSequence": 8,
+          "before": null,
+          "after": null
+        }
+      ],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 9,
+      "statementAstNodeId": "ast-ExpressionStmt-7-7-7-57",
+      "lineNumber": 7,
+      "startLine": 7,
+      "endLine": 7,
+      "startColumn": 7,
+      "endColumn": 57,
+      "statementKind": "ExpressionStmt",
+      "code": "prefix[cursor + 1] = prefix[cursor] + data[cursor];",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 1, 0, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            1,
+            0,
+            0
+          ],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-5-14-5-23",
+          "variableName": "cursor",
+          "declaredType": "int",
+          "runtimeValue": "2",
+          "visualType": "primitive",
+          "visualValue": 2,
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-6-11-6-32",
+          "variableName": "ordinary",
+          "declaredType": "int",
+          "runtimeValue": "12",
+          "visualType": "primitive",
+          "visualValue": 12,
+          "lineNumber": 7
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 41,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                1,
+                0,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": 2,
+            "sourceIndex": 2,
+            "previousPrefixIndex": 2,
+            "targetIndex": 3,
+            "sourceValue": 3,
+            "previousPrefixValue": 1,
+            "targetValue": 0,
+            "recurrenceStatus": "PENDING",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 3,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 2,
+                "value": 1,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 10,
+      "statementAstNodeId": "ast-ExpressionStmt-6-7-6-33",
+      "lineNumber": 6,
+      "startLine": 6,
+      "endLine": 6,
+      "startColumn": 7,
+      "endColumn": 33,
+      "statementKind": "ExpressionStmt",
+      "code": "int ordinary = cursor + 10;",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 1, 4, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            1,
+            4,
+            0
+          ],
+          "lineNumber": 6
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-5-14-5-23",
+          "variableName": "cursor",
+          "declaredType": "int",
+          "runtimeValue": "3",
+          "visualType": "primitive",
+          "visualValue": 3,
+          "lineNumber": 6
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 35,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                1,
+                4,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": 3,
+            "sourceIndex": 3,
+            "previousPrefixIndex": 3,
+            "targetIndex": 4,
+            "sourceValue": 0,
+            "previousPrefixValue": 4,
+            "targetValue": 0,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 4,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 2,
+                "value": 1,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 3,
+                "value": 4,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [
+        {
+          "stateId": "hint-0",
+          "type": "STATE_RESET",
+          "target": "state",
+          "fromSequence": null,
+          "toSequence": 10,
+          "before": null,
+          "after": null
+        }
+      ],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 11,
+      "statementAstNodeId": "ast-ExpressionStmt-7-7-7-57",
+      "lineNumber": 7,
+      "startLine": 7,
+      "endLine": 7,
+      "startColumn": 7,
+      "endColumn": 57,
+      "statementKind": "ExpressionStmt",
+      "code": "prefix[cursor + 1] = prefix[cursor] + data[cursor];",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 1, 4, 0]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            1,
+            4,
+            0
+          ],
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-5-14-5-23",
+          "variableName": "cursor",
+          "declaredType": "int",
+          "runtimeValue": "3",
+          "visualType": "primitive",
+          "visualValue": 3,
+          "lineNumber": 7
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-6-11-6-32",
+          "variableName": "ordinary",
+          "declaredType": "int",
+          "runtimeValue": "13",
+          "visualType": "primitive",
+          "visualValue": 13,
+          "lineNumber": 7
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 41,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                1,
+                4,
+                0
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": 3,
+            "sourceIndex": 3,
+            "previousPrefixIndex": 3,
+            "targetIndex": 4,
+            "sourceValue": 0,
+            "previousPrefixValue": 4,
+            "targetValue": 0,
+            "recurrenceStatus": "PENDING",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 4,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 2,
+                "value": 1,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 3,
+                "value": 4,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 12,
+      "statementAstNodeId": "ast-ExpressionStmt-9-5-9-17",
+      "lineNumber": 9,
+      "startLine": 9,
+      "endLine": 9,
+      "startColumn": 5,
+      "endColumn": 17,
+      "statementKind": "ExpressionStmt",
+      "code": "int left = 1;",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 9
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 9
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 1, 4, 4]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            1,
+            4,
+            4
+          ],
+          "lineNumber": 9
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 59,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                1,
+                4,
+                4
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": null,
+            "sourceIndex": null,
+            "previousPrefixIndex": null,
+            "targetIndex": null,
+            "sourceValue": null,
+            "previousPrefixValue": null,
+            "targetValue": null,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 5,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 2,
+                "value": 1,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 3,
+                "value": 4,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 4,
+                "value": 4,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 13,
+      "statementAstNodeId": "ast-ExpressionStmt-10-5-10-18",
+      "lineNumber": 10,
+      "startLine": 10,
+      "endLine": 10,
+      "startColumn": 5,
+      "endColumn": 18,
+      "statementKind": "ExpressionStmt",
+      "code": "int right = 3;",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 10
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 10
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 1, 4, 4]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            1,
+            4,
+            4
+          ],
+          "lineNumber": 10
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-9-9-9-16",
+          "variableName": "left",
+          "declaredType": "int",
+          "runtimeValue": "1",
+          "visualType": "primitive",
+          "visualValue": 1,
+          "lineNumber": 10
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 61,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                1,
+                4,
+                4
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": null,
+            "sourceIndex": null,
+            "previousPrefixIndex": null,
+            "targetIndex": null,
+            "sourceValue": null,
+            "previousPrefixValue": null,
+            "targetValue": null,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 5,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 2,
+                "value": 1,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 3,
+                "value": 4,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 4,
+                "value": 4,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": null,
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 14,
+      "statementAstNodeId": "ast-ExpressionStmt-11-5-11-49",
+      "lineNumber": 11,
+      "startLine": 11,
+      "endLine": 11,
+      "startColumn": 5,
+      "endColumn": 49,
+      "statementKind": "ExpressionStmt",
+      "code": "int total = prefix[right + 1] - prefix[left];",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 11
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 11
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 1, 4, 4]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            1,
+            4,
+            4
+          ],
+          "lineNumber": 11
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-9-9-9-16",
+          "variableName": "left",
+          "declaredType": "int",
+          "runtimeValue": "1",
+          "visualType": "primitive",
+          "visualValue": 1,
+          "lineNumber": 11
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-10-9-10-17",
+          "variableName": "right",
+          "declaredType": "int",
+          "runtimeValue": "3",
+          "visualType": "primitive",
+          "visualValue": 3,
+          "lineNumber": 11
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 64,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                1,
+                4,
+                4
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": null,
+            "sourceIndex": null,
+            "previousPrefixIndex": null,
+            "targetIndex": null,
+            "sourceValue": null,
+            "previousPrefixValue": null,
+            "targetValue": null,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 5,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 2,
+                "value": 1,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 3,
+                "value": 4,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 4,
+                "value": 4,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": {
+              "expressionAstNodeId": "ast-BinaryExpr-11-17-11-48",
+              "left": 1,
+              "right": 3,
+              "upperPrefixIndex": 4,
+              "lowerPrefixIndex": 1,
+              "upperValue": 4,
+              "lowerValue": 2,
+              "result": null,
+              "status": "PENDING"
+            },
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    },
+    {
+      "sequence": 15,
+      "statementAstNodeId": "ast-ExpressionStmt-12-5-12-21",
+      "lineNumber": 12,
+      "startLine": 12,
+      "endLine": 12,
+      "startColumn": 5,
+      "endColumn": 21,
+      "statementKind": "ExpressionStmt",
+      "code": "int done = total;",
+      "variables": [
+        {
+          "astNodeId": "ast-Parameter-2-27-2-39",
+          "variableName": "args",
+          "declaredType": "String[]",
+          "runtimeValue": "[]",
+          "visualType": "array",
+          "visualValue": [],
+          "lineNumber": 12
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+          "variableName": "data",
+          "declaredType": "int[]",
+          "runtimeValue": "[2, -1, 3, 0]",
+          "visualType": "array",
+          "visualValue": [
+            2,
+            -1,
+            3,
+            0
+          ],
+          "lineNumber": 12
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+          "variableName": "prefix",
+          "declaredType": "int[]",
+          "runtimeValue": "[0, 2, 1, 4, 4]",
+          "visualType": "array",
+          "visualValue": [
+            0,
+            2,
+            1,
+            4,
+            4
+          ],
+          "lineNumber": 12
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-9-9-9-16",
+          "variableName": "left",
+          "declaredType": "int",
+          "runtimeValue": "1",
+          "visualType": "primitive",
+          "visualValue": 1,
+          "lineNumber": 12
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-10-9-10-17",
+          "variableName": "right",
+          "declaredType": "int",
+          "runtimeValue": "3",
+          "visualType": "primitive",
+          "visualValue": 3,
+          "lineNumber": 12
+        },
+        {
+          "astNodeId": "ast-VariableDeclarator-11-9-11-48",
+          "variableName": "total",
+          "declaredType": "int",
+          "runtimeValue": "2",
+          "visualType": "primitive",
+          "visualValue": 2,
+          "lineNumber": 12
+        }
+      ],
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "PrefixSumSentinelSample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 76,
+        "invocationId": 1
+      },
+      "visualStates": [
+        {
+          "id": "hint-0",
+          "hintIndex": 0,
+          "algorithm": "prefix-sum",
+          "visualPlan": "prefix-arrays",
+          "status": "READY",
+          "array": {
+            "variableName": "data",
+            "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+            "status": "AVAILABLE",
+            "values": [
+              2,
+              -1,
+              3,
+              0
+            ],
+            "length": 4,
+            "truncated": false
+          },
+          "pointers": {},
+          "scalars": {},
+          "range": null,
+          "notes": [
+            "CURRENT_RECURRENCE_IS_PENDING_BEFORE_LOCATION",
+            "DEFAULT_ZERO_DOES_NOT_PROVE_CONSTRUCTION"
+          ],
+          "prefixSumFrame": {
+            "schemaVersion": 1,
+            "representation": "ZERO_SENTINEL",
+            "invocationId": 1,
+            "sourceArrayObjectId": 37,
+            "resultArrayObjectId": 38,
+            "source": {
+              "variableName": "data",
+              "astNodeId": "ast-VariableDeclarator-3-11-3-30",
+              "status": "AVAILABLE",
+              "values": [
+                2,
+                -1,
+                3,
+                0
+              ],
+              "length": 4,
+              "truncated": false
+            },
+            "result": {
+              "variableName": "prefix",
+              "astNodeId": "ast-VariableDeclarator-4-11-4-43",
+              "status": "AVAILABLE",
+              "values": [
+                0,
+                2,
+                1,
+                4,
+                4
+              ],
+              "length": 5,
+              "truncated": false
+            },
+            "currentIndex": null,
+            "sourceIndex": null,
+            "previousPrefixIndex": null,
+            "targetIndex": null,
+            "sourceValue": null,
+            "previousPrefixValue": null,
+            "targetValue": null,
+            "recurrenceStatus": "NOT_AT_RECURRENCE",
+            "seedStatus": "CONFIRMED",
+            "confirmedPrefixEndExclusive": 5,
+            "confirmedCells": [
+              {
+                "index": 0,
+                "value": 0,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 1,
+                "value": 2,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 2,
+                "value": 1,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 3,
+                "value": 4,
+                "status": "CONFIRMED"
+              },
+              {
+                "index": 4,
+                "value": 4,
+                "status": "CONFIRMED"
+              }
+            ],
+            "progressStatus": "CONFIRMED",
+            "query": {
+              "expressionAstNodeId": "ast-BinaryExpr-11-17-11-48",
+              "left": 1,
+              "right": 3,
+              "upperPrefixIndex": 4,
+              "lowerPrefixIndex": 1,
+              "upperValue": 4,
+              "lowerValue": 2,
+              "result": 2,
+              "status": "OBSERVED"
+            },
+            "snapshotPhase": "BEFORE_LOCATION"
+          }
+        }
+      ],
+      "visualEvents": [],
+      "granularity": "LINE_BREAKPOINT",
+      "snapshotPhase": "BEFORE_LOCATION"
+    }
+  ],
+  "warnings": [],
+  "algorithmHints": [
+    {
+      "type": "prefix-sum",
+      "confidence": 0.95,
+      "visualPlan": "prefix-arrays",
+      "evidence": [
+        "Fresh separate primitive output has the matching source length",
+        "Fresh primitive output proves an implicit zero sentinel",
+        "Index advances once; each iteration performs one direct prefix recurrence",
+        "Participating arrays have no aliases, source writes, escapes or extra output writes"
+      ],
+      "variables": {
+        "prefix": "prefix",
+        "index": "cursor",
+        "data": "data"
+      },
+      "startLine": 5,
+      "endLine": 8,
+      "patternAstNodeId": "ast-ForStmt-5-5-8-5",
+      "methodAstNodeId": "ast-MethodDeclaration-2-3-13-3",
+      "variableDeclarationIds": {
+        "prefix": "ast-VariableDeclarator-4-11-4-43",
+        "index": "ast-VariableDeclarator-5-14-5-23",
+        "data": "ast-VariableDeclarator-3-11-3-30"
+      },
+      "prefixSum": {
+        "schemaVersion": 1,
+        "representation": "ZERO_SENTINEL",
+        "declarationIds": {
+          "prefix": "ast-VariableDeclarator-4-11-4-43",
+          "index": "ast-VariableDeclarator-5-14-5-23",
+          "data": "ast-VariableDeclarator-3-11-3-30"
+        },
+        "operationAstNodeIds": {
+          "recurrence": "ast-AssignExpr-7-7-7-56",
+          "seed": "ast-VariableDeclarator-4-11-4-43",
+          "indexUpdate": "ast-UnaryExpr-5-48-5-55",
+          "allocation": "ast-VariableDeclarator-4-11-4-43",
+          "loop": "ast-ForStmt-5-5-8-5"
+        },
+        "queries": [
+          {
+            "expressionAstNodeId": "ast-BinaryExpr-11-17-11-48",
+            "leftDeclarationId": "ast-VariableDeclarator-9-9-9-16",
+            "rightDeclarationId": "ast-VariableDeclarator-10-9-10-17",
+            "leftExpressionAstNodeId": "ast-NameExpr-11-44-11-47",
+            "rightExpressionAstNodeId": "ast-NameExpr-11-24-11-28"
+          }
+        ],
+        "evidence": [
+          "Fresh separate primitive output has the matching source length",
+          "Fresh primitive output proves an implicit zero sentinel",
+          "Index advances once; each iteration performs one direct prefix recurrence",
+          "Participating arrays have no aliases, source writes, escapes or extra output writes"
+        ]
+      }
+    }
+  ]
+}

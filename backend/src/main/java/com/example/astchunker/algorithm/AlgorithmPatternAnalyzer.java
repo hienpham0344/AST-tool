@@ -41,6 +41,8 @@ public class AlgorithmPatternAnalyzer {
   private final TwoPointersDetector twoPointersDetector = new TwoPointersDetector();
   private final SlidingWindowDetector slidingWindowDetector = new SlidingWindowDetector();
   private final LinearSearchDetector linearSearchDetector = new LinearSearchDetector();
+  private final com.example.astchunker.algorithm.prefixsum.PrefixSumDetector prefixSumDetector =
+      new com.example.astchunker.algorithm.prefixsum.PrefixSumDetector();
 
   public AlgorithmPatternAnalyzer() {
     this(SortPatternRegistry.defaults(), new ActivitySelectionDetector());
@@ -59,10 +61,19 @@ public class AlgorithmPatternAnalyzer {
   private final com.example.astchunker.algorithm.bfs.BfsDetector bfsDetector =
       new com.example.astchunker.algorithm.bfs.BfsDetector();
 
+  private final com.example.astchunker.algorithm.dfs.DfsDetector dfsDetector =
+      new com.example.astchunker.algorithm.dfs.DfsDetector();
+
   public List<AlgorithmHint> analyze(CompilationUnit unit) {
     List<AlgorithmHint> hints = new ArrayList<>();
+    for (var method : unit.findAll(com.github.javaparser.ast.body.MethodDeclaration.class)) {
+      dfsDetector.detect(unit, method).ifPresent(hints::add);
+    }
     for (Node loop : unit.findAll(Node.class, AlgorithmPatternAnalyzer::isLoop)) {
       if (loop.getRange().isEmpty()) continue;
+      Node callable = LocalVariableBindings.callable(loop);
+      if (callable != null && hints.stream().anyMatch(h -> h.dfs() != null
+          && h.methodAstNodeId().equals(AstAnalyzer.nodeId(callable)))) continue;
       if (hints.stream().anyMatch(h -> h.bfs() != null && loop.getRange().get().begin.line >= h.startLine()
           && loop.getRange().get().end.line <= h.endLine())) continue;
       Optional<AlgorithmHint> bfs = bfsDetector.detect(unit, loop);
@@ -85,6 +96,11 @@ public class AlgorithmPatternAnalyzer {
       Optional<AlgorithmHint> hint = binarySearch(loop);
       if (hint.isPresent()) {
         hint.flatMap(candidate -> bind(loop, candidate)).ifPresent(hints::add);
+        continue;
+      }
+      hint = prefixSumDetector.detect(unit, loop);
+      if (hint.isPresent()) {
+        hints.add(hint.get());
         continue;
       }
       hint = slidingWindowDetector.detect(unit, loop);

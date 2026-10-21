@@ -1,0 +1,2524 @@
+{
+  "algorithmHints": [],
+  "steps": [
+    {
+      "sequence": 1,
+      "operationExecutionId": "operation-1",
+      "operationId": "ast-BlockStmt-1-62-4-1:SCOPE",
+      "phase": "ENTER",
+      "kind": "SCOPE",
+      "source": {
+        "astNodeId": "ast-BlockStmt-1-62-4-1",
+        "className": "Sample",
+        "lineNumber": 1,
+        "startLine": 1,
+        "endLine": 4,
+        "startColumn": 62,
+        "endColumn": 1,
+        "statementKind": "BlockStmt",
+        "code": "{\n  int[] a={7,3}; int i=0,j=1;\n  { int temp=a[i]; int ordinary=10; a[i]=a[j]; a[j]=temp; }\n}"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 2,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-1",
+      "beforeSnapshotId": null,
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 1
+        }
+      },
+      "effects": [
+        {
+          "type": "SCOPE_ENTER",
+          "entityId": "thread-1/invocation-1/scope-1",
+          "before": null,
+          "after": null,
+          "source": {},
+          "target": {
+            "scopeId": "ast-BlockStmt-1-62-4-1"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "before": null,
+          "after": {
+            "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+            "declarationId": "ast-Parameter-1-47-1-59",
+            "scopeInstanceId": "thread-1/invocation-1",
+            "name": "args",
+            "declaredType": "String[]",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-Parameter-1-47-1-59",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_INITIALIZED",
+          "entityId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "before": {
+            "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+            "declarationId": "ast-Parameter-1-47-1-59",
+            "scopeInstanceId": "thread-1/invocation-1",
+            "name": "args",
+            "declaredType": "String[]",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "after": {
+            "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+            "declarationId": "ast-Parameter-1-47-1-59",
+            "scopeInstanceId": "thread-1/invocation-1",
+            "name": "args",
+            "declaredType": "String[]",
+            "valueStatus": "AVAILABLE",
+            "value": {
+              "objectId": "36"
+            },
+            "objectId": "36"
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-Parameter-1-47-1-59",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1"
+      ],
+      "attributes": {
+        "scopeId": "ast-BlockStmt-1-62-4-1"
+      }
+    },
+    {
+      "sequence": 2,
+      "operationExecutionId": "operation-2",
+      "operationId": "ast-VariableDeclarator-2-9-2-15:DECLARATION",
+      "phase": "BEFORE",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-2-9-2-15",
+        "className": "Sample",
+        "lineNumber": 2,
+        "startLine": 2,
+        "endLine": 2,
+        "startColumn": 9,
+        "endColumn": 15,
+        "statementKind": "VariableDeclarator",
+        "code": "a={7,3}"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 8,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-2",
+      "beforeSnapshotId": "snapshot-2",
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 2
+        }
+      },
+      "effects": [],
+      "status": "PENDING",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-2-9-2-15",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 3,
+      "operationExecutionId": "operation-2",
+      "operationId": "ast-VariableDeclarator-2-9-2-15:DECLARATION",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-2-9-2-15",
+        "className": "Sample",
+        "lineNumber": 2,
+        "startLine": 2,
+        "endLine": 2,
+        "startColumn": 9,
+        "endColumn": 15,
+        "statementKind": "VariableDeclarator",
+        "code": "a={7,3}"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 27,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-3",
+      "beforeSnapshotId": "snapshot-2",
+      "afterSnapshotId": "snapshot-3",
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 3
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 3
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "before": null,
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+            "declarationId": "ast-VariableDeclarator-2-9-2-15",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "a",
+            "declaredType": "int[]",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-9-2-15",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_INITIALIZED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+            "declarationId": "ast-VariableDeclarator-2-9-2-15",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "a",
+            "declaredType": "int[]",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+            "declarationId": "ast-VariableDeclarator-2-9-2-15",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "a",
+            "declaredType": "int[]",
+            "valueStatus": "AVAILABLE",
+            "value": {
+              "objectId": "37"
+            },
+            "objectId": "37"
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-9-2-15",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-2-9-2-15",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 4,
+      "operationExecutionId": "operation-4",
+      "operationId": "ast-VariableDeclarator-2-22-2-24:DECLARATION",
+      "phase": "BEFORE",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-2-22-2-24",
+        "className": "Sample",
+        "lineNumber": 2,
+        "startLine": 2,
+        "endLine": 2,
+        "startColumn": 22,
+        "endColumn": 24,
+        "statementKind": "VariableDeclarator",
+        "code": "i=0"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 33,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-4",
+      "beforeSnapshotId": "snapshot-4",
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 4
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 4
+        }
+      },
+      "effects": [],
+      "status": "PENDING",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-2-22-2-24",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 5,
+      "operationExecutionId": "operation-4",
+      "operationId": "ast-VariableDeclarator-2-22-2-24:DECLARATION",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-2-22-2-24",
+        "className": "Sample",
+        "lineNumber": 2,
+        "startLine": 2,
+        "endLine": 2,
+        "startColumn": 22,
+        "endColumn": 24,
+        "statementKind": "VariableDeclarator",
+        "code": "i=0"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 41,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-5",
+      "beforeSnapshotId": "snapshot-4",
+      "afterSnapshotId": "snapshot-5",
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 5
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 5
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "before": null,
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+            "declarationId": "ast-VariableDeclarator-2-22-2-24",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "i",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-22-2-24",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_INITIALIZED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+            "declarationId": "ast-VariableDeclarator-2-22-2-24",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "i",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+            "declarationId": "ast-VariableDeclarator-2-22-2-24",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "i",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 0,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-22-2-24",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-2-22-2-24",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 6,
+      "operationExecutionId": "operation-6",
+      "operationId": "ast-VariableDeclarator-2-26-2-28:DECLARATION",
+      "phase": "BEFORE",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-2-26-2-28",
+        "className": "Sample",
+        "lineNumber": 2,
+        "startLine": 2,
+        "endLine": 2,
+        "startColumn": 26,
+        "endColumn": 28,
+        "statementKind": "VariableDeclarator",
+        "code": "j=1"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 48,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-6",
+      "beforeSnapshotId": "snapshot-6",
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 6
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 6
+        }
+      },
+      "effects": [],
+      "status": "PENDING",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-2-26-2-28",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 7,
+      "operationExecutionId": "operation-6",
+      "operationId": "ast-VariableDeclarator-2-26-2-28:DECLARATION",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-2-26-2-28",
+        "className": "Sample",
+        "lineNumber": 2,
+        "startLine": 2,
+        "endLine": 2,
+        "startColumn": 26,
+        "endColumn": 28,
+        "statementKind": "VariableDeclarator",
+        "code": "j=1"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 57,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-7",
+      "beforeSnapshotId": "snapshot-6",
+      "afterSnapshotId": "snapshot-7",
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 7
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 7
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "before": null,
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+            "declarationId": "ast-VariableDeclarator-2-26-2-28",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "j",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-26-2-28",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_INITIALIZED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+            "declarationId": "ast-VariableDeclarator-2-26-2-28",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "j",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+            "declarationId": "ast-VariableDeclarator-2-26-2-28",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "j",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 1,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-26-2-28",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-2-26-2-28",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 8,
+      "operationExecutionId": "operation-8",
+      "operationId": "ast-BlockStmt-3-3-3-59:SCOPE",
+      "phase": "ENTER",
+      "kind": "SCOPE",
+      "source": {
+        "astNodeId": "ast-BlockStmt-3-3-3-59",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 3,
+        "endColumn": 59,
+        "statementKind": "BlockStmt",
+        "code": "{ int temp=a[i]; int ordinary=10; a[i]=a[j]; a[j]=temp; }"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 64,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-8",
+      "beforeSnapshotId": null,
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 8
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 8
+        }
+      },
+      "effects": [
+        {
+          "type": "SCOPE_ENTER",
+          "entityId": "thread-1/invocation-1/scope-2",
+          "before": null,
+          "after": null,
+          "source": {},
+          "target": {
+            "scopeId": "ast-BlockStmt-3-3-3-59"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {
+        "scopeId": "ast-BlockStmt-3-3-3-59"
+      }
+    },
+    {
+      "sequence": 9,
+      "operationExecutionId": "operation-9",
+      "operationId": "ast-VariableDeclarator-3-9-3-17:DECLARATION",
+      "phase": "BEFORE",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-3-9-3-17",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 9,
+        "endColumn": 17,
+        "statementKind": "VariableDeclarator",
+        "code": "temp=a[i]"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 71,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-9",
+      "beforeSnapshotId": "snapshot-9",
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 9
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 9
+        }
+      },
+      "effects": [],
+      "status": "PENDING",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-3-9-3-17",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 10,
+      "operationExecutionId": "operation-9",
+      "operationId": "ast-VariableDeclarator-3-9-3-17:DECLARATION",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-3-9-3-17",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 9,
+        "endColumn": 17,
+        "statementKind": "VariableDeclarator",
+        "code": "temp=a[i]"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 83,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-10",
+      "beforeSnapshotId": "snapshot-9",
+      "afterSnapshotId": "snapshot-10",
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "declarationId": "ast-VariableDeclarator-3-9-3-17",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "temp",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 7,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 10
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 10
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "before": null,
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "scopeInstanceId": "thread-1/invocation-1/scope-2",
+            "name": "temp",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VALUE_COPIED",
+          "entityId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "before": null,
+          "after": 7,
+          "source": {
+            "index": 0,
+            "kind": "ARRAY_ELEMENT",
+            "objectId": "37"
+          },
+          "target": {
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_INITIALIZED",
+          "entityId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "scopeInstanceId": "thread-1/invocation-1/scope-2",
+            "name": "temp",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "scopeInstanceId": "thread-1/invocation-1/scope-2",
+            "name": "temp",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 7,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-3-9-3-17",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 11,
+      "operationExecutionId": "operation-11",
+      "operationId": "ast-VariableDeclarator-3-24-3-34:DECLARATION",
+      "phase": "BEFORE",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-3-24-3-34",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 24,
+        "endColumn": 34,
+        "statementKind": "VariableDeclarator",
+        "code": "ordinary=10"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 90,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-11",
+      "beforeSnapshotId": "snapshot-11",
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "declarationId": "ast-VariableDeclarator-3-9-3-17",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "temp",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 7,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 11
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 11
+        }
+      },
+      "effects": [],
+      "status": "PENDING",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-3-24-3-34",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 12,
+      "operationExecutionId": "operation-11",
+      "operationId": "ast-VariableDeclarator-3-24-3-34:DECLARATION",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "astNodeId": "ast-VariableDeclarator-3-24-3-34",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 24,
+        "endColumn": 34,
+        "statementKind": "VariableDeclarator",
+        "code": "ordinary=10"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 101,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-12",
+      "beforeSnapshotId": "snapshot-11",
+      "afterSnapshotId": "snapshot-12",
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "declarationId": "ast-VariableDeclarator-3-9-3-17",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "temp",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 7,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+          "declarationId": "ast-VariableDeclarator-3-24-3-34",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "ordinary",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 10,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 12
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 12
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+          "before": null,
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+            "declarationId": "ast-VariableDeclarator-3-24-3-34",
+            "scopeInstanceId": "thread-1/invocation-1/scope-2",
+            "name": "ordinary",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-3-24-3-34",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_INITIALIZED",
+          "entityId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+            "declarationId": "ast-VariableDeclarator-3-24-3-34",
+            "scopeInstanceId": "thread-1/invocation-1/scope-2",
+            "name": "ordinary",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "after": {
+            "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+            "declarationId": "ast-VariableDeclarator-3-24-3-34",
+            "scopeInstanceId": "thread-1/invocation-1/scope-2",
+            "name": "ordinary",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 10,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-3-24-3-34",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {
+        "declarationId": "ast-VariableDeclarator-3-24-3-34",
+        "hasInitializer": "true"
+      }
+    },
+    {
+      "sequence": 13,
+      "operationExecutionId": "operation-13",
+      "operationId": "ast-ExpressionStmt-3-37-3-46:ARRAY_WRITE",
+      "phase": "BEFORE",
+      "kind": "ARRAY_WRITE",
+      "source": {
+        "astNodeId": "ast-ExpressionStmt-3-37-3-46",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 37,
+        "endColumn": 46,
+        "statementKind": "ExpressionStmt",
+        "code": "a[i]=a[j];"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 108,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-13",
+      "beforeSnapshotId": "snapshot-13",
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "declarationId": "ast-VariableDeclarator-3-9-3-17",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "temp",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 7,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+          "declarationId": "ast-VariableDeclarator-3-24-3-34",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "ordinary",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 10,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 13
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            7,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 13
+        }
+      },
+      "effects": [],
+      "status": "PENDING",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {}
+    },
+    {
+      "sequence": 14,
+      "operationExecutionId": "operation-13",
+      "operationId": "ast-ExpressionStmt-3-37-3-46:ARRAY_WRITE",
+      "phase": "AFTER",
+      "kind": "ARRAY_WRITE",
+      "source": {
+        "astNodeId": "ast-ExpressionStmt-3-37-3-46",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 37,
+        "endColumn": 46,
+        "statementKind": "ExpressionStmt",
+        "code": "a[i]=a[j];"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 121,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-14",
+      "beforeSnapshotId": "snapshot-13",
+      "afterSnapshotId": "snapshot-14",
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "declarationId": "ast-VariableDeclarator-3-9-3-17",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "temp",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 7,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+          "declarationId": "ast-VariableDeclarator-3-24-3-34",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "ordinary",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 10,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 14
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            3,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 14
+        }
+      },
+      "effects": [
+        {
+          "type": "ARRAY_ELEMENT_WRITTEN",
+          "entityId": "37",
+          "before": 7,
+          "after": 3,
+          "source": {
+            "index": 1,
+            "kind": "ARRAY_ELEMENT",
+            "objectId": "37"
+          },
+          "target": {
+            "index": 0,
+            "kind": "ARRAY_ELEMENT",
+            "objectId": "37"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {}
+    },
+    {
+      "sequence": 15,
+      "operationExecutionId": "operation-15",
+      "operationId": "ast-ExpressionStmt-3-48-3-57:ARRAY_WRITE",
+      "phase": "BEFORE",
+      "kind": "ARRAY_WRITE",
+      "source": {
+        "astNodeId": "ast-ExpressionStmt-3-48-3-57",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 48,
+        "endColumn": 57,
+        "statementKind": "ExpressionStmt",
+        "code": "a[j]=temp;"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 128,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-15",
+      "beforeSnapshotId": "snapshot-15",
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "declarationId": "ast-VariableDeclarator-3-9-3-17",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "temp",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 7,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+          "declarationId": "ast-VariableDeclarator-3-24-3-34",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "ordinary",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 10,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 15
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            3,
+            3
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 15
+        }
+      },
+      "effects": [],
+      "status": "PENDING",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {}
+    },
+    {
+      "sequence": 16,
+      "operationExecutionId": "operation-15",
+      "operationId": "ast-ExpressionStmt-3-48-3-57:ARRAY_WRITE",
+      "phase": "AFTER",
+      "kind": "ARRAY_WRITE",
+      "source": {
+        "astNodeId": "ast-ExpressionStmt-3-48-3-57",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 48,
+        "endColumn": 57,
+        "statementKind": "ExpressionStmt",
+        "code": "a[j]=temp;"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 140,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-16",
+      "beforeSnapshotId": "snapshot-15",
+      "afterSnapshotId": "snapshot-16",
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "declarationId": "ast-VariableDeclarator-3-9-3-17",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "temp",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 7,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+          "declarationId": "ast-VariableDeclarator-3-24-3-34",
+          "scopeInstanceId": "thread-1/invocation-1/scope-2",
+          "name": "ordinary",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 10,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 16
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            3,
+            7
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 16
+        }
+      },
+      "effects": [
+        {
+          "type": "ARRAY_ELEMENT_WRITTEN",
+          "entityId": "37",
+          "before": 3,
+          "after": 7,
+          "source": {
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17"
+          },
+          "target": {
+            "index": 1,
+            "kind": "ARRAY_ELEMENT",
+            "objectId": "37"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1",
+        "thread-1/invocation-1/scope-2"
+      ],
+      "attributes": {}
+    },
+    {
+      "sequence": 17,
+      "operationExecutionId": "operation-17",
+      "operationId": "ast-BlockStmt-3-3-3-59:SCOPE",
+      "phase": "EXIT",
+      "kind": "SCOPE",
+      "source": {
+        "astNodeId": "ast-BlockStmt-3-3-3-59",
+        "className": "Sample",
+        "lineNumber": 3,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 3,
+        "endColumn": 59,
+        "statementKind": "BlockStmt",
+        "code": "{ int temp=a[i]; int ordinary=10; a[i]=a[j]; a[j]=temp; }"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 147,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-17",
+      "beforeSnapshotId": null,
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "declarationId": "ast-VariableDeclarator-2-9-2-15",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "37"
+          },
+          "objectId": "37"
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "declarationId": "ast-VariableDeclarator-2-22-2-24",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "declarationId": "ast-VariableDeclarator-2-26-2-28",
+          "scopeInstanceId": "thread-1/invocation-1/scope-1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 17
+        },
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [
+            3,
+            7
+          ],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 17
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_DESTROYED",
+          "entityId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17",
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "scopeInstanceId": "thread-1/invocation-1/scope-2",
+            "name": "temp",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 7,
+            "objectId": null
+          },
+          "after": null,
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-3-9-3-17",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-9-3-17"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_DESTROYED",
+          "entityId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34",
+            "declarationId": "ast-VariableDeclarator-3-24-3-34",
+            "scopeInstanceId": "thread-1/invocation-1/scope-2",
+            "name": "ordinary",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 10,
+            "objectId": null
+          },
+          "after": null,
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-3-24-3-34",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-2/ast-VariableDeclarator-3-24-3-34"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "SCOPE_EXIT",
+          "entityId": "thread-1/invocation-1/scope-2",
+          "before": null,
+          "after": null,
+          "source": {},
+          "target": {
+            "scopeId": "ast-BlockStmt-3-3-3-59"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [
+        "thread-1/invocation-1/scope-1"
+      ],
+      "attributes": {
+        "scopeId": "ast-BlockStmt-3-3-3-59"
+      }
+    },
+    {
+      "sequence": 18,
+      "operationExecutionId": "operation-18",
+      "operationId": "ast-BlockStmt-1-62-4-1:SCOPE",
+      "phase": "EXIT",
+      "kind": "SCOPE",
+      "source": {
+        "astNodeId": "ast-BlockStmt-1-62-4-1",
+        "className": "Sample",
+        "lineNumber": 1,
+        "startLine": 1,
+        "endLine": 4,
+        "startColumn": 62,
+        "endColumn": 1,
+        "statementKind": "BlockStmt",
+        "code": "{\n  int[] a={7,3}; int i=0,j=1;\n  { int temp=a[i]; int ordinary=10; a[i]=a[j]; a[j]=temp; }\n}"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 169,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-18",
+      "beforeSnapshotId": null,
+      "afterSnapshotId": null,
+      "variables": [
+        {
+          "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "declarationId": "ast-Parameter-1-47-1-59",
+          "scopeInstanceId": "thread-1/invocation-1",
+          "name": "args",
+          "declaredType": "String[]",
+          "valueStatus": "AVAILABLE",
+          "value": {
+            "objectId": "36"
+          },
+          "objectId": "36"
+        }
+      ],
+      "objects": {
+        "36": {
+          "objectId": "36",
+          "type": "String[]",
+          "values": [],
+          "length": 0,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 18
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_DESTROYED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15",
+            "declarationId": "ast-VariableDeclarator-2-9-2-15",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "a",
+            "declaredType": "int[]",
+            "valueStatus": "AVAILABLE",
+            "value": {
+              "objectId": "37"
+            },
+            "objectId": "37"
+          },
+          "after": null,
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-9-2-15",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-9-2-15"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_DESTROYED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24",
+            "declarationId": "ast-VariableDeclarator-2-22-2-24",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "i",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 0,
+            "objectId": null
+          },
+          "after": null,
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-22-2-24",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-22-2-24"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_DESTROYED",
+          "entityId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+          "before": {
+            "instanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28",
+            "declarationId": "ast-VariableDeclarator-2-26-2-28",
+            "scopeInstanceId": "thread-1/invocation-1/scope-1",
+            "name": "j",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 1,
+            "objectId": null
+          },
+          "after": null,
+          "source": {},
+          "target": {
+            "declarationId": "ast-VariableDeclarator-2-26-2-28",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/scope-1/ast-VariableDeclarator-2-26-2-28"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "SCOPE_EXIT",
+          "entityId": "thread-1/invocation-1/scope-1",
+          "before": null,
+          "after": null,
+          "source": {},
+          "target": {
+            "scopeId": "ast-BlockStmt-1-62-4-1"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [],
+      "attributes": {
+        "scopeId": "ast-BlockStmt-1-62-4-1"
+      }
+    },
+    {
+      "sequence": 19,
+      "operationExecutionId": "operation-19",
+      "operationId": "ast-MethodDeclaration-1-23-4-1:METHOD_EXIT",
+      "phase": "EXIT",
+      "kind": "METHOD_EXIT",
+      "source": {
+        "astNodeId": "ast-MethodDeclaration-1-23-4-1",
+        "className": "Sample",
+        "lineNumber": 4,
+        "startLine": 1,
+        "endLine": 4,
+        "startColumn": 23,
+        "endColumn": 1,
+        "statementKind": "MethodDeclaration",
+        "code": "void main(String[])"
+      },
+      "context": {
+        "threadId": 1,
+        "threadName": "main",
+        "className": "Sample",
+        "methodName": "main",
+        "methodSignature": "([Ljava/lang/String;)V",
+        "stackDepth": 1,
+        "codeIndex": 188,
+        "invocationId": 1
+      },
+      "snapshotId": "snapshot-19",
+      "beforeSnapshotId": null,
+      "afterSnapshotId": null,
+      "variables": [],
+      "objects": {},
+      "effects": [
+        {
+          "type": "VARIABLE_DESTROYED",
+          "entityId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+          "before": {
+            "instanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59",
+            "declarationId": "ast-Parameter-1-47-1-59",
+            "scopeInstanceId": "thread-1/invocation-1",
+            "name": "args",
+            "declaredType": "String[]",
+            "valueStatus": "AVAILABLE",
+            "value": {
+              "objectId": "36"
+            },
+            "objectId": "36"
+          },
+          "after": null,
+          "source": {},
+          "target": {
+            "declarationId": "ast-Parameter-1-47-1-59",
+            "kind": "VARIABLE",
+            "variableInstanceId": "thread-1/invocation-1/ast-Parameter-1-47-1-59"
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "COMPLETED",
+      "conditionOutcome": null,
+      "scopeInstanceIds": [],
+      "attributes": {}
+    }
+  ],
+  "warnings": [],
+  "traceInfo": {
+    "schemaVersion": 2,
+    "mode": "OPERATIONS",
+    "granularity": "SOURCE_OPERATION",
+    "captureStatus": "COMPLETE",
+    "terminationReason": null,
+    "limits": {
+      "maxVisibleVariables": 200,
+      "timeoutMillis": 30000,
+      "maxSnapshotTextChars": 4000000,
+      "maxCaptureTextChars": 4000000,
+      "maxCaptureValues": 500000,
+      "maxMarkers": 10000,
+      "maxSnapshotValues": 500000
+    }
+  }
+}

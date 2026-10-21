@@ -41,7 +41,37 @@ public record AlgorithmHint(
             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
         LinearSearchPattern linearSearch,
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-        BfsPattern bfs) {
+        BfsPattern bfs,
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        PrefixSumPattern prefixSum,
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        DfsPattern dfs) {
+
+  public AlgorithmHint(String type, double confidence, String visualPlan,
+                       List<String> evidence, Map<String, String> variables,
+                       int startLine, int endLine, String patternAstNodeId,
+                       String methodAstNodeId, Map<String, String> variableDeclarationIds,
+                       SortPattern sort, QuickPattern quick, MergePattern merge,
+                       HeapPattern heap, ActivitySelectionPattern activitySelection,
+                       TwoPointersPattern twoPointers, SlidingWindowPattern slidingWindow,
+                       LinearSearchPattern linearSearch, BfsPattern bfs, PrefixSumPattern prefixSum) {
+    this(type, confidence, visualPlan, evidence, variables, startLine, endLine,
+        patternAstNodeId, methodAstNodeId, variableDeclarationIds, sort, quick, merge,
+        heap, activitySelection, twoPointers, slidingWindow, linearSearch, bfs, prefixSum, null);
+  }
+
+  public AlgorithmHint(String type, double confidence, String visualPlan,
+                       List<String> evidence, Map<String, String> variables,
+                       int startLine, int endLine, String patternAstNodeId,
+                       String methodAstNodeId, Map<String, String> variableDeclarationIds,
+                       SortPattern sort, QuickPattern quick, MergePattern merge,
+                       HeapPattern heap, ActivitySelectionPattern activitySelection,
+                       TwoPointersPattern twoPointers, SlidingWindowPattern slidingWindow,
+                       LinearSearchPattern linearSearch, BfsPattern bfs) {
+    this(type, confidence, visualPlan, evidence, variables, startLine, endLine,
+        patternAstNodeId, methodAstNodeId, variableDeclarationIds, sort, quick, merge,
+        heap, activitySelection, twoPointers, slidingWindow, linearSearch, bfs, null);
+  }
 
   public AlgorithmHint(String type, double confidence, String visualPlan,
                        List<String> evidence, Map<String, String> variables,

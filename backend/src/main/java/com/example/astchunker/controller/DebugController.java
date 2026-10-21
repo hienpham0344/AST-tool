@@ -4,10 +4,11 @@ import com.example.astchunker.algorithm.AlgorithmPatternAnalyzer;
 import com.example.astchunker.ast.AstAnalyzer;
 import com.example.astchunker.debug.JdiSession;
 import com.example.astchunker.debug.TargetCompiler;
+import com.example.astchunker.debug.operation.OperationTraceService;
 import com.example.astchunker.dto.DebugStepsResponse;
-import com.example.astchunker.mapping.IntervalValueProjection;
 import com.example.astchunker.mapping.BfsProjection;
 import com.example.astchunker.mapping.IntegerListProjection;
+import com.example.astchunker.mapping.IntervalValueProjection;
 import com.example.astchunker.model.ObservationResult;
 import com.example.astchunker.service.UploadedJavaSourceReader;
 import com.example.astchunker.visualization.VisualTraceBuilder;
@@ -31,6 +32,7 @@ public class DebugController {
   private final JdiSession jdiSession;
   private final AlgorithmPatternAnalyzer algorithmAnalyzer;
   private final VisualTraceBuilder visualTraceBuilder;
+  private final OperationTraceService operationTraceService;
 
   public DebugController(
       UploadedJavaSourceReader sourceReader,
@@ -38,13 +40,15 @@ public class DebugController {
       TargetCompiler targetCompiler,
       JdiSession jdiSession,
       AlgorithmPatternAnalyzer algorithmAnalyzer,
-      VisualTraceBuilder visualTraceBuilder) {
+      VisualTraceBuilder visualTraceBuilder,
+      OperationTraceService operationTraceService) {
     this.sourceReader = sourceReader;
     this.astAnalyzer = astAnalyzer;
     this.targetCompiler = targetCompiler;
     this.jdiSession = jdiSession;
     this.algorithmAnalyzer = algorithmAnalyzer;
     this.visualTraceBuilder = visualTraceBuilder;
+    this.operationTraceService = operationTraceService;
   }
 
   @PostMapping(value = "/debug", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -59,14 +63,24 @@ public class DebugController {
   }
 
   @PostMapping(value = "/debug/steps", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<DebugStepsResponse> debugSteps(@RequestParam("file") MultipartFile file) {
+  public ResponseEntity<?> debugSteps(
+      @RequestParam("file") MultipartFile file,
+      @RequestParam(value = "traceMode", defaultValue = "LINE_BREAKPOINT") String traceMode) {
+    if (!traceMode.equals("LINE_BREAKPOINT") && !traceMode.equals("OPERATIONS"))
+      throw new IllegalArgumentException("traceMode must be LINE_BREAKPOINT or OPERATIONS");
     String sourceCode = sourceReader.read(file);
     AstAnalyzer.Analysis analysis = astAnalyzer.analyze(sourceCode);
     var hints = algorithmAnalyzer.analyze(analysis.compilationUnit());
+    if (traceMode.equals("OPERATIONS"))
+      return ResponseEntity.ok(operationTraceService.trace(sourceCode, analysis, hints));
     try (TargetCompiler.CompiledTarget target = targetCompiler.compile(sourceCode, analysis)) {
-      JdiSession.DebugRun run = jdiSession.observe(
-          target, analysis, IntervalValueProjection.fromHints(hints),
-          IntegerListProjection.fromHints(hints), BfsProjection.fromHints(hints));
+      JdiSession.DebugRun run =
+          jdiSession.observe(
+              target,
+              analysis,
+              IntervalValueProjection.fromHints(hints),
+              IntegerListProjection.fromHints(hints),
+              BfsProjection.fromHints(hints));
       return ResponseEntity.ok(
           new DebugStepsResponse(
               visualTraceBuilder.build(analysis, hints, run.executions()), run.warnings(), hints));

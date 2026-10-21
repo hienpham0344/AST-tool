@@ -69,9 +69,24 @@ the runtime-variable view. Each sample sorts six arrays in one run; see
 [`docs/sort-visualization-test-guide.md`](docs/sort-visualization-test-guide.md) for the step
 payload and supported pattern limits.
 
+For operation-by-operation playback, use `POST /api/debug/steps?traceMode=OPERATIONS`.
+It exposes separate temporary-variable entities, confirmed intermediate array writes,
+and scope lifetimes. Start with [`docs/frontend-operation-trace-guide.md`](docs/frontend-operation-trace-guide.md)
+and `backend/examples/trace/Sample.java`. The default line-breakpoint mode is unchanged.
+
 For BFS, upload `backend/examples/graph/BfsMatrixSample.java` or
 `backend/examples/graph/BfsListSample.java`. The runtime frame exposes the graph,
 FIFO queue and visited vertices; see [`docs/bfs-test-guide.md`](docs/bfs-test-guide.md).
+
+For recursive DFS, upload `backend/examples/graph/DfsMatrixSample.java` or
+`backend/examples/graph/DfsListSample.java`. The matrix fixture also supports
+operation playback with actual main/callee/return order. See the
+[DFS frontend guide](docs/dfs-frontend-guide.md) for graph, visited and per-invocation frames.
+
+For Prefix Sum, upload `backend/examples/prefixsum/PrefixSumSentinelSample.java` or
+`backend/examples/prefixsum/PrefixSumSameLengthSample.java`. Both array layouts use
+structural AST recognition; see [the frontend guide](docs/prefix-sum-frontend-guide.md)
+for separate input/prefix rows, confirmed progress, range queries and operation playback.
 
 For Activity Selection, upload `backend/examples/greedy/ActivitySelectionArraySample.java` or
 `backend/examples/greedy/ActivitySelectionListSample.java`. The step view separates the source

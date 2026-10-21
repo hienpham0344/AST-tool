@@ -1,3 +1,9 @@
+> Cần visualize từng thao tác, biến temp riêng và vòng đời scope? Dùng
+> `POST /api/debug/steps?traceMode=OPERATIONS` và
+> [hướng dẫn operation trace](frontend-operation-trace-guide.md).
+> Phần LINE_BREAKPOINT/BEFORE_LOCATION bên dưới là chế độ mặc định cũ; không
+> áp dụng nguyên renderer đó cho response OPERATIONS schemaVersion=2.
+
 # Hợp đồng JSON runtime cho frontend độc lập
 
 Tài liệu này dành cho agent frontend ở project khác. Nguồn dữ liệu visualize
@@ -84,9 +90,11 @@ Mỗi hint có `type`, `confidence`, `visualPlan`, `evidence[]`, `variables`,
 | `heap-sort` | `heap` | `heapFrame` |
 | `activity-selection` | `activitySelection` | `activitySelectionFrame` |
 | `bfs` | `bfs` | `bfsFrame` |
+| `dfs` | `dfs` | `dfsFrame` |
 | `two-pointers` | `twoPointers` | `twoPointersFrame` |
 | `sliding-window` | `slidingWindow` | `slidingWindowFrame` |
 | `linear-search` | `linearSearch` | `linearSearchFrame` |
+| `prefix-sum` | `prefixSum` | `prefixSumFrame` |
 | `binary-search` | Chưa có metadata riêng | Chưa có frame riêng; đọc `array`, `pointers`, `range` |
 
 Metadata/frame không áp dụng được thường bị bỏ khỏi JSON khi Java value là
@@ -297,3 +305,33 @@ Giới hạn: 100 đỉnh, 100 phần tử queue, 1000 cạnh và ngân sách đ
 lồng nhau; đồ thị lớn hoặc collection không hỗ trợ trả trạng thái thiếu/cắt cụt.
 BFS này chưa hỗ trợ lưới 2D hoặc đỉnh object/string; detector chỉ nhận các mẫu
 FIFO và đánh dấu trước enqueue đã chứng minh (xem guide).
+
+## Prefix Sum: hai mảng và tổng đoạn
+
+Hint type `prefix-sum` có metadata `prefixSum` schemaVersion=1, representation
+`SAME_LENGTH` hoặc `ZERO_SENTINEL`, declarationIds theo role data/prefix/index và
+operationAstNodeIds của allocation/seed/recurrence/loop/indexUpdate. Các query đã
+được chứng minh nằm trong prefixSum.queries. Không suy thuật toán từ tên biến.
+
+Đọc mọi visualStates theo hintIndex; `prefixSumFrame` dành cho LINE_BREAKPOINT
+và giữ ngữ nghĩa BEFORE_LOCATION. Ô đích của recurrence tại location hiện tại
+vẫn pending. Giá trị primitive mặc định 0 không chứng minh ô đã xây dựng.
+OPERATIONS vẫn dùng generic steps/effects; không lọc bỏ code thường theo hint.
+
+Xem [hướng dẫn Prefix Sum cho frontend](prefix-sum-frontend-guide.md), bao gồm
+fixture, hai layout, query, trạng thái thiếu dữ liệu và overflow int/long.
+
+## DFS đệ quy: graph, visited và caller frames
+
+Hint type `dfs` có metadata `dfs` schemaVersion=1, representation ADJACENCY_MATRIX
+hoặc ADJACENCY_LIST, declarationIds graph/visited/current/neighbor và các anchor
+mark/neighborLoop/guard/recursiveCall trong operationAstNodeIds. Method identity
+là methodAstNodeId; hint không chứng minh method đã được chạy.
+
+Legacy visualStates có dfsFrame theo hintIndex. Vẫn giữ BEFORE_LOCATION: mark
+hiện tại chưa được coi là thực thi, candidate edge chưa xác nhận lời gọi mới.
+Render graph/visited từ projection quan sát được và giữ status thiếu/truncated.
+OPERATIONS giữ generic steps/effects và invocation IDs, không có dfsFrame legacy.
+
+Xem [hướng dẫn frontend DFS](dfs-frontend-guide.md) cho fixture và cách giữ frame
+caller khi đi sâu rồi quay lại, không sort trace theo số dòng.
