@@ -1,0 +1,708 @@
+{
+  "schemaVersion": 2,
+  "traceInfo": {
+    "schemaVersion": 2,
+    "mode": "OPERATIONS",
+    "granularity": "SOURCE_OPERATION",
+    "captureStatus": "COMPLETE",
+    "terminationReason": null,
+    "limits": {
+      "maxArrayElements": 100,
+      "maxVisibleVariables": 50,
+      "maxCaptureValues": 500000,
+      "maxCaptureTextChars": 4000000
+    }
+  },
+  "algorithmHints": [],
+  "warnings": [],
+  "steps": [
+    {
+      "sequence": 1,
+      "operationExecutionId": "op-exec-1",
+      "operationId": "op-decl-a",
+      "phase": "BEFORE",
+      "kind": "DECLARATION",
+      "source": {
+        "startLine": 3,
+        "startColumn": 9,
+        "endLine": 3,
+        "endColumn": 25,
+        "code": "int[] a = {7, 3};"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-1",
+      "variables": [],
+      "objects": {},
+      "effects": [],
+      "status": "PENDING"
+    },
+    {
+      "sequence": 2,
+      "operationExecutionId": "op-exec-1",
+      "operationId": "op-decl-a",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "startLine": 3,
+        "startColumn": 9,
+        "endLine": 3,
+        "endColumn": 25,
+        "code": "int[] a = {7, 3};"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-2",
+      "variables": [
+        {
+          "instanceId": "t1/m1/s1/var-a",
+          "declarationId": "decl-a",
+          "scopeInstanceId": "t1/m1/s1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "value": { "objectId": "37" },
+          "objectId": "37"
+        }
+      ],
+      "objects": {
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [7, 3],
+          "length": 2,
+          "status": "AVAILABLE",
+          "truncated": false,
+          "observedAtSequence": 2
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "t1/m1/s1/var-a",
+          "before": null,
+          "after": {
+            "instanceId": "t1/m1/s1/var-a",
+            "name": "a",
+            "declaredType": "int[]",
+            "valueStatus": "AVAILABLE",
+            "objectId": "37"
+          },
+          "source": {},
+          "target": { "variableInstanceId": "t1/m1/s1/var-a", "kind": "VARIABLE" },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 3,
+      "operationExecutionId": "op-exec-2",
+      "operationId": "op-decl-i",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "startLine": 4,
+        "startColumn": 9,
+        "endLine": 4,
+        "endColumn": 18,
+        "code": "int i = 0;"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-3",
+      "variables": [
+        {
+          "instanceId": "t1/m1/s1/var-a",
+          "declarationId": "decl-a",
+          "scopeInstanceId": "t1/m1/s1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "objectId": "37"
+        },
+        {
+          "instanceId": "t1/m1/s1/var-i",
+          "declarationId": "decl-i",
+          "scopeInstanceId": "t1/m1/s1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [7, 3],
+          "length": 2,
+          "status": "AVAILABLE",
+          "observedAtSequence": 3
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "t1/m1/s1/var-i",
+          "after": { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0 },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 4,
+      "operationExecutionId": "op-exec-3",
+      "operationId": "op-decl-j",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "startLine": 5,
+        "startColumn": 9,
+        "endLine": 5,
+        "endColumn": 18,
+        "code": "int j = 1;"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-4",
+      "variables": [
+        {
+          "instanceId": "t1/m1/s1/var-a",
+          "declarationId": "decl-a",
+          "scopeInstanceId": "t1/m1/s1",
+          "name": "a",
+          "declaredType": "int[]",
+          "valueStatus": "AVAILABLE",
+          "objectId": "37"
+        },
+        {
+          "instanceId": "t1/m1/s1/var-i",
+          "declarationId": "decl-i",
+          "scopeInstanceId": "t1/m1/s1",
+          "name": "i",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 0,
+          "objectId": null
+        },
+        {
+          "instanceId": "t1/m1/s1/var-j",
+          "declarationId": "decl-j",
+          "scopeInstanceId": "t1/m1/s1",
+          "name": "j",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 1,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [7, 3],
+          "length": 2,
+          "status": "AVAILABLE",
+          "observedAtSequence": 4
+        }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "t1/m1/s1/var-j",
+          "after": { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1 },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 5,
+      "operationExecutionId": "op-exec-4",
+      "operationId": "op-if-cond",
+      "phase": "AFTER",
+      "kind": "CONDITION",
+      "source": {
+        "startLine": 6,
+        "startColumn": 9,
+        "endLine": 6,
+        "endColumn": 25,
+        "code": "if (a[i] > a[j])"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-5",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" }
+      ],
+      "objects": {
+        "37": { "objectId": "37", "type": "int[]", "values": [7, 3], "length": 2, "status": "AVAILABLE", "observedAtSequence": 5 }
+      },
+      "effects": [
+        {
+          "type": "CONDITION_EVALUATED",
+          "entityId": "op-if-cond",
+          "before": null,
+          "after": true,
+          "status": "CONFIRMED"
+        }
+      ],
+      "conditionOutcome": true,
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 6,
+      "operationExecutionId": "op-exec-scope-enter",
+      "operationId": "op-scope-if",
+      "phase": "ENTER",
+      "kind": "SCOPE",
+      "source": {
+        "startLine": 6,
+        "startColumn": 26,
+        "endLine": 6,
+        "endColumn": 27,
+        "code": "{"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-6",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" }
+      ],
+      "objects": {
+        "37": { "objectId": "37", "type": "int[]", "values": [7, 3], "length": 2, "status": "AVAILABLE", "observedAtSequence": 6 }
+      },
+      "effects": [
+        {
+          "type": "SCOPE_ENTER",
+          "entityId": "t1/m1/s2",
+          "status": "CONFIRMED"
+        }
+      ],
+      "scopeInstanceIds": ["t1/m1/s1", "t1/m1/s2"],
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 7,
+      "operationExecutionId": "op-exec-5",
+      "operationId": "op-decl-temp",
+      "phase": "BEFORE",
+      "kind": "DECLARATION",
+      "source": {
+        "startLine": 7,
+        "startColumn": 13,
+        "endLine": 7,
+        "endColumn": 30,
+        "code": "int temp = a[i];"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-7",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" }
+      ],
+      "objects": {
+        "37": { "objectId": "37", "type": "int[]", "values": [7, 3], "length": 2, "status": "AVAILABLE", "observedAtSequence": 7 }
+      },
+      "effects": [],
+      "status": "PENDING"
+    },
+    {
+      "sequence": 8,
+      "operationExecutionId": "op-exec-5",
+      "operationId": "op-decl-temp",
+      "phase": "AFTER",
+      "kind": "DECLARATION",
+      "source": {
+        "startLine": 7,
+        "startColumn": 13,
+        "endLine": 7,
+        "endColumn": 30,
+        "code": "int temp = a[i];"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-8",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" },
+        {
+          "instanceId": "t1/m1/s2/var-temp",
+          "declarationId": "decl-temp",
+          "scopeInstanceId": "t1/m1/s2",
+          "name": "temp",
+          "declaredType": "int",
+          "valueStatus": "AVAILABLE",
+          "value": 7,
+          "objectId": null
+        }
+      ],
+      "objects": {
+        "37": { "objectId": "37", "type": "int[]", "values": [7, 3], "length": 2, "status": "AVAILABLE", "observedAtSequence": 8 }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_CREATED",
+          "entityId": "t1/m1/s2/var-temp",
+          "before": null,
+          "after": {
+            "instanceId": "t1/m1/s2/var-temp",
+            "declarationId": "decl-temp",
+            "scopeInstanceId": "t1/m1/s2",
+            "name": "temp",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED",
+            "value": null,
+            "objectId": null
+          },
+          "source": {},
+          "target": {
+            "variableInstanceId": "t1/m1/s2/var-temp",
+            "kind": "VARIABLE",
+            "declarationId": "decl-temp"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VALUE_COPIED",
+          "entityId": "t1/m1/s2/var-temp",
+          "before": null,
+          "after": 7,
+          "source": {
+            "objectId": "37",
+            "kind": "ARRAY_ELEMENT",
+            "index": 0
+          },
+          "target": {
+            "variableInstanceId": "t1/m1/s2/var-temp",
+            "kind": "VARIABLE",
+            "declarationId": "decl-temp"
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "VARIABLE_INITIALIZED",
+          "entityId": "t1/m1/s2/var-temp",
+          "before": {
+            "instanceId": "t1/m1/s2/var-temp",
+            "name": "temp",
+            "declaredType": "int",
+            "valueStatus": "UNINITIALIZED"
+          },
+          "after": {
+            "instanceId": "t1/m1/s2/var-temp",
+            "name": "temp",
+            "declaredType": "int",
+            "valueStatus": "AVAILABLE",
+            "value": 7
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 9,
+      "operationExecutionId": "op-exec-6",
+      "operationId": "op-assign-ai",
+      "phase": "BEFORE",
+      "kind": "ASSIGNMENT",
+      "source": {
+        "startLine": 8,
+        "startColumn": 13,
+        "endLine": 8,
+        "endColumn": 25,
+        "code": "a[i] = a[j];"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-9",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s2/var-temp", "name": "temp", "declaredType": "int", "value": 7, "valueStatus": "AVAILABLE" }
+      ],
+      "objects": {
+        "37": { "objectId": "37", "type": "int[]", "values": [7, 3], "length": 2, "status": "AVAILABLE", "observedAtSequence": 9 }
+      },
+      "effects": [],
+      "status": "PENDING"
+    },
+    {
+      "sequence": 10,
+      "operationExecutionId": "op-exec-6",
+      "operationId": "op-assign-ai",
+      "phase": "AFTER",
+      "kind": "ASSIGNMENT",
+      "source": {
+        "startLine": 8,
+        "startColumn": 13,
+        "endLine": 8,
+        "endColumn": 25,
+        "code": "a[i] = a[j];"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-10",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s2/var-temp", "name": "temp", "declaredType": "int", "value": 7, "valueStatus": "AVAILABLE" }
+      ],
+      "objects": {
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [3, 3],
+          "length": 2,
+          "status": "AVAILABLE",
+          "observedAtSequence": 10
+        }
+      },
+      "effects": [
+        {
+          "type": "ARRAY_ELEMENT_WRITTEN",
+          "entityId": "37",
+          "before": 7,
+          "after": 3,
+          "source": {
+            "objectId": "37",
+            "kind": "ARRAY_ELEMENT",
+            "index": 1
+          },
+          "target": {
+            "objectId": "37",
+            "kind": "ARRAY_ELEMENT",
+            "index": 0
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 11,
+      "operationExecutionId": "op-exec-7",
+      "operationId": "op-assign-aj",
+      "phase": "BEFORE",
+      "kind": "ASSIGNMENT",
+      "source": {
+        "startLine": 9,
+        "startColumn": 13,
+        "endLine": 9,
+        "endColumn": 24,
+        "code": "a[j] = temp;"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-11",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s2/var-temp", "name": "temp", "declaredType": "int", "value": 7, "valueStatus": "AVAILABLE" }
+      ],
+      "objects": {
+        "37": { "objectId": "37", "type": "int[]", "values": [3, 3], "length": 2, "status": "AVAILABLE", "observedAtSequence": 11 }
+      },
+      "effects": [],
+      "status": "PENDING"
+    },
+    {
+      "sequence": 12,
+      "operationExecutionId": "op-exec-7",
+      "operationId": "op-assign-aj",
+      "phase": "AFTER",
+      "kind": "ASSIGNMENT",
+      "source": {
+        "startLine": 9,
+        "startColumn": 13,
+        "endLine": 9,
+        "endColumn": 24,
+        "code": "a[j] = temp;"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-12",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s2/var-temp", "name": "temp", "declaredType": "int", "value": 7, "valueStatus": "AVAILABLE" }
+      ],
+      "objects": {
+        "37": {
+          "objectId": "37",
+          "type": "int[]",
+          "values": [3, 7],
+          "length": 2,
+          "status": "AVAILABLE",
+          "observedAtSequence": 12
+        }
+      },
+      "effects": [
+        {
+          "type": "ARRAY_ELEMENT_WRITTEN",
+          "entityId": "37",
+          "before": 3,
+          "after": 7,
+          "source": {
+            "variableInstanceId": "t1/m1/s2/var-temp",
+            "kind": "VARIABLE",
+            "declarationId": "decl-temp"
+          },
+          "target": {
+            "objectId": "37",
+            "kind": "ARRAY_ELEMENT",
+            "index": 1
+          },
+          "status": "CONFIRMED"
+        }
+      ],
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 13,
+      "operationExecutionId": "op-exec-scope-exit",
+      "operationId": "op-scope-if",
+      "phase": "EXIT",
+      "kind": "SCOPE",
+      "source": {
+        "startLine": 10,
+        "startColumn": 9,
+        "endLine": 10,
+        "endColumn": 10,
+        "code": "}"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-13",
+      "variables": [
+        { "instanceId": "t1/m1/s1/var-a", "name": "a", "declaredType": "int[]", "objectId": "37", "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-i", "name": "i", "declaredType": "int", "value": 0, "valueStatus": "AVAILABLE" },
+        { "instanceId": "t1/m1/s1/var-j", "name": "j", "declaredType": "int", "value": 1, "valueStatus": "AVAILABLE" }
+      ],
+      "objects": {
+        "37": { "objectId": "37", "type": "int[]", "values": [3, 7], "length": 2, "status": "AVAILABLE", "observedAtSequence": 13 }
+      },
+      "effects": [
+        {
+          "type": "VARIABLE_DESTROYED",
+          "entityId": "t1/m1/s2/var-temp",
+          "before": {
+            "instanceId": "t1/m1/s2/var-temp",
+            "declarationId": "decl-temp",
+            "name": "temp",
+            "declaredType": "int",
+            "value": 7
+          },
+          "status": "CONFIRMED"
+        },
+        {
+          "type": "SCOPE_EXIT",
+          "entityId": "t1/m1/s2",
+          "status": "CONFIRMED"
+        }
+      ],
+      "scopeInstanceIds": ["t1/m1/s1"],
+      "status": "CONFIRMED"
+    },
+    {
+      "sequence": 14,
+      "operationExecutionId": "op-exec-method-exit",
+      "operationId": "op-method-main",
+      "phase": "EXIT",
+      "kind": "METHOD",
+      "source": {
+        "startLine": 11,
+        "startColumn": 5,
+        "endLine": 11,
+        "endColumn": 6,
+        "code": "}"
+      },
+      "context": {
+        "threadId": 1,
+        "stackDepth": 1,
+        "className": "Sample",
+        "methodName": "main"
+      },
+      "snapshotId": "snap-14",
+      "variables": [],
+      "objects": {
+        "37": { "objectId": "37", "type": "int[]", "values": [3, 7], "length": 2, "status": "AVAILABLE", "observedAtSequence": 14 }
+      },
+      "effects": [
+        { "type": "VARIABLE_DESTROYED", "entityId": "t1/m1/s1/var-a", "status": "CONFIRMED" },
+        { "type": "VARIABLE_DESTROYED", "entityId": "t1/m1/s1/var-i", "status": "CONFIRMED" },
+        { "type": "VARIABLE_DESTROYED", "entityId": "t1/m1/s1/var-j", "status": "CONFIRMED" },
+        { "type": "SCOPE_EXIT", "entityId": "t1/m1/s1", "status": "CONFIRMED" }
+      ],
+      "scopeInstanceIds": [],
+      "status": "CONFIRMED"
+    }
+  ]
+}
